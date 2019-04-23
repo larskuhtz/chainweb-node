@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE QuasiQuotes #-}
 
 -- |
 -- Module: Chainweb.Test.RemotePactTest
@@ -22,7 +21,9 @@ import Control.Lens
 import Control.Monad
 
 import qualified Data.Aeson as A
+import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
+import Data.Either
 import qualified Data.HashMap.Strict as HM
 import Data.Int
 import Data.IORef
@@ -45,6 +46,7 @@ import Servant.API
 import Servant.Client
 
 import System.FilePath
+import System.IO.Extra
 import System.LogLevel
 import System.Time.Extra
 
@@ -52,7 +54,6 @@ import Test.Tasty.HUnit
 import Test.Tasty
 import Test.Tasty.Golden
 
-import Text.RawString.QQ(r)
 
 import Chainweb.Test.Pact.Utils
 import Pact.Types.API
@@ -100,7 +101,12 @@ tests = do
     let cmds = apiCmds version cid
     let cwBaseUrl = getCwBaseUrl thePort
     cwEnv <- getClientEnv cwBaseUrl
-    (tt0, rks) <- testSend cmds cwEnv
+
+    -------------------------------------------------------------------
+     -- test: (send / poll / validated in mempool) for simple Pact command
+    -------------------------------------------------------------------
+    bsCmd <- bsCommandFromStr simpleCmdStr
+    (tt0, rks) <- testSend cmds cwEnv bsCmd
 
     tt1 <- testPoll cmds cwEnv rks
     lastPar <- newIORef Nothing
@@ -109,15 +115,18 @@ tests = do
     let mPool = toMempool version cid tConfig 10000 lastPar cwEnv :: MempoolBackend ChainwebTransaction
     tt2 <- testMPValidated mPool rks
 
+    -------------------------------------------------------------------
+    -- test: send series of commands causing a fork
+    -------------------------------------------------------------------
+    fork0Cmd <- bsCommandFromFile "reintro-test.pact"
+    (ttFork0, rksFork0) <- testSend cmds cwEnv fork0Cmd
+    -- TB continued
+
     return $ testGroup "PactRemoteTest" $ tt0 : (tt1 : [tt2])
 
-testSend :: PactTestApiCmds -> ClientEnv -> IO (TestTree, RequestKeys)
-testSend cmds env = do
-    testKeys <- testKeyPairs
-    simpleBSCommand <- mkPactTransactionBS A.Null simpleCmdStr testKeys "2019-04-23 20:23:13.964175 UTC"
-    BS.putStrLn simpleBSCommand
-    let msb = decodeStrictOrThrow simpleBSCommand
-
+testSend :: PactTestApiCmds -> ClientEnv -> ByteString -> IO (TestTree, RequestKeys)
+testSend cmds env bsCmd = do
+    msb <- decodeStrictOrThrow bsCmd
     case msb of
         Nothing -> assertFailure "decoding command string failed"
         Just sb -> do
@@ -127,6 +136,30 @@ testSend cmds env = do
                 Right rks -> do
                     tt0 <- checkRequestKeys "command-0" rks
                     return (tt0, rks)
+
+sendNoCheck :: PactTestApiCmds -> ClientEnv -> ByteString -> IO TestTree
+sendNoCheck cmds env bsCmd = do
+    msb <- decodeStrictOrThrow bsCmd
+    case msb of
+        Nothing -> assertFailure "decoding command string failed"
+        Just sb -> do
+            result <- sendWithRetry cmds env sb
+            if isRight result
+              then return ()
+              else assertFailure (show result)
+
+                {-
+                  if conditionIsMet
+                      then return ()
+                      else assertFailure msg
+                 -}
+            {-
+            case result of
+                Left e -> assertFailure (show e)
+                Right _ -> do
+                    tt0 <- checkRequestKeys "command-0" rks
+                    return (tt0, rks)
+            -}
 
 testPoll :: PactTestApiCmds -> ClientEnv -> RequestKeys -> IO TestTree
 testPoll cmds env rks = do
@@ -230,10 +263,17 @@ getCwBaseUrl thePort = BaseUrl
     , baseUrlPort = fromIntegral thePort
     , baseUrlPath = "" }
 
--- generated from Test.Pact.Utils with:
--- testKeyPairs >>= _mkPactTransaction' Null "(+ 1 2")
-escapedCmd :: BS.ByteString
-escapedCmd = [r|{"cmds":[{"hash":"d0613e7a16bf938f45b97aa831b0cc04da485140bec11cc8954e0509ea65d823472b1e683fa2950da1766cbe7fae9de8ed416e80b0ccbf12bfa6549eab89aeb6","sigs":[{"addr":"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca","sig":"71cdedd5b1305881b1fd3d4ac2009cb247d0ebb55d1d122a7f92586828a1ed079e6afc9e8b3f75fa25fba84398eeea6cc3b92949a315420431584ba372605d07","scheme":"ED25519","pubKey":"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca"}],"cmd":"{\"payload\":{\"exec\":{\"data\":null,\"code\":\"(+ 1 2)\"}},\"meta\":{\"gasLimit\":100,\"chainId\":\"0\",\"gasPrice\":1.0e-4,\"sender\":\"sender00\"},\"nonce\":\"2019-03-29 20:35:45.012384811 UTC\"}"}]}|]
+bsCommandFromStr :: String -> IO ByteString
+bsCommandFromStr s = do
+    testKeys <- testKeyPairs
+    simpleBSCommand <- mkPactTransactionBS A.Null s testKeys "2019-04-23 20:23:13.964175 UTC"
+    BS.putStrLn simpleBSCommand
+    return simpleBSCommand
+
+bsCommandFromFile :: String -> IO ByteString
+bsCommandFromFile fName = do
+    s <- readFile' $ testPactFilesDir ++ fName
+    return $ toS $ (unwords . lines) s -- convert newlines to spaces
 
 simpleCmdStr :: String
 simpleCmdStr = "(+ 1 2)"
