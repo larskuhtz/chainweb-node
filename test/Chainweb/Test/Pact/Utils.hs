@@ -17,6 +17,7 @@ module Chainweb.Test.Pact.Utils
 , formatB16PubKey
 , mkPactTestTransactions
 , mkPactTransaction
+, mkPactTransactionBS
 ) where
 
 import Control.Monad.Catch
@@ -84,11 +85,11 @@ mkPactTestTransactions cmdStrs = do
     traverse (mkPactTransaction kps theData "1") cmdStrs
 
 mkPactTransaction
-  :: [SomeKeyPair]
-  -> Value
-  -> Text
-  -> String
-  -> IO ChainwebTransaction
+    :: [SomeKeyPair]
+    -> Value
+    -> Text
+    -> String
+    -> IO ChainwebTransaction
 mkPactTransaction keyPairs theData nonce theCode = do
     let pubMeta = PublicMeta "0" "sender00" (ParsedInteger 100) (ParsedDecimal 0.0001)
     cmdBS <- mkCommand keyPairs pubMeta nonce $
@@ -100,11 +101,22 @@ mkPactTransaction keyPairs theData nonce theCode = do
 
 -- | testKeyPairs >>= _mkPactTransaction' Null "(+ 1 2")
 _mkPactTransaction'
-  :: Value
-  -> String
-  -> [SomeKeyPair]
-  -> IO ()
+    :: Value
+    -> String
+    -> [SomeKeyPair]
+    -> IO ()
 _mkPactTransaction' theData theCode kps = do
-  nonce <- pack . show <$> getCurrentTime
-  t <- fmap (decodeUtf8 . payloadBytes) <$> mkPactTransaction kps theData nonce theCode
-  BS.putStrLn $ encodeToByteString $ SubmitBatch [t]
+    utcTime <- getCurrentTime
+    bs <- mkPactTransactionBS theData theCode kps $ show utcTime
+    BS.putStrLn bs
+
+mkPactTransactionBS
+    :: Value
+    -> String
+    -> [SomeKeyPair]
+    -> String
+    -> IO ByteString
+mkPactTransactionBS theData theCode kps nonceStr = do
+    let nonce = pack nonceStr
+    t <- fmap (decodeUtf8 . payloadBytes) <$> mkPactTransaction kps theData nonce theCode
+    return $ encodeToByteString $ SubmitBatch [t]
