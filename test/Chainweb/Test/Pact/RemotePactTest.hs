@@ -119,7 +119,7 @@ tests = do
     -- test: send series of commands causing a fork
     -------------------------------------------------------------------
     fork0Cmd <- bsCommandFromFile "reintro-test.pact"
-    (ttFork0, rksFork0) <- testSend cmds cwEnv fork0Cmd
+    sendNoCheck cmds cwEnv fork0Cmd
     -- TB continued
 
     return $ testGroup "PactRemoteTest" $ tt0 : (tt1 : [tt2])
@@ -137,7 +137,7 @@ testSend cmds env bsCmd = do
                     tt0 <- checkRequestKeys "command-0" rks
                     return (tt0, rks)
 
-sendNoCheck :: PactTestApiCmds -> ClientEnv -> ByteString -> IO TestTree
+sendNoCheck :: PactTestApiCmds -> ClientEnv -> ByteString -> Assertion
 sendNoCheck cmds env bsCmd = do
     msb <- decodeStrictOrThrow bsCmd
     case msb of
@@ -147,19 +147,6 @@ sendNoCheck cmds env bsCmd = do
             if isRight result
               then return ()
               else assertFailure (show result)
-
-                {-
-                  if conditionIsMet
-                      then return ()
-                      else assertFailure msg
-                 -}
-            {-
-            case result of
-                Left e -> assertFailure (show e)
-                Right _ -> do
-                    tt0 <- checkRequestKeys "command-0" rks
-                    return (tt0, rks)
-            -}
 
 testPoll :: PactTestApiCmds -> ClientEnv -> RequestKeys -> IO TestTree
 testPoll cmds env rks = do
