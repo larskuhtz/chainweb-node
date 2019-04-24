@@ -122,13 +122,14 @@ withChainResources
     -> (ChainResources logger -> IO a)
     -> IO a
 withChainResources v cid rdb peer logger mempoolCfg mv payloadDb inner =
-    withBlockHeaderDb v cid $ \cdb ->
-    Mempool.withInMemoryMempool mempoolCfg $ \mempool ->
-    withPactService v cid (setComponent "pact" logger) mempool mv $ \requestQ -> do
     withBlockHeaderDb rdb v cid $ \cdb -> do
+    Mempool.withInMemoryMempool mempoolCfg cdb $ \mempool ->
+    withPactService v cid (setComponent "pact" logger) mempool mv $ \requestQ -> do
+
             -- replay pact
             let pact = mkPactExecutionService mempool requestQ
             replayPact logger pact cdb payloadDb
+
             -- run inner
             inner $ ChainResources
                 { _chainResPeer = peer
