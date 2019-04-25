@@ -124,6 +124,7 @@ import Chainweb.Graph
 import Chainweb.HostAddress
 import Chainweb.Logger
 import qualified Chainweb.Mempool.InMem as Mempool
+import Chainweb.Mempool.Mempool
 import Chainweb.Miner.Config
 import Chainweb.NodeId
 import qualified Chainweb.Pact.BloomCache as Bloom
@@ -421,7 +422,7 @@ runChainweb cw = do
         proj :: forall a . (ChainResources logger -> a) -> [(ChainId, a)]
         proj f = flip map chains $ \(k, ch) -> (k, f ch)
         chainDbsToServe = proj _chainResBlockHeaderDb
-        mempoolsToServe = proj _chainResMempool
+        mempoolsToServe = [] :: [(ChainId, MempoolBackend ChainwebTransaction)] -- proj _chainResMempool
         chainP2pToServe = bimap ChainNetwork (_peerResDb . _chainResPeer) <$> itoList (_chainwebChains cw)
 
         payloadDbsToServe = itoList $ const (view chainwebPayloadDb cw) <$> _chainwebChains cw
@@ -472,7 +473,7 @@ runChainweb cw = do
                 -- , map (runChainSyncClient mgr) chainVals
                     -- TODO: reenable once full payload and adjacent parent validation
                     -- is implemented for ChainSyncClient
-                , map (runMempoolSyncClient mempoolMgr) chainVals
+                -- , map (runMempoolSyncClient mempoolMgr) chainVals
                 ]
 
         mapConcurrently_ id clients
