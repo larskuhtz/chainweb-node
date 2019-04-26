@@ -14,8 +14,8 @@ module Chainweb.Test.Pact.PactExec where
 
 import Control.Applicative
 import Control.Monad.IO.Class
-import Control.Monad.Trans.Reader
 import Control.Monad.State.Strict
+import Control.Monad.Trans.Reader
 
 import Data.Aeson
 import Data.Default (def)
@@ -45,13 +45,13 @@ import Pact.Types.Logger
 import qualified Pact.Types.Runtime as P
 import Pact.Types.Server
 
+import Chainweb.BlockHash
 import Chainweb.Pact.Backend.InMemoryCheckpointer
 import Chainweb.Pact.Backend.SQLiteCheckpointer
 import Chainweb.Pact.PactService
 import Chainweb.Pact.Types
 import Chainweb.Test.Pact.Utils
 import Chainweb.Version (ChainwebVersion(..), someChainId)
-import Chainweb.BlockHash
 
 testVersion :: ChainwebVersion
 testVersion = Testnet00
@@ -123,15 +123,15 @@ checkSuccessOnly resp =
 checkScientific :: Scientific -> TestResponse -> Assertion
 checkScientific sci resp = do
     let resultValue = _flCommandResult $ _trOutput resp
-    parseScientific resultValue @?= Just sci
+    parseScientific resultValue @?= Right sci
 
-parseScientific :: Value -> Maybe Scientific
+parseScientific :: Value -> Either String Scientific
 parseScientific (Object o) =
   case HM.lookup "data" o of
-    Nothing -> Nothing
-    Just (Number sci) -> Just sci
-    Just _ -> Nothing
-parseScientific _ = Nothing
+    Nothing -> Left "no `data` field"
+    Just (Number sci) -> Right sci
+    Just v -> Left $ "non-Number found in `data` field: " <> show v
+parseScientific _ = Left "Non-Object found"
 
 ignoreTextMatch :: Text -> TestResponse -> Assertion
 ignoreTextMatch _ _ = True @?= True
