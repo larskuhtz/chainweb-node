@@ -196,8 +196,8 @@ data PactTestSetup = PactTestSetup
 
 testPactRequests :: Vector TestRequest
 testPactRequests = V.fromList
-    [ testReq1
-    , testReq2
+    [ -- testReq1
+      testReq2
     , testReq3
     , testReq4
     , testReq5
