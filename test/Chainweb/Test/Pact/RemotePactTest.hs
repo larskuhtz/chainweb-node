@@ -4,6 +4,8 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE QuasiQuotes #-}
 
+{-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
+
 -- |
 -- Module: Chainweb.Test.RemotePactTest
 -- Copyright: Copyright © 2019 Kadena LLC.
@@ -57,7 +59,7 @@ import Text.RawString.QQ(r)
 
 import Pact.Types.API
 import Pact.Types.Command
-import Pact.Types.Util
+import qualified Pact.Types.Hash as H
 
 -- internal modules
 
@@ -136,7 +138,7 @@ testMPValidated
     -> RequestKeys
     -> Assertion
 testMPValidated mPool rks = do
-    let txHashes = V.fromList $ TransactionHash . unHash . unRequestKey <$> _rkRequestKeys rks
+    let txHashes = V.fromList $ TransactionHash . H.unHash . unRequestKey <$> _rkRequestKeys rks
     b <- go maxMempoolRetries mPool txHashes
     assertBool "At least one transaction was not validated" b
   where
