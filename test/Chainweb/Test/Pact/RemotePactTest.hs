@@ -24,7 +24,6 @@ import Control.Lens
 import Control.Monad
 
 import qualified Data.Aeson as A
-import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HM
 import Data.Foldable (toList)
 import Data.Int
@@ -55,10 +54,11 @@ import Test.Tasty.HUnit
 import Test.Tasty
 import Test.Tasty.Golden
 
-import Text.RawString.QQ(r)
-
+import Pact.ApiReq (mkExec)
+import Pact.Parse (ParsedInteger(..), ParsedDecimal(..))
 import Pact.Types.API
 import Pact.Types.Command
+import qualified Pact.Types.ChainMeta as CM
 import qualified Pact.Types.Hash as H
 
 -- internal modules
@@ -112,19 +112,15 @@ tests rdb = do
     let mPool = toMempool version cid tConfig 10000 cwEnv :: MempoolBackend ChainwebTransaction
     let tt2 = testCase "mempoolValidationCheck" $ testMPValidated mPool rks
 
-    return $ testGroup "PactRemoteTest" $ [tt0, tt1,tt2]
+    return $ testGroup "PactRemoteTest" $ [tt0, tt1, tt2]
 
 testSend :: PactTestApiCmds -> ClientEnv -> IO (TestTree, RequestKeys)
 testSend cmds env = do
-    let msb = decodeStrictOrThrow $ toS escapedCmd
-    case msb of
-        Nothing -> assertFailure "decoding command string failed"
-        Just sb -> do
-            result <- sendWithRetry cmds env sb
-            case result of
-                Left e -> assertFailure (show e)
-                Right rks ->
-                    return (checkRequestKeys "command-0" rks, rks)
+    sb <- testBatch
+    result <- sendWithRetry cmds env sb
+    case result of
+        Left e -> assertFailure (show e)
+        Right rks -> return (checkRequestKeys "command-0" rks, rks)
 
 testPoll :: PactTestApiCmds -> ClientEnv -> RequestKeys -> IO TestTree
 testPoll cmds env rks = do
@@ -228,7 +224,6 @@ checkResponse filePrefix rks (PollResponses theMap) =
     values = _arResult <$> catMaybes mays
     bsResponse = return $! toS $! foldMap A.encode values
 
-
 getCwBaseUrl :: Port -> BaseUrl
 getCwBaseUrl thePort = BaseUrl
     { baseUrlScheme = Https
@@ -236,8 +231,14 @@ getCwBaseUrl thePort = BaseUrl
     , baseUrlPort = fromIntegral thePort
     , baseUrlPath = "" }
 
-escapedCmd :: BS.ByteString
-escapedCmd = [r|{"cmds":[{"hash":"d0613e7a16bf938f45b97aa831b0cc04da485140bec11cc8954e0509ea65d823472b1e683fa2950da1766cbe7fae9de8ed416e80b0ccbf12bfa6549eab89aeb6","sigs":[{"addr":"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca","sig":"71cdedd5b1305881b1fd3d4ac2009cb247d0ebb55d1d122a7f92586828a1ed079e6afc9e8b3f75fa25fba84398eeea6cc3b92949a315420431584ba372605d07","scheme":"ED25519","pubKey":"368820f80c324bbc7c2b0610688a7da43e39f91d118732671cd9c7500ff43cca"}],"cmd":"{\"payload\":{\"exec\":{\"data\":null,\"code\":\"(+ 1 2)\"}},\"meta\":{\"gasLimit\":100,\"chainId\":\"0\",\"gasPrice\":1.0e-4,\"sender\":\"sender00\"},\"nonce\":\"2019-03-29 20:35:45.012384811 UTC\"}"}]}|]
+testBatch :: IO SubmitBatch
+testBatch = do
+    kps <- testKeyPairs
+    c <- mkExec "(+ 1 2)" A.Null pm kps Nothing
+    pure $ SubmitBatch [c]
+  where
+    pm :: CM.PublicMeta
+    pm = CM.PublicMeta (CM.ChainId "0") "sender00" (ParsedInteger 100) (ParsedDecimal 0.0001)
 
 type PactClientApi
        = (SubmitBatch -> ClientM RequestKeys)
