@@ -26,7 +26,9 @@ import Control.Concurrent
 import qualified Control.Concurrent.Async as Async
 import Control.Concurrent.STM
 import qualified Control.Concurrent.STM.TBMChan as TBMChan
+#if ! MIN_VERSION_servant(0,15,0)
 import qualified Control.Concurrent.STM.TBMChan as Chan
+#endif
 import Control.Exception
 import Control.Monad
 import Control.Monad.Identity
@@ -38,7 +40,13 @@ import Data.Proxy
 import qualified Data.Vector as V
 import Prelude hiding (lookup)
 import Servant.API
+#if MIN_VERSION_servant(0,15,0)
+import Servant.Types.SourceT
+import Servant.Client.Streaming
+-- import Servant.HttpStreams
+#else
 import Servant.Client
+#endif
 import qualified System.IO.Streams as Streams
 import System.IO.Unsafe
 ------------------------------------------------------------------------------
@@ -62,7 +70,7 @@ toMempool version chain txcfg blocksizeLimit env =
                    markValidated markConfirmed reintroduce getPending
                    subscribe shutdown clear
   where
-    go m = runClientM m env >>= either throwIO return
+    go m = withClientM m env (either throwIO return)
 
     member v = V.fromList <$> go (memberClient version chain (V.toList v))
     lookup v = V.fromList <$> go (lookupClient version chain (V.toList v))
@@ -214,10 +222,23 @@ subscribeClient v c = runIdentity $ do
     SomeChainIdT (_ :: Proxy c) <- return $ someChainIdVal c
     return $ subscribeClient_ @v @c
 
-
 ------------------------------------------------------------------------------
 #if MIN_VERSION_servant(0,15,0)
-#error TODO: need to support servant >= 0.15
+instance Show a => FromSourceIO a (Streams.InputStream a) where
+    fromSourceIO (SourceT src) = unsafePerformIO $ src $ \step ->
+        Streams.fromGenerator (go step)
+      where
+        go :: StepT IO a -> Streams.Generator a ()
+        go Stop = return ()
+        go (Error msg) = fail msg -- TODO: fail
+        go (Skip step) = go step
+        go (Yield a step) = Streams.yield a >> go step
+        go (Effect m) = liftIO m >>= go
+
+    -- FIXME FIXME FIXME: is the use of unsafePerformIO safe here?
+    -- The new servant streaming api seems to enforce that the stream
+    -- is fully evaluated within a bracket, but is that enough?
+
 #else
 asIoStream :: Show a => ResultStream a -> (Streams.InputStream a -> IO b) -> IO b
 asIoStream (ResultStream func) withFunc = func $ \popper -> do

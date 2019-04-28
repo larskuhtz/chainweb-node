@@ -83,7 +83,7 @@ data LookupResult t = Missing
                     | Confirmed
                     | Pending t
   deriving (Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)     -- TODO: a handwritten instance
+  deriving anyclass (ToJSON, FromJSON, NFData) -- TODO: a handwritten instance
 
 ------------------------------------------------------------------------------
 data TransactionConfig t = TransactionConfig {
@@ -389,14 +389,14 @@ data ValidationInfo = ValidationInfo {
   , validatedHash :: {-# UNPACK #-} !BlockHash
   }
   deriving (Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)     -- TODO: a handwritten instance
+  deriving anyclass (ToJSON, FromJSON, NFData) -- TODO: a handwritten instance
 
 data ValidatedTransaction t = ValidatedTransaction {
     validatedForks :: Vector ValidationInfo
   , validatedTransaction :: t
   }
   deriving (Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)     -- TODO: a handwritten instance
+  deriving anyclass (ToJSON, FromJSON, NFData) -- TODO: a handwritten instance
 
 
 ------------------------------------------------------------------------------

@@ -30,6 +30,12 @@ module Chainweb.RestAPI.Utils
 (
 -- * Servant Utils
   Reassoc
+#if ! MIN_VERSION_servant_server(0,16,0)
+, ServerError
+, pattern ServerError
+, ClientError
+, pattern ClientError
+#endif
 
 -- * API Version
 , Version
@@ -98,6 +104,13 @@ type family ReassocBranch (a :: s) (b :: [Type]) :: Type where
     ReassocBranch (a :> b) rest = ReassocBranch a (b ': rest)
     ReassocBranch a '[] = a
     ReassocBranch a (b ': rest) = a :> ReassocBranch b rest
+
+#if ! MIN_VERSION_servant_server(0,16,0)
+type ServerError = ServantErr
+pattern ServerError = ServantErr
+type ClientError = ServantErr
+pattern ClientError = ServantErr
+#endif
 
 -- -------------------------------------------------------------------------- --
 -- API Version

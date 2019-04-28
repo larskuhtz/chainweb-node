@@ -284,10 +284,10 @@ library
         , rocksdb-haskell >= 1.0.1
         , safe-exceptions >= 0.1
         , safeio >= 0.0
-        , servant >= 0.14
-        , servant-client >= 0.14
-        , servant-client-core >= 0.14
-        , servant-server >= 0.14
+        , servant >= 0.16
+        , servant-client >= 0.16
+        , servant-client-core >= 0.16
+        , servant-server >= 0.16
         , servant-swagger >= 1.1
         , shelly >= 1.7
         , split >= 0.2
@@ -420,9 +420,9 @@ test-suite chainweb-tests
         , resourcet >= 1.2
         , safe >= 0.3
         , scientific >= 0.3
-        , servant >= 0.14
-        , servant-client >= 0.14
-        , servant-client-core >= 0.14
+        , servant >= 0.16
+        , servant-client >= 0.16
+        , servant-client-core >= 0.16
         , string-conv >= 0.1
         , stm
         , stm-chans
@@ -587,9 +587,9 @@ executable slow-tests
         , reflection >= 2.1
         , resourcet >= 1.2
         , scientific >= 0.3
-        , servant >= 0.14.1
-        , servant-client >= 0.14
-        , servant-server >= 0.14.1
+        , servant >= 0.16
+        , servant-client >= 0.16
+        , servant-server >= 0.16
         , string-conv >= 0.1
         , stm
         , stm-chans
@@ -723,9 +723,9 @@ executable transaction-generator
         , pact >= 2.6
         , primitive >= 0.6
         , random >= 1.1
-        , servant >= 0.14.1
-        , servant-client >= 0.14
-        , servant-client-core >= 0.14
+        , servant >= 0.16
+        , servant-client >= 0.16
+        , servant-client-core >= 0.16
         , stm
         , stm-chans
         , text >= 1.2

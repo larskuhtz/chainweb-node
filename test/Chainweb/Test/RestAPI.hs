@@ -72,8 +72,8 @@ missingKey db = key . head . testBlockHeadersWithNonce (Nonce 34523) <$> genesis
 -- -------------------------------------------------------------------------- --
 -- Response Predicates
 
-isErrorCode :: Int -> Either ServantError a -> Bool
-isErrorCode code (Left (FailureResponse Response { responseStatusCode = status}))
+isErrorCode :: Int -> Either ClientError a -> Bool
+isErrorCode code (Left (FailureResponse _ Response { responseStatusCode = status}))
     | statusCode status == code = True
 isErrorCode _ _ = False
 
@@ -173,7 +173,7 @@ simpleTest
     :: Show a
     => String
         -- ^ Test description
-    -> (Either ServantError a -> Bool)
+    -> (Either ClientError a -> Bool)
         -- ^ Success predicate
     -> (BlockHeader -> ClientM a)
         -- ^ Test HTTP client session
