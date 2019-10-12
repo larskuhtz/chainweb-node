@@ -3,34 +3,6 @@ name: Haskell CI
 on: [push]
 
 jobs:
-  contexts:
-    if: 0 == 1
-    runs-on: ubuntu-latest
-    steps:
-      - name: Dump GitHub context
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
-      - name: Dump job context
-        env:
-          JOB_CONTEXT: ${{ toJson(job) }}
-        run: echo "$JOB_CONTEXT"
-      - name: Dump steps context
-        env:
-          STEPS_CONTEXT: ${{ toJson(steps) }}
-        run: echo "$STEPS_CONTEXT"
-      - name: Dump runner context
-        env:
-          RUNNER_CONTEXT: ${{ toJson(runner) }}
-        run: echo "$RUNNER_CONTEXT"
-      - name: Dump strategy context
-        env:
-          STRATEGY_CONTEXT: ${{ toJson(strategy) }}
-        run: echo "$STRATEGY_CONTEXT"
-      - name: Dump matrix context
-        env:
-          MATRIX_CONTEXT: ${{ toJson(matrix) }}
-        run: echo "$MATRIX_CONTEXT"
 
   sync-upstream:
     runs-on: 'ubuntu-latest'
@@ -56,7 +28,7 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.cabal_cache_aws_access_key_id }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
-      CABAL_CACHE: "${{runner.temp}}/bin/cabal-cache"
+      CABAL_CACHE: ./tmp/bin/cabal-cache
 
     steps:
     - uses: actions/checkout@v1
@@ -65,8 +37,8 @@ jobs:
     - name: Install cabal-cache (ubuntu)
       if: contains(matrix.os, 'ubuntu')
       run: |
-        mkdir -p "${{runner.temp}}/bin"
-        curl -Ls "https://github.com/haskell-works/cabal-cache/releases/download/v1.0.1.1/cabal-cache_x86_64_linux.tar.gz" | tar -xzC "${{runner.temp}}/bin/"
+        mkdir -p "./tmp/bin"
+        curl -Ls "https://github.com/haskell-works/cabal-cache/releases/download/v1.0.1.1/cabal-cache_x86_64_linux.tar.gz" | tar -xzC "./tmp/bin/"
         
     - name: Setup Haskell (ubuntu)
       if: contains(matrix.os, 'ubuntu')
