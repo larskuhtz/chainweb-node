@@ -89,4 +89,39 @@ jobs:
     - name: Install test dependencies
       run: cabal v2-build --only-dependencies --enable-tests
     - name: Run tests
-      run: cabal v2-test --enable-tests
+      run: cabal v2-run chainweb-tests -- --hide-successes
+
+    - name: Prepare artifacts
+      run: |
+        mkdir -p dist-newstyle/artifacts/applications
+        mkdir -p dist-newstyle/artifacts/docs
+        cp dist-newstyle/build/*/ghc-${{ matrix.ghc }}/chainweb-*/build/*/{chainweb-miner,chainweb-node,cwtool} dist-newstyle/artifacts/applications
+        cp -r dist-newstyle/build/*/ghc-${{ matrix.ghc }}/chainweb-*/doc/html/chainweb dist-newstyle/artifacts/docs
+    - name: Publish applications
+      uses: actions/upload-artifact@v1
+      with:
+        name: chainweb-applications
+        path: dist-newstyle/artifacts/applications
+    - name: Publish hie files
+      if: matrix.ghc == '8.8.1'
+      uses: actions/upload-artifact@v1
+      with:
+        name: hie-files
+        path: dist-newstyle/hie
+    - name: Publish API documentation
+      uses: actions/upload-artifact@v1
+      with:
+        name: api-documentation
+        path: dist-newstyle/artifacts/docs
+  
+    # TODO
+    # 
+    # * upload artifacts: binaries, docs
+    # * job that syncs master from main repo and runs build
+    # * cabal-cache (or docker volumne on github package registry?)
+    # * docker build (publish to github registry and/or docker registry)
+    # * upload binaries to S3
+    # * publish documentation to github pages
+    # * run slow tests
+    # * mac builds
+    # * windows build
