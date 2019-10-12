@@ -3,8 +3,19 @@ name: Haskell CI
 on: [push]
 
 jobs:
+  sync-upstream:
+    runs-on: 'ubuntu-latest'
+    steps:
+       - name: Sync from upstream
+         uses: repo-sync/github-sync@v2
+         with:
+           source_repo: "kadena.io/chainweb-node"
+           source_branch: "master"
+           destination_branch: "master"
+           github_token: ${{ secrets.GITHUB_TOKEN }}
+
   build:
-    name: Build with ${{ matrix.ghc }} / ${{ matrix.cabal }} on ${{ matrix.os }}
+    name: Build master with ${{ matrix.ghc }} / ${{ matrix.cabal }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -14,6 +25,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+      with:
+        ref: "master"  
     - name: Setup Haskell (ubuntu)
       if: matrix.os == 'ubuntu-latest'
       uses: actions/setup-haskell@v1
@@ -23,16 +36,18 @@ jobs:
     - name: Install non-Haskell dependencies (ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
-    - name: Create cabal.project.local
+    - name: Create cabal.project.local (ghc-8.8.1)
       if: matrix.ghc == '8.8.1'
       run: |
         cat > cabal.project.local <<EOF
         package chainweb
           ghc-options: -Wwarn
           haddock-options: --optghc=-Wwarn
+
         package chainweb
           ghc-options: -fwrite-ide-info
           ghc-options: -hiedir ./dist-newstyle/hie
+          documentation: true
 
         package pact
           ghc-options: -Wwarn
@@ -70,16 +85,17 @@ jobs:
           token-bucket:base
           chainweb:systemd
         EOF
-    - name: Create cabal.project.local
+    - name: Create cabal.project.local (not ghc-8.8.1)
       if: matrix.ghc != '8.8.1'
       run: |
         cat > cabal.project.local <<EOF
+        package chainweb:
+          documentation: true
         allow-newer:
           chainweb:systemd
         EOF
     - name: Fix cabal.project
-      run: |
-        sed -i -e '/swagger2 < 2.4/d' cabal.project
+      run: sed -i -e '/swagger2 < 2.4/d' cabal.project
     - name: Update package database
       run: cabal v2-update
     - name: Install build dependencies
@@ -116,12 +132,12 @@ jobs:
   
     # TODO
     # 
-    # * upload artifacts: binaries, docs
-    # * job that syncs master from main repo and runs build
-    # * cabal-cache (or docker volumne on github package registry?)
-    # * docker build (publish to github registry and/or docker registry)
-    # * upload binaries to S3
-    # * publish documentation to github pages
-    # * run slow tests
-    # * mac builds
-    # * windows build
+    # * [x] upload artifacts: binaries, docs
+    # * [x] job that syncs master from main repo and runs build
+    # * [ ] cabal-cache (or docker volumne on github package registry?)
+    # * [ ] docker build (publish to github registry and/or docker registry)
+    # * [ ] upload binaries to S3
+    # * [ ] publish documentation to github pages
+    # * [ ] run slow tests
+    # * [ ] mac builds
+    # * [ ] windows build
