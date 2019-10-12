@@ -27,6 +27,7 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.cabal_cache_aws_access_key_id }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
+      CABAL_CACHE: "$HOME/bin/cabal-cache"
 
     steps:
     - uses: actions/checkout@v1
@@ -37,7 +38,6 @@ jobs:
       run: |
         mkdir -p "$HOME/bin"
         curl -Ls "https://github.com/haskell-works/cabal-cache/releases/download/v1.0.1.1/cabal-cache_x86_64_linux.tar.gz" | tar -xzC "$HOME/bin/"
-        export PATH=$HOME/bin:$PATH
         
     - name: Setup Haskell (ubuntu)
       if: contains(matrix.os, 'ubuntu')
@@ -113,19 +113,19 @@ jobs:
     - name: Configure build
       run: cabal v2-configure --enable-tests
     - name: Sync from cabal cache
-      run: cabal-cache sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install build dependencies
       run: cabal v2-build --only-dependencies
     - name: Sync to cabal cache
-      run: cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Build
       run: cabal v2-build --enable-tests
     - name: Sync to cabal cache
-      run: cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install test dependencies
-      run: cabal v2-build --only-dependencies --enable-tests
+      run: $CABAL_CACHE v2-build --only-dependencies --enable-tests
     - name: Sync to cabal cache
-      run: cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
 
