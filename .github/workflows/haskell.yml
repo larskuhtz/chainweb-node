@@ -20,7 +20,7 @@ jobs:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
     - name: Create cabal.project.local
-      if: matix.ghc == '8.8.1'
+      if: matrix.ghc == '8.8.1'
       run: |
         cat > cabal.project.local <<EOF
         package chainweb
