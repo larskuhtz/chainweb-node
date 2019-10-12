@@ -14,11 +14,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: Setup Haskell
+    - name: Setup Haskell (ubuntu)
+      if: matrix.os == ubuntu-latest
       uses: actions/setup-haskell@v1
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
+    - name: Install non-Haskell dependencies (ubuntu)
+      if: matrix.os == ubuntu-latest
+      run: apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
     - name: Create cabal.project.local
       if: matrix.ghc == '8.8.1'
       run: |
