@@ -91,7 +91,7 @@ jobs:
       if: matrix.ghc != '8.8.1'
       run: |
         cat > cabal.project.local <<EOF
-        package chainweb:
+        package chainweb
           documentation: true
         allow-newer:
           chainweb:systemd
