@@ -20,7 +20,51 @@ jobs:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
     - name: Create cabal.project.local
-      run: touch cabal.project.local
+      if: matix.ghc == '8.8.1'
+      run: |
+        cat > cabal.project.local <<EOF
+        package chainweb
+          ghc-options: -Wwarn
+          haddock-options: --optghc=-Wwarn
+        package chainweb
+          ghc-options: -fwrite-ide-info
+          ghc-options: -hiedir ./dist-newstyle/hie
+
+        package pact
+          ghc-options: -Wwarn
+          haddock-options: --optghc=-Wwarn
+
+        package vault
+          documentation: false
+
+        source-repository-package
+          type: git
+          location: http://github.com/larskuhtz/ixset-typed.git
+          tag: 335c8e31d39be873a429fc9814060bf928ad0ee9
+
+        source-repository-package
+          type: git
+          location: http://github.com/osa1/data-dword.git
+          tag: 573d7b5fdd3635ade9bc1cf8fd88a1bf8059f78f
+
+        source-repository-package
+          type: git
+          location: http://github.com/LeventErkok/sbv.git
+          tag: 2476a36316e00df40061f9257528f4df6f324927
+
+        allow-newer:
+          asn1-encoding:base
+          compactable:base
+          fake:*
+          ixset-typed:safecopy
+          ixset-typed:template-haskell
+          pact:*
+          paths:*
+          safecopy:template-haskell
+          strict-tuple:base
+          these:*
+          token-bucket:base
+        EOF
     - name: Update package database
       run: cabal v2-update
     - name: Install build dependencies
