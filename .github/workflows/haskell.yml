@@ -4,6 +4,7 @@ on: [push]
 
 jobs:
   contexts:
+    if: 0 == 1
     runs-on: ubuntu-latest
     steps:
       - name: Dump GitHub context
@@ -55,7 +56,7 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.cabal_cache_aws_access_key_id }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
-      CABAL_CACHE: "$HOME/bin/cabal-cache"
+      CABAL_CACHE: "${{runner.temp}}/bin/cabal-cache"
 
     steps:
     - uses: actions/checkout@v1
@@ -64,8 +65,8 @@ jobs:
     - name: Install cabal-cache (ubuntu)
       if: contains(matrix.os, 'ubuntu')
       run: |
-        mkdir -p "$HOME/bin"
-        curl -Ls "https://github.com/haskell-works/cabal-cache/releases/download/v1.0.1.1/cabal-cache_x86_64_linux.tar.gz" | tar -xzC "$HOME/bin/"
+        mkdir -p "${{runner.temp}}/bin"
+        curl -Ls "https://github.com/haskell-works/cabal-cache/releases/download/v1.0.1.1/cabal-cache_x86_64_linux.tar.gz" | tar -xzC "${{runner.temp}}/bin/"
         
     - name: Setup Haskell (ubuntu)
       if: contains(matrix.os, 'ubuntu')
