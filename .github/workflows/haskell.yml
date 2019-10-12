@@ -66,9 +66,6 @@ jobs:
           ghc-options: -Wwarn
           haddock-options: --optghc=-Wwarn
 
-        package vault
-          documentation: false
-
         source-repository-package
           type: git
           location: http://github.com/larskuhtz/ixset-typed.git
@@ -115,6 +112,8 @@ jobs:
       run: cabal v2-configure --enable-tests
     - name: Sync from cabal cache
       run: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+    - name: tmp
+      run: cat cabal.project.local
     - name: Install build dependencies
       run: cabal v2-build --only-dependencies
     - name: Sync to cabal cache
