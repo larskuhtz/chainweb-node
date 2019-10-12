@@ -22,7 +22,7 @@ jobs:
          cabal-version: ${{ matrix.cabal }}
     - name: Install non-Haskell dependencies (ubuntu)
       if: matrix.os == 'ubuntu-latest'
-      run: apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
+      run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
     - name: Create cabal.project.local
       if: matrix.ghc == '8.8.1'
       run: |
