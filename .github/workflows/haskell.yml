@@ -67,7 +67,7 @@ jobs:
           chainweb:systemd
         EOF
     - name: Create cabal.project.local
-      if: matrix.ghc == '8.8.1'
+      if: matrix.ghc != '8.8.1'
       run: |
         cat > cabal.project.local <<EOF
         allow-newer:
