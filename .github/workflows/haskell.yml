@@ -23,20 +23,30 @@ jobs:
       matrix:
         ghc: ['8.6.5', '8.8.1']
         cabal: ['3.0']
-        os: ['ubuntu-latest']
+        os: ['ubuntu-18.04']
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.cabal_cache_aws_access_key_id }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
 
     steps:
     - uses: actions/checkout@v1
       with:
-        ref: "master"  
+        ref: "master"
+    - name: Install cabal-cache (ubuntu)
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        mkdir -p "$HOME/bin"
+        curl "https://github.com/haskell-works/cabal-cache/releases/download/v1.0.1.1/cabal-cache_x86_64_linux.tar.gz" | tar -xzC "$HOME/bin/"
+        export PATH=$HOME/bin:$PATH
+        
     - name: Setup Haskell (ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+      if: contains(matrix.os, 'ubuntu')
       uses: actions/setup-haskell@v1
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
     - name: Install non-Haskell dependencies (ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+      if: contains(matrix.os, 'ubuntu')
       run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
     - name: Create cabal.project.local (ghc-8.8.1)
       if: matrix.ghc == '8.8.1'
@@ -100,12 +110,22 @@ jobs:
       run: sed -i -e '/swagger2 < 2.4/d' cabal.project
     - name: Update package database
       run: cabal v2-update
+    - name: Configure build
+      run: cabal v2-configure --enable-tests
+    - name: Sync from cabal cache
+      run: cabal-cache sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install build dependencies
       run: cabal v2-build --only-dependencies
+    - name: Sync to cabal cache
+      run: cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Build
       run: cabal v2-build --enable-tests
+    - name: Sync to cabal cache
+      run: cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install test dependencies
       run: cabal v2-build --only-dependencies --enable-tests
+    - name: Sync to cabal cache
+      run: cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
 
@@ -120,7 +140,7 @@ jobs:
       with:
         name: chainweb-applications
         path: dist-newstyle/artifacts/applications
-    - name: Publish hie files
+    - name: Publish hie files (only ghc-8.8.1)
       if: matrix.ghc == '8.8.1'
       uses: actions/upload-artifact@v1
       with:
@@ -136,10 +156,11 @@ jobs:
     # 
     # * [x] upload artifacts: binaries, docs
     # * [x] job that syncs master from main repo and runs build
-    # * [ ] cabal-cache (or docker volumne on github package registry?)
+    # * [x] cabal-cache (or docker volumne on github package registry?)
     # * [ ] docker build (publish to github registry and/or docker registry)
     # * [ ] upload binaries to S3
     # * [ ] publish documentation to github pages
     # * [ ] run slow tests
     # * [ ] mac builds
     # * [ ] windows build
+    # * [ ] add schedule
