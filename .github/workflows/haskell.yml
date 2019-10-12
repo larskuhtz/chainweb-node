@@ -65,6 +65,8 @@ jobs:
           these:*
           token-bucket:base
         EOF
+    - name: Fix cabal.project
+      run: sed -i -e '/swagger2 < 2.4/d' cabal.project
     - name: Update package database
       run: cabal v2-update
     - name: Install build dependencies
