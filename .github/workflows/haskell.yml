@@ -64,11 +64,18 @@ jobs:
           strict-tuple:base
           these:*
           token-bucket:base
+          chainweb:systemd
+        EOF
+    - name: Create cabal.project.local
+      if: matrix.ghc == '8.8.1'
+      run: |
+        cat > cabal.project.local <<EOF
+        allow-newer:
+          chainweb:systemd
         EOF
     - name: Fix cabal.project
       run: |
         sed -i -e '/swagger2 < 2.4/d' cabal.project
-        sed -i -e '/build-depends: systemd/s/1\.2\.0.*/2.2/' cabal.project
     - name: Update package database
       run: cabal v2-update
     - name: Install build dependencies
