@@ -54,6 +54,8 @@ jobs:
       if: matrix.ghc == '8.8.1'
       run: |
         cat >> cabal.project <<EOF
+        documentation: false
+
         package chainweb
           ghc-options: -Wwarn
           haddock-options: --optghc=-Wwarn
@@ -61,7 +63,6 @@ jobs:
         package chainweb
           ghc-options: -fwrite-ide-info
           ghc-options: -hiedir ./dist-newstyle/hie
-          documentation: true
 
         package pact
           ghc-options: -Wwarn
@@ -100,6 +101,8 @@ jobs:
       if: matrix.ghc != '8.8.1'
       run: |
         cat >> cabal.project <<EOF
+        documentation: false
+
         package chainweb
           documentation: true
         allow-newer:
@@ -126,11 +129,13 @@ jobs:
     - name: Sync to cabal cache
       run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install test dependencies
-      run: $CABAL_CACHE v2-build --only-dependencies --enable-tests
+      run: cabal v2-build --only-dependencies --enable-tests
     - name: Sync to cabal cache
       run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
+    - name: Build documentation
+      run: cabal v2-haddock --haddock-for-hackage
 
     - name: Prepare artifacts
       run: |
@@ -175,4 +180,4 @@ jobs:
     # * [ ] windows build
     # * [ ] add schedule
     # * [ ] build profile version
-    # * [ ] synchronize cache while building dependencies
+    # * [x] synchronize cache while building dependencies
