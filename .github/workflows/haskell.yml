@@ -59,6 +59,7 @@ jobs:
         package chainweb
           ghc-options: -Wwarn
           haddock-options: --optghc=-Wwarn
+          documentation: false
 
         package chainweb
           ghc-options: -fwrite-ide-info
@@ -104,7 +105,7 @@ jobs:
         documentation: false
 
         package chainweb
-          documentation: true
+          documentation: false
         allow-newer:
           chainweb:systemd
         EOF
@@ -165,8 +166,7 @@ jobs:
         export BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.$(git rev-parse --short HEAD).tar.gz"
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
         aws s3 cp $BINFILE s3://apps.lakuhtz/
-        aws s3api put-object-acl --bucket apps.lakuhtz --key=$BINFILE --acl public-read
-  
+        
     # TODO
     # 
     # * [x] upload artifacts: binaries, docs
