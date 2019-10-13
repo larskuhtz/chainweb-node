@@ -29,6 +29,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.cabal_cache_aws_access_key_id }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
       CABAL_CACHE: ./tmp/bin/cabal-cache
+      SYNC_TO_CACHE: ./tmp/bin/cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
 
     steps:
     - uses: actions/checkout@v1
@@ -109,15 +110,19 @@ jobs:
     - name: Update package database
       run: cabal v2-update
     - name: Configure build
-      run: cabal v2-build --only-configure --enable-tests
+      run: cabal v2-build --only-configure
     - name: Sync from cabal cache
       run: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install build dependencies
-      run: cabal v2-build --only-dependencies
+      run: |
+        while sleep 60 ; do $SYNC_TO_CACHE ; done &
+        SYNC_PID=$!
+        cabal v2-build --only-dependencies
+        kill $SYNC_PID
     - name: Sync to cabal cache
       run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Build
-      run: cabal v2-build --enable-tests
+      run: cabal v2-build
     - name: Sync to cabal cache
       run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install test dependencies
@@ -149,6 +154,13 @@ jobs:
       with:
         name: api-documentation
         path: dist-newstyle/artifacts/docs
+    
+    - name: Publish applications to S3
+      run: |
+        export BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.$(git rev-parse --short HEAD).tar.gz"
+        tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
+        aws s3 cp $BINFILE s3://apps.lakuhtz/
+        aws s3api put-object-acl --bucket apps.lakuhtz --key=$BINFILE --acl public-read
   
     # TODO
     # 
@@ -156,9 +168,11 @@ jobs:
     # * [x] job that syncs master from main repo and runs build
     # * [x] cabal-cache (or docker volumne on github package registry?)
     # * [ ] docker build (publish to github registry and/or docker registry)
-    # * [ ] upload binaries to S3
+    # * [x] upload binaries to S3
     # * [ ] publish documentation to github pages
     # * [ ] run slow tests
     # * [ ] mac builds
     # * [ ] windows build
     # * [ ] add schedule
+    # * [ ] build profile version
+    # * [ ] synchronize cache while building dependencies
