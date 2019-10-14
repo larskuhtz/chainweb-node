@@ -5,8 +5,6 @@ on:
   - cron: '0 */6 * * *'
   push:
 
-failfast: false
-
 jobs:
 
   sync-upstream:
@@ -26,6 +24,7 @@ jobs:
     needs: ['sync-upstream']
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         ghc: ['8.6.5', '8.8.1']
         cabal: ['3.0']
