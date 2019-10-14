@@ -34,8 +34,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
       CABAL_CACHE: ./tmp/bin/cabal-cache
       SYNC_TO_CACHE: ./tmp/bin/cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
-      SYNC_TO_DIST_CACHE: |
-        tar czf chainweb.dist-newstyle.tar.gz dist-newstyle && aws s3 cp chainweb.dist-newstyle.tar.gz "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/"
+      SYNC_TO_DIST_CACHE: tar czf chainweb.dist-newstyle.tar.gz dist-newstyle && aws s3 cp chainweb.dist-newstyle.tar.gz "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/"
 
     steps:
     
@@ -133,30 +132,32 @@ jobs:
       run: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
     - name: Install build dependencies
       run: |
-        while sleep 60 ; do $SYNC_TO_CACHE ; done &
+        while sleep 60 ; do eval $SYNC_TO_CACHE ; done &
         SYNC_PID=$!
         cabal v2-build --only-dependencies
         kill $SYNC_PID
-    - name: Sync to cabal cache
-      run: $SYNC_TO_CACHE
+    - name: Sync to caches
+      run: |
+        eval $SYNC_TO_CACHE
+        eval $SYNC_TO_DIST_CACHE
     - name: Build
       run: cabal v2-build
-    - name: Sync to cabal cache
+    - name: Sync to caches
       run: |
-        $SYNC_TO_CACHE
-        $SYNC_TO_DIST_CACHE
+        eval $SYNC_TO_CACHE
+        eval $SYNC_TO_DIST_CACHE
     - name: Install test dependencies
       run: cabal v2-build --only-dependencies --enable-tests
-    - name: Sync to cabal cache
-      run: 
-        $SYNC_TO_CACHE
-        $SYNC_TO_DIST_CACHE
+    - name: Sync to caches
+      run: |
+        eval $SYNC_TO_CACHE
+        eval $SYNC_TO_DIST_CACHE
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
     - name: Build documentation
       run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
-    - name: Sync cache
-      run: $SYNC_TO_DIST_CACHE
+    - name: Sync to dist cache
+      run: eval $SYNC_TO_DIST_CACHE
 
     - name: Prepare artifacts
       run: |
