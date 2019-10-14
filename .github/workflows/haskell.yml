@@ -3,6 +3,9 @@ name: Scheduled Master CI Build
 on:
   schedule:
   - cron: '0 */6 * * *'
+  push:
+
+failfast: false
 
 jobs:
 
@@ -32,8 +35,12 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
       CABAL_CACHE: ./tmp/bin/cabal-cache
       SYNC_TO_CACHE: ./tmp/bin/cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      SYNC_TO_DIST_CACHE: |
+        tar czf chainweb.dist-newstyle.tar.gz dist-newstyle && aws s3 cp chainweb.dist-newstyle.tar.gz "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/$GITHUB_REF/"
 
     steps:
+    
+    # Setup
     - uses: actions/checkout@v1
       with:
         ref: "master"
@@ -113,6 +120,14 @@ jobs:
         EOF
     - name: Fix cabal.project
       run: sed -i -e '/swagger2 < 2.4/d' cabal.project
+    
+    - name: Sync dist-newstyle
+      run: |
+        aws s3 cp "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/$GITHUB_REF/chainweb.dist-newstyle.tar.gz" .
+        && tar xzf chainweb.dist-newstyle.tar.gz
+        || true
+      
+    # Build
     - name: Update package database
       run: cabal v2-update
     - name: Configure build
@@ -126,19 +141,25 @@ jobs:
         cabal v2-build --only-dependencies
         kill $SYNC_PID
     - name: Sync to cabal cache
-      run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: $SYNC_TO_CACHE
     - name: Build
       run: cabal v2-build
     - name: Sync to cabal cache
-      run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: |
+        $SYNC_TO_CACHE
+        $SYNC_TO_DIST_CACHE
     - name: Install test dependencies
       run: cabal v2-build --only-dependencies --enable-tests
     - name: Sync to cabal cache
-      run: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: 
+        $SYNC_TO_CACHE
+        $SYNC_TO_DIST_CACHE
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
     - name: Build documentation
       run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
+    - name: Sync cache
+      $SYNC_TO_DIST_CACHE
 
     - name: Prepare artifacts
       run: |
@@ -183,3 +204,4 @@ jobs:
     # * [ ] add schedule
     # * [ ] build profile version
     # * [x] synchronize cache while building dependencies
+    # * [x] synchronize dist-newstyle directory
