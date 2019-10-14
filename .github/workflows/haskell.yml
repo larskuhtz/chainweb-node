@@ -1,7 +1,6 @@
-name: Haskell CI
+name: Scheduled Master CI Build
 
 on:
-  push:
   schedule:
   - cron: '0 */6 * * *'
 
