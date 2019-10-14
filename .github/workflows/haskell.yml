@@ -1,6 +1,9 @@
 name: Haskell CI
 
-on: [push]
+on:
+  push:
+  schedule:
+  - cron: '0 */6 * * *'
 
 jobs:
 
@@ -136,7 +139,7 @@ jobs:
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
     - name: Build documentation
-      run: cabal v2-haddock --haddock-for-hackage
+      run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
 
     - name: Prepare artifacts
       run: |
