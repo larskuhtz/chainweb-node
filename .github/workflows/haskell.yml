@@ -159,7 +159,7 @@ jobs:
     - name: Build documentation
       run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
     - name: Sync cache
-      $SYNC_TO_DIST_CACHE
+      run: $SYNC_TO_DIST_CACHE
 
     - name: Prepare artifacts
       run: |
