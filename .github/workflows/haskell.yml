@@ -35,7 +35,7 @@ jobs:
       CABAL_CACHE: ./tmp/bin/cabal-cache
       SYNC_TO_CACHE: ./tmp/bin/cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
       SYNC_TO_DIST_CACHE: |
-        tar czf chainweb.dist-newstyle.tar.gz dist-newstyle && aws s3 cp chainweb.dist-newstyle.tar.gz "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/$GITHUB_REF/"
+        tar czf chainweb.dist-newstyle.tar.gz dist-newstyle && aws s3 cp chainweb.dist-newstyle.tar.gz "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/"
 
     steps:
     
@@ -122,9 +122,7 @@ jobs:
     
     - name: Sync dist-newstyle
       run: |
-        aws s3 cp "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/$GITHUB_REF/chainweb.dist-newstyle.tar.gz" .
-        && tar xzf chainweb.dist-newstyle.tar.gz
-        || true
+        aws s3 cp "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/chainweb.dist-newstyle.tar.gz" . && tar xzf chainweb.dist-newstyle.tar.gz || true
       
     # Build
     - name: Update package database
