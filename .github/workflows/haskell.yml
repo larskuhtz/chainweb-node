@@ -122,7 +122,8 @@ jobs:
       run: sed -i -e '/swagger2 < 2.4/d' cabal.project
     
     - name: Sync from dist cache
-      run: eval $SYNC_FROM_DIST_CACHE || true
+      run: eval $SYNC_FROM_DIST_CACHE
+      continue-on-error: true
       
     # Build
     - name: Update package database
@@ -141,18 +142,17 @@ jobs:
       run: eval $SYNC_TO_CACHE
     - name: Build
       run: cabal v2-build
-    - name: Sync to cabal cache
-      run: eval $SYNC_TO_CACHE
     - name: Install test dependencies
       run: cabal v2-build --only-dependencies --enable-tests
-    - name: Sync to cabal cache
-      run: eval $SYNC_TO_CACHE
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
     - name: Build documentation
       run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
-    - name: Sync to dist cache
-      run: eval $SYNC_TO_DIST_CACHE
+    - name: Sync caches cache sync
+      if: always()
+      run: |
+        eval $SYNC_TO_CACHE
+        eval $SYNC_TO_DIST_CACHE        
 
     # Publish Artifacts
     - name: Prepare artifacts
@@ -184,10 +184,6 @@ jobs:
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
         aws s3 cp $BINFILE s3://apps.lakuhtz/
         
-    - name: Final dist cache sync
-      if: always()
-      run: eval $SYNC_TO_DIST_CACHE
-        
     # TODO
     # 
     # * [x] upload artifacts: binaries, docs
@@ -199,7 +195,7 @@ jobs:
     # * [ ] run slow tests
     # * [ ] mac builds
     # * [ ] windows build
-    # * [ ] add schedule
+    # * [x] add schedule
     # * [ ] build profile version
     # * [ ] prevent races for dist cache. Store per branch (fall back to master)
     # * [x] synchronize cache while building dependencies
