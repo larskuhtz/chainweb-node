@@ -1,0 +1,19 @@
+name: Synchronize with upstream
+
+on:
+  schedule:
+  - cron: '0 * * * *'
+
+jobs:
+
+  sync-upstream:
+    runs-on: 'ubuntu-latest'
+    steps:
+    - uses: actions/checkout@master
+    - name: Sync from upstream
+      uses: repo-sync/github-sync@v2
+      with:
+        source_repo: "kadena-io/chainweb-node"
+        source_branch: "master"
+        destination_branch: "master"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
