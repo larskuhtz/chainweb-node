@@ -36,7 +36,7 @@ jobs:
       SYNC_TO_CACHE: ./tmp/bin/cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
       SYNC_FROM_CACHE: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
       SYNC_TO_DIST_CACHE: aws s3 sync dist-newstyle "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle"
-      SYNC_FROM_DIST_CACHE: aws s3 sync "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle dist-newstyle"
+      SYNC_FROM_DIST_CACHE: aws s3 sync "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle" dist-newstyle
 
     steps:
     
@@ -201,5 +201,6 @@ jobs:
     # * [ ] windows build
     # * [ ] add schedule
     # * [ ] build profile version
+    # * [ ] prevent races for dist cache. Store per branch (fall back to master)
     # * [x] synchronize cache while building dependencies
     # * [x] synchronize dist-newstyle directory
