@@ -34,6 +34,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
       CABAL_CACHE: ./tmp/bin/cabal-cache
       SYNC_TO_CACHE: ./tmp/bin/cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      SYNC_FROM_CACHE: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
       SYNC_TO_DIST_CACHE: aws s3 sync dist-newstyle "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle"
       SYNC_FROM_DIST_CACHE: aws s3 sync "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle dist-newstyle"
 
@@ -120,7 +121,7 @@ jobs:
     - name: Fix cabal.project
       run: sed -i -e '/swagger2 < 2.4/d' cabal.project
     
-    - name: Sync dist-newstyle
+    - name: Sync from dist cache
       run: eval $SYNC_FROM_DIST_CACHE || true
       
     # Build
@@ -129,26 +130,23 @@ jobs:
     - name: Configure build
       run: cabal v2-configure --enable-tests
     - name: Sync from cabal cache
-      run: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
+      run: eval $SYNC_FROM_CACHE
     - name: Install build dependencies
       run: |
         while sleep 60 ; do eval $SYNC_TO_CACHE ; done &
         SYNC_PID=$!
         cabal v2-build --only-dependencies
         kill $SYNC_PID
-    - name: Sync to caches
-      run: |
-        eval $SYNC_TO_CACHE
+    - name: Sync to cabal cache
+      run: eval $SYNC_TO_CACHE
     - name: Build
       run: cabal v2-build
-    - name: Sync to caches
-      run: |
-        eval $SYNC_TO_CACHE
+    - name: Sync to cabal cache
+      run: eval $SYNC_TO_CACHE
     - name: Install test dependencies
       run: cabal v2-build --only-dependencies --enable-tests
-    - name: Sync to caches
-      run: |
-        eval $SYNC_TO_CACHE
+    - name: Sync to cabal cache
+      run: eval $SYNC_TO_CACHE
     - name: Run tests
       run: cabal v2-run chainweb-tests -- --hide-successes
     - name: Build documentation
@@ -186,7 +184,7 @@ jobs:
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
         aws s3 cp $BINFILE s3://apps.lakuhtz/
         
-    - name: Final cache sync
+    - name: Final dist cache sync
       if: always()
       run: eval $SYNC_TO_DIST_CACHE
         
