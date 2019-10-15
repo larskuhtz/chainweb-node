@@ -159,6 +159,7 @@ jobs:
     - name: Sync to dist cache
       run: eval $SYNC_TO_DIST_CACHE
 
+    # Publish Artifacts
     - name: Prepare artifacts
       run: |
         mkdir -p dist-newstyle/artifacts/applications
