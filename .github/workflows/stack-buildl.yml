@@ -16,8 +16,8 @@ jobs:
     - uses: actions/checkout@v1
       with:
         ref: "master"
-    - name: Install stack
-      run: curl -sSL https://get.haskellstack.org/ | sh
+    - name: Upgrade stack
+      run: stack upgrade
     - name: Install non-Haskell dependencies (ubuntu)
       if: contains(matrix.os, 'ubuntu')
       run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
