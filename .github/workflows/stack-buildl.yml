@@ -1,0 +1,28 @@
+name: Stack CI build
+
+on:
+  schedule:
+  - cron: '5 */6 * * *'
+  push:
+
+jobs:
+  build:
+    name: Build master on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ['ubuntu-latest']
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        ref: "master"
+    - uses: mstksg/setup-stack@v1
+      with:
+        runs-on: ${{ matrix.os }}
+    - name: Install non-Haskell dependencies (ubuntu)
+      if: contains(matrix.os, 'ubuntu')
+      run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
+    - name: Build
+      run: stack build
+    - name: Test
+      run: stack test
