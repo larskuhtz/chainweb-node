@@ -7,6 +7,8 @@ on:
 
 jobs:
   tests:
+    env:
+      NIX_SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
     strategy:
       fail-fast: false
       matrix:
@@ -22,8 +24,5 @@ jobs:
         substituters = http://nixcache.kadena.io https://nixcache.reflex-frp.org https://cache.nixos.org/
         trusted-public-keys = kadena-cache.local-1:8wj8JW8V9tmc5bgNNyPM18DYNA1ws3X/MChXh1AQy/Q= ryantrinkle.com-1:JJiAKaRv9mWgpVAz8dwewnZe0AzzEAzPkagE9SP5NWI= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
         EOF
-    - run: |
-        nix-env -iA nixpkgs.cacert
-        export NIX_SSL_CERT_FILE=$HOME/.nix-profile/etc/ssl/certs/ca-bundle.crt
-        nix-build
+    - run: nix-build
         
