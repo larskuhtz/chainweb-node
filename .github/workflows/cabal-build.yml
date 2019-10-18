@@ -26,7 +26,6 @@ jobs:
       SYNC_FROM_DIST_CACHE: aws s3 sync "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle" dist-newstyle
 
     steps:
-
     # Setup
     - uses: actions/checkout@v1
       with:
@@ -44,7 +43,12 @@ jobs:
          cabal-version: ${{ matrix.cabal }}
     - name: Setup Haskell
       if: contains(matrix.os, 'macOS')
-      run: curl -sL https://haskell.futurice.com/haskell-on-macos.py | python3 - --make-dirs --paths.d --ghc-alias=8.8.1 --cabal-alias=3.0.0.0 install ghc-8.6.5 ghc-8.8.1 cabal-install-3.0.0.0
+      run: |
+        curl -sL https://haskell.futurice.com/haskell-on-macos.py | python3 - --make-dirs --paths.d --ghc-alias=${{ matrix.ghc }} --cabal-alias=3.0.0.0 install ghc-${{ matrix.ghc }} cabal-install-3.0.0.0
+        echo ::add-path::/opt/ghc/${{ matrix.ghc }}/bin
+        echo ::add-path::/opt/cabal/3.0.0.0/bin
+        echo ::add-path::/opt/ghc/bin
+        echo ::add-path::/opt/cabal/bin
     - name: Install non-Haskell dependencies (ubuntu)
       if: contains(matrix.os, 'ubuntu')
       run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
@@ -55,14 +59,19 @@ jobs:
         brew install z3 
         brew install sqlite 
         brew install rocksdb
-    - name: Append cabal.project (ghc-8.8.1)
-      if: matrix.ghc == '8.8.1'
+        brew install awscli
+    - name: Append cabal.project
       run: |
         cat >> cabal.project <<EOF
         documentation: false
-
         package chainweb
           documentation: false
+        EOF
+    - name: Append cabal.project (only ghc-8.8.1)
+      if: matrix.ghc == '8.8.1'
+      run: |
+        cat >> cabal.project <<EOF
+        package chainweb
           ghc-options: -Wwarn
           ghc-options: -fwrite-ide-info
           ghc-options: -hiedir ./dist-newstyle/hie
@@ -92,14 +101,6 @@ jobs:
           safecopy:template-haskell
           strict-tuple:base
           token-bucket:base
-        EOF
-    - name: Append cabal.project (not ghc-8.8.1)
-      if: matrix.ghc != '8.8.1'
-      run: |
-        cat >> cabal.project <<EOF
-        documentation: false
-        package chainweb
-          documentation: false
         EOF
     - name: Sync from dist cache
       run: eval $SYNC_FROM_DIST_CACHE
