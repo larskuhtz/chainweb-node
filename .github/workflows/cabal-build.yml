@@ -44,8 +44,7 @@ jobs:
          cabal-version: ${{ matrix.cabal }}
     - name: Setup Haskell
       if: contains(matrix.os, 'macOS')
-      run: |
-        curl -sL https://haskell.futurice.com/haskell-on-macos.py | ./haskell-on-macos.py --make-dirs --paths.d --ghc-alias=8.8.1 --cabal-alias=3.0.0.0 install ghc-8.6.5 ghc-8.8.1 cabal-install-3.0.0.0
+      run: curl -sL https://haskell.futurice.com/haskell-on-macos.py | python3 - --make-dirs --paths.d --ghc-alias=8.8.1 --cabal-alias=3.0.0.0 install ghc-8.6.5 ghc-8.8.1 cabal-install-3.0.0.0
     - name: Install non-Haskell dependencies (ubuntu)
       if: contains(matrix.os, 'ubuntu')
       run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
