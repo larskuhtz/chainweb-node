@@ -36,19 +36,16 @@ jobs:
         mkdir -p "./tmp/bin"
         curl -Ls "https://github.com/haskell-works/cabal-cache/releases/download/v1.0.1.1/cabal-cache_x86_64_${OS}.tar.gz" | tar -xzC "./tmp/bin/"
     - name: Setup Haskell
+      if: contains(matrix.os, 'macOS')
+      run: |
+        curl -sL https://haskell.futurice.com/haskell-on-macos.py | python3 - --make-dirs --paths.d --ghc-alias=${{ matrix.ghc }} --cabal-alias=3.0.0.0 install ghc-${{ matrix.ghc }} cabal-install-3.0.0.0
+        ln -s /opt/cabal/3.0.0.0 /opt/cabal/3.0
+    - name: Setup Haskell
       if: contains(matrix.os, 'ubuntu')
       uses: actions/setup-haskell@v1
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
-    - name: Setup Haskell
-      if: contains(matrix.os, 'macOS')
-      run: |
-        curl -sL https://haskell.futurice.com/haskell-on-macos.py | python3 - --make-dirs --paths.d --ghc-alias=${{ matrix.ghc }} --cabal-alias=3.0.0.0 install ghc-${{ matrix.ghc }} cabal-install-3.0.0.0
-        echo ::add-path::/opt/ghc/${{ matrix.ghc }}/bin
-        echo ::add-path::/opt/cabal/3.0.0.0/bin
-        echo ::add-path::/opt/ghc/bin
-        echo ::add-path::/opt/cabal/bin
     - name: Install non-Haskell dependencies (ubuntu)
       if: contains(matrix.os, 'ubuntu')
       run: sudo apt-get install -y git librocksdb-dev zlib1g-dev libtinfo-dev libsqlite3-dev libz3-dev z3
