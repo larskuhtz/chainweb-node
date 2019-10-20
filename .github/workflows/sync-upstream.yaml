@@ -1,6 +1,7 @@
 name: Synchronize with upstream
 
 on:
+  push:
   schedule:
   - cron: '0 * * * *'
 
@@ -17,3 +18,11 @@ jobs:
         source_branch: "master"
         destination_branch: "master"
         github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Merge master into github-ci
+      run: |
+        git checkout github-ci
+        git config user.email "lars@kadena.io"
+        git config user.name "Lars Kuhtz"
+        git merge --no-edit origin/master
+    - name: Push branch github-ci
+      run: git push
