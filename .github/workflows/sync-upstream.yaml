@@ -20,6 +20,7 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
     - name: Merge master into github-ci
       run: |
+        git checkout github-ci
         git config user.email "lars@kadena.io"
         git config user.name "Lars Kuhtz"
         git merge --no-edit origin/master
