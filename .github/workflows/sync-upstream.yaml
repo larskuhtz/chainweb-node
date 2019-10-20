@@ -17,3 +17,5 @@ jobs:
         source_branch: "master"
         destination_branch: "master"
         github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Merge master into github-ci
+      run: git merge -no-edit master
