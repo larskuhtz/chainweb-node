@@ -22,6 +22,10 @@ module Chainweb.Test.Pact.Utils
   -- * test data
 , sender00KeyPair
 , sender01KeyPair
+, allocation00KeyPair
+, allocation01KeyPair
+, allocation02KeyPair
+, allocation02KeyPair'
 , testPactFilesDir
 , testKeyPairs
 , adminData
@@ -32,6 +36,7 @@ module Chainweb.Test.Pact.Utils
 , goldenTestTransactions
 , mkTestExecTransactions
 , mkTestContTransaction
+, mkCoinSig
 , pactTestLogger
 , withMVarResource
 , withTime
@@ -94,12 +99,15 @@ import Test.Tasty
 import Pact.ApiReq (ApiKeyPair(..), mkKeyPairs)
 import Pact.Gas
 import Pact.Parse
+import Pact.Types.Capability
 import Pact.Types.ChainId
 import Pact.Types.ChainMeta
 import Pact.Types.Command
 import Pact.Types.Crypto
 import Pact.Types.Gas
 import Pact.Types.Logger
+import Pact.Types.Names
+import Pact.Types.PactValue
 import Pact.Types.RPC
 import Pact.Types.Runtime (PactId)
 import Pact.Types.SPV
@@ -154,9 +162,9 @@ instance Exception PactTestFailure
 type ChainwebKeyPair
     = (PublicKeyBS, PrivateKeyBS, Text, PPKScheme)
 
-testKeyPairs :: ChainwebKeyPair -> IO [SomeKeyPairCaps]
-testKeyPairs (pub, priv, addr, scheme) =
-    mkKeyPairs [ApiKeyPair priv (Just pub) (Just addr) (Just scheme) Nothing]
+testKeyPairs :: ChainwebKeyPair -> Maybe [SigCapability] -> IO [SomeKeyPairCaps]
+testKeyPairs (pub, priv, addr, scheme) clist =
+    mkKeyPairs [ApiKeyPair priv (Just pub) (Just addr) (Just scheme) clist]
 
 testPactFilesDir :: FilePath
 testPactFilesDir = "test/pact/"
@@ -182,6 +190,45 @@ sender01KeyPair =
     , ED25519
     )
 
+allocation00KeyPair :: (PublicKeyBS, PrivateKeyBS, Text, PPKScheme)
+allocation00KeyPair =
+    ( PubBS $ getByteString
+        "d82d0dcde9825505d86afb6dcc10411d6b67a429a79e21bda4bb119bf28ab871"
+    , PrivBS $ getByteString
+        "c63cd081b64ae9a7f8296f11c34ae08ba8e1f8c84df6209e5dee44fa04bcb9f5"
+    , "d82d0dcde9825505d86afb6dcc10411d6b67a429a79e21bda4bb119bf28ab871"
+    , ED25519
+    )
+
+allocation01KeyPair :: (PublicKeyBS, PrivateKeyBS, Text, PPKScheme)
+allocation01KeyPair =
+    ( PubBS $ getByteString
+        "b4c8a3ea91d3146b0560994740f0e3eed91c59d2eeca1dc99f0c2872845c294d"
+    , PrivBS $ getByteString
+        "5dbbbd8b765b7d0cf8426d6992924b057c70a2138ecd4cf60cfcde643f304ea9"
+    , "b4c8a3ea91d3146b0560994740f0e3eed91c59d2eeca1dc99f0c2872845c294d"
+    , ED25519
+    )
+
+allocation02KeyPair :: (PublicKeyBS, PrivateKeyBS, Text, PPKScheme)
+allocation02KeyPair =
+    ( PubBS $ getByteString
+        "e9e4e71bd063dcf7e06bd5b1a16688897d15ca8bd2e509c453c616219c186cc5"
+    , PrivBS $ getByteString
+        "45f026b7a6bb278ed4099136c13e842cdd80138ab7c5acd4a1f0e6c97d1d1e3c"
+    , "e9e4e71bd063dcf7e06bd5b1a16688897d15ca8bd2e509c453c616219c186cc5"
+    , ED25519
+    )
+
+allocation02KeyPair' :: (PublicKeyBS, PrivateKeyBS, Text, PPKScheme)
+allocation02KeyPair' =
+    ( PubBS $ getByteString
+        "0c8212a903f6442c84acd0069acc263c69434b5af37b2997b16d6348b53fcd0a"
+    , PrivBS $ getByteString
+        "2f75b5d875dd7bf07cc1a6973232a9e53dc1d4ffde2bab0bbace65cd87e87f53"
+    , "0c8212a903f6442c84acd0069acc263c69434b5af37b2997b16d6348b53fcd0a"
+    , ED25519
+    )
 -- ----------------------------------------------------------------------- --
 -- helper logic
 
@@ -201,7 +248,7 @@ mergeObjects = Object . HM.unions . foldr unwrap []
     unwrap _ = id
 
 adminData :: IO (Maybe Value)
-adminData = fmap k $ testKeyPairs sender00KeyPair
+adminData = fmap k $ testKeyPairs sender00KeyPair Nothing
   where
     k ks = Just $ object
         [ "test-admin-keyset" .= fmap (formatB16PubKey . fst) ks
@@ -211,7 +258,7 @@ adminData = fmap k $ testKeyPairs sender00KeyPair
 goldenTestTransactions
     :: Vector PactTransaction -> IO (Vector ChainwebTransaction)
 goldenTestTransactions txs = do
-    ks <- testKeyPairs sender00KeyPair
+    ks <- testKeyPairs sender00KeyPair Nothing
     mkTestExecTransactions "sender00" "0" ks "1" 10000 0.01 1000000 0 txs
 
 -- Make pact 'ExecMsg' transactions specifying sender, chain id of the signer,
@@ -311,6 +358,9 @@ pactTestLogger showAll = initLoggers putStrLn f def
     f _ b "INFO" d | not showAll = doLog (\_ -> return ()) b "INFO" d
     f _ b "DDL" d | not showAll = doLog (\_ -> return ()) b "DDL" d
     f a b c d = doLog a b c d
+
+mkCoinSig :: Text -> [PactValue] -> SigCapability
+mkCoinSig n ps = SigCapability (QualifiedName (ModuleName "coin" Nothing) n def) ps
 
 -- -------------------------------------------------------------------------- --
 -- Test Pact Execution Context
