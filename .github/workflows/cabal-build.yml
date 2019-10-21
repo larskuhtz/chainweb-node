@@ -16,6 +16,7 @@ jobs:
         ghc: ['8.6.5', '8.8.1']
         cabal: ['3.0']
         os: ['ubuntu-18.04', 'macOS-10.14']
+        cache: ['false']
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.cabal_cache_aws_access_key_id }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
@@ -31,6 +32,7 @@ jobs:
       with:
         ref: "master"
     - name: Install cabal-cache
+      if: matrix.cache == 'true'
       run: |
         [[ "${{ matrix.os }}" =~ ubuntu ]] && OS="linux" || OS="osx"
         mkdir -p "./tmp/bin"
@@ -99,6 +101,7 @@ jobs:
           token-bucket:base
         EOF
     - name: Sync from dist cache
+      if: matrix.cache == 'true'
       run: eval $SYNC_FROM_DIST_CACHE
       continue-on-error: true
 
@@ -108,6 +111,7 @@ jobs:
     - name: Configure build
       run: cabal v2-configure --enable-tests
     - name: Sync from cabal cache
+      if: matrix.cache == 'true'
       run: eval $SYNC_FROM_CACHE
     - name: Install build dependencies
       run: cabal v2-build --only-dependencies
@@ -120,7 +124,7 @@ jobs:
     - name: Build documentation
       run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
     - name: Sync caches cache sync
-      if: always()
+      if: always() && (matrix.cache == 'true')
       run: |
         eval $SYNC_TO_CACHE
         eval $SYNC_TO_DIST_CACHE
@@ -150,6 +154,7 @@ jobs:
         path: dist-newstyle/artifacts/docs
 
     - name: Publish applications to S3
+      if: matrix.cache == 'true'
       run: |
         export BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.$(git rev-parse --short HEAD).tar.gz"
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
