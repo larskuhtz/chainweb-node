@@ -154,11 +154,11 @@ jobs:
         path: dist-newstyle/artifacts/docs
 
     - name: Publish applications to S3
-      if: matrix.cache == 'true'
       run: |
         export BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.$(git rev-parse --short HEAD).tar.gz"
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
         aws s3 cp $BINFILE s3://apps.lakuhtz/
+        aws s3 cp s3://apps.lakuhtz/$BINFILE s3://apps.lakuhtz/chainweb.${{ matrix.ghc }}.${{ matrix.os }}.tar.gz
 
 # TODO
 #
