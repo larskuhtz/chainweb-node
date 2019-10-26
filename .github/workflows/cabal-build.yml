@@ -120,7 +120,7 @@ jobs:
     - name: Install test dependencies
       run: cabal v2-build --only-dependencies --enable-tests
     - name: Run tests
-      run: cabal v2-run chainweb-tests -- --hide-successes
+      run: cabal v2-run chainweb-tests -- --hide-successes --pattern='!/getPending high water marks/'
     - name: Build documentation
       run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
     - name: Sync caches cache sync
