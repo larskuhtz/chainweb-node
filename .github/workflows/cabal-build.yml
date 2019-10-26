@@ -16,15 +16,25 @@ jobs:
         ghc: ['8.6.5', '8.8.1']
         cabal: ['3.0']
         os: ['ubuntu-18.04', 'macOS-10.14']
-        cache: ['false']
+        cabalcache: ['false']
+        distcache: ['true']
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.cabal_cache_aws_access_key_id }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.cabal_cache_aws_secret_access_key }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.kadena_cabal_cache_aws_access_key_id }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.kadena_cabal_cache_aws_secret_access_key }}
+      
+      # Cabal Cache
       CABAL_CACHE: ./tmp/bin/cabal-cache
-      SYNC_TO_CACHE: ./tmp/bin/cabal-cache sync-to-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
-      SYNC_FROM_CACHE: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://cabal-cache/${{ matrix.os }} --region us-east-1
-      SYNC_TO_DIST_CACHE: aws s3 sync dist-newstyle "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle"
-      SYNC_FROM_DIST_CACHE: aws s3 sync "s3://cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle" dist-newstyle && rm -rf dist-newstyle/build/*/ghc-${{ matrix.ghc }}/chainweb-*/setup
+      CABAL_CACHE_BUCKET: kadena-cabal-cache
+      SYNC_TO_CACHE: $CABAL_CACHE sync-to-archive --threads 16 --archive-uri s3://$CABAL_CACHE_BUCKET/${{ matrix.os }} --region us-east-1
+      SYNC_FROM_CACHE: $CABAL_CACHE sync-from-archive --threads 16 --archive-uri s3://$CABAL_CACHE_BUCKET/${{ matrix.os }} --region us-east-1
+
+      # Dist Cache
+      DIST_CACHE_BUCKET: kadena-cabal-cache
+      SYNC_TO_DIST_CACHE: aws s3 sync dist-newstyle "s3://kadena-cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle"
+      SYNC_FROM_DIST_CACHE: aws s3 sync "s3://kadena-cabal-cache/dist/${{ matrix.os }}/${{ matrix.ghc }}/dist-newstyle" dist-newstyle && rm -rf dist-newstyle/build/*/ghc-${{ matrix.ghc }}/chainweb-*/setup
+
+      # Aritfacts
+      ARTIFACT_BUCKET: kadena-cabal-cache
 
     steps:
     # Setup
@@ -32,7 +42,7 @@ jobs:
       with:
         ref: "master"
     - name: Install cabal-cache
-      if: matrix.cache == 'true'
+      if: matrix.cabalcache == 'true'
       run: |
         [[ "${{ matrix.os }}" =~ ubuntu ]] && OS="linux" || OS="osx"
         mkdir -p "./tmp/bin"
@@ -101,7 +111,7 @@ jobs:
           token-bucket:base
         EOF
     - name: Sync from dist cache
-      if: matrix.cache == 'true'
+      if: matrix.distcache == 'true'
       run: eval $SYNC_FROM_DIST_CACHE
       continue-on-error: true
 
@@ -111,7 +121,7 @@ jobs:
     - name: Configure build
       run: cabal v2-configure --enable-tests
     - name: Sync from cabal cache
-      if: matrix.cache == 'true'
+      if: matrix.cabalcache == 'true'
       run: eval $SYNC_FROM_CACHE
     - name: Install build dependencies
       run: cabal v2-build --only-dependencies
@@ -123,11 +133,12 @@ jobs:
       run: cabal v2-run chainweb-tests -- --hide-successes --pattern='!/getPending high water marks/'
     - name: Build documentation
       run: cabal v2-haddock --haddock-hyperlink-source --haddock-quickjump
-    - name: Sync caches cache sync
-      if: always() && (matrix.cache == 'true')
-      run: |
-        eval $SYNC_TO_CACHE
-        eval $SYNC_TO_DIST_CACHE
+    - name: Sync dist cache
+      if: always() && (matrix.distcache == 'true')
+      run: eval $SYNC_TO_DIST_CACHE
+    - name: Sync cabal cache
+      if: always() && (matrix.cabalcache == 'true')
+      run: eval $SYNC_TO_CACHE
 
     # Publish Artifacts
     - name: Prepare artifacts
@@ -153,12 +164,13 @@ jobs:
         name: api-documentation
         path: dist-newstyle/artifacts/docs
 
-    - name: Publish applications to S3
+    - name: Publish applications to S3 $ARTIFACT_BUCKET
       run: |
         export BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.$(git rev-parse --short HEAD).tar.gz"
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
-        aws s3 cp $BINFILE s3://apps.lakuhtz/
-        aws s3 cp s3://apps.lakuhtz/$BINFILE s3://apps.lakuhtz/chainweb.${{ matrix.ghc }}.${{ matrix.os }}.tar.gz
+        aws s3 cp $BINFILE s3://$ARTIFACT_BUCKET/
+        aws s3 cp s3://$ARTIFACT_BUCKET/$BINFILE s3://$ARTIFACT_BUCKET/chainweb.${{ matrix.ghc }}.${{ matrix.os }}.tar.gz
+        aws s3api put-object-acl --bucket $ARTIFACT_BUCKET --key=$BINFILE --acl public-read
 
 # TODO
 #
