@@ -16,7 +16,7 @@ jobs:
         ghc: ['8.6.5', '8.8.1']
         cabal: ['3.0']
         os: ['ubuntu-18.04', 'macOS-10.14']
-        cabalcache: ['false']
+        cabalcache: ['true']
         distcache: ['true']
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.kadena_cabal_cache_aws_access_key_id }}
