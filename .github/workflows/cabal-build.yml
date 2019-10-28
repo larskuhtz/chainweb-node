@@ -164,13 +164,15 @@ jobs:
         name: api-documentation
         path: dist-newstyle/artifacts/docs
 
-    - name: Publish applications to S3 $ARTIFACT_BUCKET
+    - name: Publish applications to S3
       run: |
         export BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.$(git rev-parse --short HEAD).tar.gz"
+        export LATEST_BINFIE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.tar.gz"
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
         aws s3 cp $BINFILE s3://$ARTIFACT_BUCKET/
-        aws s3 cp s3://$ARTIFACT_BUCKET/$BINFILE s3://$ARTIFACT_BUCKET/chainweb.${{ matrix.ghc }}.${{ matrix.os }}.tar.gz
+        aws s3 cp s3://$ARTIFACT_BUCKET/$BINFILE s3://$ARTIFACT_BUCKET/$LATEST_BINFILE
         aws s3api put-object-acl --bucket $ARTIFACT_BUCKET --key=$BINFILE --acl public-read
+        aws s3api put-object-acl --bucket $ARTIFACT_BUCKET --key=$LATEST_BINFILE --acl public-read
 
 # TODO
 #
