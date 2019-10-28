@@ -6,6 +6,26 @@ on:
   push:
 
 jobs:
+  publishDocs:
+    name: Publish documentation to Github pages
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps: 
+    - name: Checkout sources
+      uses: actions/checkout@v1
+    - name: Downlaod API documentation
+      uses: actions/downlad-artifact@v1
+      with:
+        name: api-documentation
+        path: api-docs
+    - name: Deploy to Github Pages
+      if: success()
+      uses: crazy-max/ghaction-github-pages@v1
+      with:
+        target_branch: gh-pages
+        build_dir: api-docs
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     name: Build master with ${{ matrix.ghc }} / ${{ matrix.cabal }} on ${{ matrix.os }}
@@ -167,7 +187,7 @@ jobs:
     - name: Publish applications to S3
       run: |
         export BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.$(git rev-parse --short HEAD).tar.gz"
-        export LATEST_BINFIE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.tar.gz"
+        export LATEST_BINFILE="chainweb.${{ matrix.ghc }}.${{ matrix.os }}.tar.gz"
         tar -C ./dist-newstyle/artifacts/applications/ -czf $BINFILE chainweb-node chainweb-miner cwtool
         aws s3 cp $BINFILE s3://$ARTIFACT_BUCKET/
         aws s3 cp s3://$ARTIFACT_BUCKET/$BINFILE s3://$ARTIFACT_BUCKET/$LATEST_BINFILE
