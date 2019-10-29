@@ -1,0 +1,324 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Module: Chainweb.TreeDB.Persist</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Maintainer: Colin Woodbury &lt;colin@kadena.io&gt;</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Reading a `TreeDb` from - or writing one to - the filesystem.</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.TreeDB.Persist</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Writing</span></span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#persist"><span class="hs-identifier">persist</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Reading</span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#fileEntries"><span class="hs-identifier">fileEntries</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#restore"><span class="hs-identifier">restore</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Resource</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadResource</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MonadThrow</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">runResourceT</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Base64.URL</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B64U</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Streaming</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Streaming.Char8</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Serialize</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Serialize</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">encode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">decode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Streaming</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Streaming.Prelude</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Path</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Path</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Absolute</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toFilePath</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html"><span class="hs-identifier">Chainweb.TreeDB</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- TreeDb Persistence</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- | Persist the contents of some `TreeDb` to disk.</span><span>
+</span><span id="line-42"></span><span class="hs-comment">--</span><span>
+</span><span id="line-43"></span><span id="local-6989586621681472753"><span class="annot"><a href="Chainweb.TreeDB.Persist.html#persist"><span class="hs-identifier hs-type">persist</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.html#TreeDb"><span class="hs-identifier hs-type">TreeDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472753"><span class="hs-identifier hs-type">db</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Serialize</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.html#DbEntry"><span class="hs-identifier hs-type">DbEntry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472753"><span class="hs-identifier hs-type">db</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681472753"><span class="hs-identifier hs-type">db</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-44"></span><span id="persist"><span class="annot"><span class="annottext">persist :: Path Absolute -&gt; db -&gt; IO ()
+</span><a href="Chainweb.TreeDB.Persist.html#persist"><span class="hs-identifier hs-var hs-var">persist</span></a></span></span><span> </span><span id="local-6989586621681472752"><span class="annot"><span class="annottext">fp :: Path Absolute
+</span><a href="#local-6989586621681472752"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span id="local-6989586621681472751"><span class="annot"><span class="annottext">db :: db
+</span><a href="#local-6989586621681472751"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">db
+-&gt; Maybe (NextItem (DbKey db))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbEntry db)) IO (Natural, Eos) -&gt; IO ())
+-&gt; IO ()
+forall db a.
+TreeDb db =&gt;
+db
+-&gt; Maybe (NextItem (DbKey db))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbEntry db)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.TreeDB.html#entries"><span class="hs-identifier hs-var">entries</span></a></span><span> </span><span class="annot"><span class="annottext">db
+</span><a href="#local-6989586621681472751"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem (DbKey db))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Maybe MinRank
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Maybe MaxRank
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">((Stream (Of (DbEntry db)) IO (Natural, Eos) -&gt; IO ()) -&gt; IO ())
+-&gt; (Stream (Of (DbEntry db)) IO (Natural, Eos) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681472749"><span class="annot"><span class="annottext">es :: Stream (Of (DbEntry db)) IO (Natural, Eos)
+</span><a href="#local-6989586621681472749"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-45"></span><span>    </span><span class="annot"><span class="annottext">ResourceT IO () -&gt; IO ()
+forall (m :: * -&gt; *) a. MonadUnliftIO m =&gt; ResourceT m a -&gt; m a
+</span><span class="hs-identifier hs-var">runResourceT</span></span><span>
+</span><span id="line-46"></span><span>        </span><span class="annot"><span class="annottext">(ResourceT IO () -&gt; IO ())
+-&gt; (Stream (Of ByteString) IO () -&gt; ResourceT IO ())
+-&gt; Stream (Of ByteString) IO ()
+-&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; ByteString (ResourceT IO) () -&gt; ResourceT IO ()
+forall (m :: * -&gt; *) r.
+MonadResource m =&gt;
+FilePath -&gt; ByteString m r -&gt; m r
+</span><span class="hs-identifier hs-var">BS.writeFile</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path Absolute -&gt; FilePath
+</span><span class="hs-identifier hs-var">toFilePath</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681472752"><span class="hs-identifier hs-var">fp</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>        </span><span class="annot"><span class="annottext">(ByteString (ResourceT IO) () -&gt; ResourceT IO ())
+-&gt; (Stream (Of ByteString) IO () -&gt; ByteString (ResourceT IO) ())
+-&gt; Stream (Of ByteString) IO ()
+-&gt; ResourceT IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(forall a. IO a -&gt; ResourceT IO a)
+-&gt; ByteString IO () -&gt; ByteString (ResourceT IO) ()
+forall k (t :: (* -&gt; *) -&gt; k -&gt; *) (m :: * -&gt; *) (n :: * -&gt; *)
+       (b :: k).
+(MFunctor t, Monad m) =&gt;
+(forall a. m a -&gt; n a) -&gt; t m b -&gt; t n b
+</span><span class="hs-identifier hs-var">hoist</span></span><span> </span><span class="annot"><span class="annottext">forall a. IO a -&gt; ResourceT IO a
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span>
+</span><span id="line-48"></span><span>        </span><span class="annot"><span class="annottext">(ByteString IO () -&gt; ByteString (ResourceT IO) ())
+-&gt; (Stream (Of ByteString) IO () -&gt; ByteString IO ())
+-&gt; Stream (Of ByteString) IO ()
+-&gt; ByteString (ResourceT IO) ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of ByteString) IO () -&gt; ByteString IO ()
+forall (m :: * -&gt; *).
+Monad m =&gt;
+Stream (Of ByteString) m () -&gt; ByteString m ()
+</span><a href="Chainweb.TreeDB.Persist.html#separated"><span class="hs-identifier hs-var">separated</span></a></span><span>
+</span><span id="line-49"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of ByteString) IO () -&gt; IO ())
+-&gt; Stream (Of ByteString) IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbEntry db)) IO () -&gt; Stream (Of ByteString) IO ()
+forall (m :: * -&gt; *) e.
+(Monad m, Serialize e) =&gt;
+Stream (Of e) m () -&gt; Stream (Of ByteString) m ()
+</span><a href="Chainweb.TreeDB.Persist.html#encoded"><span class="hs-identifier hs-var">encoded</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream (Of (DbEntry db)) IO () -&gt; Stream (Of ByteString) IO ())
+-&gt; Stream (Of (DbEntry db)) IO () -&gt; Stream (Of ByteString) IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbEntry db)) IO (Natural, Eos)
+-&gt; Stream (Of (DbEntry db)) IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbEntry db)) IO (Natural, Eos)
+</span><a href="#local-6989586621681472749"><span class="hs-identifier hs-var">es</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | Encode each `DbEntry` as a base64 `B.ByteString`.</span><span>
+</span><span id="line-52"></span><span class="hs-comment">--</span><span>
+</span><span id="line-53"></span><span id="local-6989586621681472824"><span id="local-6989586621681472825"><span class="annot"><a href="Chainweb.TreeDB.Persist.html#encoded"><span class="hs-identifier hs-type">encoded</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681472825"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Serialize</span></span><span> </span><span class="annot"><a href="#local-6989586621681472824"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681472824"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472825"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472825"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-54"></span><span id="encoded"><span class="annot"><span class="annottext">encoded :: Stream (Of e) m () -&gt; Stream (Of ByteString) m ()
+</span><a href="Chainweb.TreeDB.Persist.html#encoded"><span class="hs-identifier hs-var hs-var">encoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(e -&gt; ByteString)
+-&gt; Stream (Of e) m () -&gt; Stream (Of ByteString) m ()
+forall (m :: * -&gt; *) a b r.
+Monad m =&gt;
+(a -&gt; b) -&gt; Stream (Of a) m r -&gt; Stream (Of b) m r
+</span><span class="hs-identifier hs-var">S.map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">B64U.encode</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; (e -&gt; ByteString) -&gt; e -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">e -&gt; ByteString
+forall a. Serialize a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">encode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#encoded"><span class="hs-pragma hs-type">encoded</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | Form a ByteString stream from base64-encoded Entries, and divide them by</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- newline characters. A newline byte cannot appear in a base64 encodings, thus</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- making it a unique byte to split on.</span><span>
+</span><span id="line-60"></span><span class="hs-comment">--</span><span>
+</span><span id="line-61"></span><span id="local-6989586621681472826"><span class="annot"><a href="Chainweb.TreeDB.Persist.html#separated"><span class="hs-identifier hs-type">separated</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681472826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="annot"><a href="#local-6989586621681472826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-62"></span><span id="separated"><span class="annot"><span class="annottext">separated :: Stream (Of ByteString) m () -&gt; ByteString m ()
+</span><a href="Chainweb.TreeDB.Persist.html#separated"><span class="hs-identifier hs-var hs-var">separated</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of ByteString) m () -&gt; ByteString m ()
+forall (m :: * -&gt; *) r.
+Monad m =&gt;
+Stream (Of ByteString) m r -&gt; ByteString m r
+</span><span class="hs-identifier hs-var">BS.fromChunks</span></span><span> </span><span class="annot"><span class="annottext">(Stream (Of ByteString) m () -&gt; ByteString m ())
+-&gt; (Stream (Of ByteString) m () -&gt; Stream (Of ByteString) m ())
+-&gt; Stream (Of ByteString) m ()
+-&gt; ByteString m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+-&gt; Stream (Of ByteString) m () -&gt; Stream (Of ByteString) m ()
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+a -&gt; Stream (Of a) m r -&gt; Stream (Of a) m r
+</span><span class="hs-identifier hs-var">S.intersperse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word8 -&gt; ByteString
+</span><span class="hs-identifier hs-var">B.singleton</span></span><span> </span><span class="annot"><span class="hs-number">0x0A</span></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#separated"><span class="hs-pragma hs-type">separated</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- | Given a path to a database written to file via `persist` and a freshly</span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- initialized `TreeDb` (i.e. it only contains the genesis block), update</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- the `TreeDb` to contain all entries in the file.</span><span>
+</span><span id="line-68"></span><span class="hs-comment">--</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- Throws exceptions if the path given doesn't exist,</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- or if certain ByteStrings within failed to decode.</span><span>
+</span><span id="line-71"></span><span class="hs-comment">--</span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- /Note:/ This assumes that reinserting the genesis block into a `TreeDb`</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- that already contains it is a no-op. This invariant is enforced by tests.</span><span>
+</span><span id="line-74"></span><span class="hs-comment">--</span><span>
+</span><span id="line-75"></span><span id="local-6989586621681472736"><span class="annot"><a href="Chainweb.TreeDB.Persist.html#restore"><span class="hs-identifier hs-type">restore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.html#TreeDb"><span class="hs-identifier hs-type">TreeDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472736"><span class="hs-identifier hs-type">db</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Serialize</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.html#DbEntry"><span class="hs-identifier hs-type">DbEntry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472736"><span class="hs-identifier hs-type">db</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681472736"><span class="hs-identifier hs-type">db</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-76"></span><span id="restore"><span class="annot"><span class="annottext">restore :: Path Absolute -&gt; db -&gt; IO ()
+</span><a href="Chainweb.TreeDB.Persist.html#restore"><span class="hs-identifier hs-var hs-var">restore</span></a></span></span><span> </span><span id="local-6989586621681472735"><span class="annot"><span class="annottext">fp :: Path Absolute
+</span><a href="#local-6989586621681472735"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span id="local-6989586621681472734"><span class="annot"><span class="annottext">db :: db
+</span><a href="#local-6989586621681472734"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ResourceT IO () -&gt; IO ()
+forall (m :: * -&gt; *) a. MonadUnliftIO m =&gt; ResourceT m a -&gt; m a
+</span><span class="hs-identifier hs-var">runResourceT</span></span><span> </span><span class="annot"><span class="annottext">(ResourceT IO () -&gt; IO ()) -&gt; ResourceT IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(DbEntry db -&gt; ResourceT IO ())
+-&gt; Stream (Of (DbEntry db)) (ResourceT IO) () -&gt; ResourceT IO ()
+forall (m :: * -&gt; *) a x r.
+Monad m =&gt;
+(a -&gt; m x) -&gt; Stream (Of a) m r -&gt; m r
+</span><span class="hs-identifier hs-var">S.mapM_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; ResourceT IO ()
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; ResourceT IO ())
+-&gt; (DbEntry db -&gt; IO ()) -&gt; DbEntry db -&gt; ResourceT IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">db -&gt; DbEntry db -&gt; IO ()
+forall db. TreeDb db =&gt; db -&gt; DbEntry db -&gt; IO ()
+</span><a href="Chainweb.TreeDB.html#insert"><span class="hs-identifier hs-var">insert</span></a></span><span> </span><span class="annot"><span class="annottext">db
+</span><a href="#local-6989586621681472734"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Stream (Of (DbEntry db)) (ResourceT IO) () -&gt; ResourceT IO ())
+-&gt; Stream (Of (DbEntry db)) (ResourceT IO) () -&gt; ResourceT IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; Stream (Of (DbEntry db)) (ResourceT IO) ()
+forall (m :: * -&gt; *) e.
+(MonadThrow m, MonadResource m, Serialize e) =&gt;
+Path Absolute -&gt; Stream (Of e) m ()
+</span><a href="Chainweb.TreeDB.Persist.html#fileEntries"><span class="hs-identifier hs-var">fileEntries</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681472735"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | A stream of all entries, decoded from a file.</span><span>
+</span><span id="line-79"></span><span class="hs-comment">--</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- Throws exceptions if the path given doesn't exist,</span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- or if certain ByteStrings within failed to decode.</span><span>
+</span><span id="line-82"></span><span class="hs-comment">--</span><span>
+</span><span id="line-83"></span><span id="local-6989586621681472800"><span id="local-6989586621681472802"><span class="annot"><a href="Chainweb.TreeDB.Persist.html#fileEntries"><span class="hs-identifier hs-type">fileEntries</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681472802"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadResource</span></span><span> </span><span class="annot"><a href="#local-6989586621681472802"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Serialize</span></span><span> </span><span class="annot"><a href="#local-6989586621681472800"><span class="hs-identifier hs-type">e</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681472800"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472802"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-89"></span><span id="fileEntries"><span class="annot"><span class="annottext">fileEntries :: Path Absolute -&gt; Stream (Of e) m ()
+</span><a href="Chainweb.TreeDB.Persist.html#fileEntries"><span class="hs-identifier hs-var hs-var">fileEntries</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of ByteString) m () -&gt; Stream (Of e) m ()
+forall (m :: * -&gt; *) e r.
+(Monad m, Serialize e) =&gt;
+Stream (Of ByteString) m r -&gt; Stream (Of e) m r
+</span><a href="Chainweb.TreeDB.Persist.html#decoded"><span class="hs-identifier hs-var">decoded</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream (Of ByteString) m () -&gt; Stream (Of e) m ())
+-&gt; (Path Absolute -&gt; Stream (Of ByteString) m ())
+-&gt; Path Absolute
+-&gt; Stream (Of e) m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (ByteString m) m () -&gt; Stream (Of ByteString) m ()
+forall (m :: * -&gt; *) r.
+Monad m =&gt;
+Stream (ByteString m) m r -&gt; Stream (Of ByteString) m r
+</span><a href="Chainweb.TreeDB.Persist.html#destream"><span class="hs-identifier hs-var">destream</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream (ByteString m) m () -&gt; Stream (Of ByteString) m ())
+-&gt; (Path Absolute -&gt; Stream (ByteString m) m ())
+-&gt; Path Absolute
+-&gt; Stream (Of ByteString) m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString m () -&gt; Stream (ByteString m) m ()
+forall (m :: * -&gt; *) r.
+Monad m =&gt;
+ByteString m r -&gt; Stream (ByteString m) m r
+</span><span class="hs-identifier hs-var">BS.lines</span></span><span> </span><span class="annot"><span class="annottext">(ByteString m () -&gt; Stream (ByteString m) m ())
+-&gt; (Path Absolute -&gt; ByteString m ())
+-&gt; Path Absolute
+-&gt; Stream (ByteString m) m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; ByteString m ()
+forall (m :: * -&gt; *).
+MonadResource m =&gt;
+FilePath -&gt; ByteString m ()
+</span><span class="hs-identifier hs-var">BS.readFile</span></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; ByteString m ())
+-&gt; (Path Absolute -&gt; FilePath) -&gt; Path Absolute -&gt; ByteString m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; FilePath
+</span><span class="hs-identifier hs-var">toFilePath</span></span><span>
+</span><span id="line-90"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#fileEntries"><span class="hs-pragma hs-type">fileEntries</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- | Flatten a &quot;stream of streamable bytestrings&quot;. We know these are each</span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- finite-sized encodings of `TreeDb` entries, which we don't expect to</span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- be large.</span><span>
+</span><span id="line-95"></span><span class="hs-comment">--</span><span>
+</span><span id="line-96"></span><span id="local-6989586621681472793"><span id="local-6989586621681472794"><span class="annot"><a href="Chainweb.TreeDB.Persist.html#destream"><span class="hs-identifier hs-type">destream</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681472794"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">BS.ByteString</span></span><span> </span><span class="annot"><a href="#local-6989586621681472794"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472794"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472793"><span class="hs-identifier hs-type">r</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472794"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472793"><span class="hs-identifier hs-type">r</span></a></span></span></span><span>
+</span><span id="line-97"></span><span id="destream"><span class="annot"><span class="annottext">destream :: Stream (ByteString m) m r -&gt; Stream (Of ByteString) m r
+</span><a href="Chainweb.TreeDB.Persist.html#destream"><span class="hs-identifier hs-var hs-var">destream</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall x. ByteString m x -&gt; m (Of ByteString x))
+-&gt; Stream (ByteString m) m r -&gt; Stream (Of ByteString) m r
+forall (m :: * -&gt; *) (f :: * -&gt; *) (g :: * -&gt; *) r.
+(Monad m, Functor f) =&gt;
+(forall x. f x -&gt; m (g x)) -&gt; Stream f m r -&gt; Stream g m r
+</span><span class="hs-identifier hs-var">S.mapped</span></span><span> </span><span class="annot"><span class="annottext">forall x. ByteString m x -&gt; m (Of ByteString x)
+forall (m :: * -&gt; *) r.
+Monad m =&gt;
+ByteString m r -&gt; m (Of ByteString r)
+</span><span class="hs-identifier hs-var">BS.toStrict</span></span><span>
+</span><span id="line-98"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#destream"><span class="hs-pragma hs-type">destream</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- | Reverse the base64 encoding and further decode from our custom encoding.</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- Throws a `TreeDbException` if either decoding step fails.</span><span>
+</span><span id="line-102"></span><span class="hs-comment">--</span><span>
+</span><span id="line-103"></span><span id="local-6989586621681472795"><span id="local-6989586621681472796"><span id="local-6989586621681472797"><span class="annot"><a href="Chainweb.TreeDB.Persist.html#decoded"><span class="hs-identifier hs-type">decoded</span></a></span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681472797"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Serialize</span></span><span> </span><span class="annot"><a href="#local-6989586621681472796"><span class="hs-identifier hs-type">e</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472797"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472795"><span class="hs-identifier hs-type">r</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681472796"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681472797"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472795"><span class="hs-identifier hs-type">r</span></a></span></span></span></span><span>
+</span><span id="line-108"></span><span id="decoded"><span class="annot"><span class="annottext">decoded :: Stream (Of ByteString) m r -&gt; Stream (Of e) m r
+</span><a href="Chainweb.TreeDB.Persist.html#decoded"><span class="hs-identifier hs-var hs-var">decoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; m e)
+-&gt; Stream (Of ByteString) m r -&gt; Stream (Of e) m r
+forall (m :: * -&gt; *) a b r.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Stream (Of a) m r -&gt; Stream (Of b) m r
+</span><span class="hs-identifier hs-var">S.mapM</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681472724"><span class="annot"><span class="annottext">e :: ByteString
+</span><a href="#local-6989586621681472724"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; m e) -&gt; (e -&gt; m e) -&gt; Either FilePath e -&gt; m e
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; m e
+forall a. a
+</span><a href="#local-6989586621681472722"><span class="hs-identifier hs-var">die</span></a></span><span> </span><span class="annot"><span class="annottext">e -&gt; m e
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Either FilePath e -&gt; m e) -&gt; Either FilePath e -&gt; m e
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either FilePath ByteString
+</span><span class="hs-identifier hs-var">B64U.decode</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681472724"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Either FilePath ByteString
+-&gt; (ByteString -&gt; Either FilePath e) -&gt; Either FilePath e
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either FilePath e
+forall a. Serialize a =&gt; ByteString -&gt; Either FilePath a
+</span><span class="hs-identifier hs-var">decode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-comment">-- TODO(colin): This should not just be `error`.</span><span>
+</span><span id="line-111"></span><span>    </span><span id="local-6989586621681472722"><span class="annot"><span class="annottext">die :: a
+</span><a href="#local-6989586621681472722"><span class="hs-identifier hs-var hs-var">die</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; a
+forall a. HasCallStack =&gt; FilePath -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Base-64 deserialization of persisted data failed.&quot;</span></span><span>
+</span><span id="line-112"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.Persist.html#decoded"><span class="hs-pragma hs-type">decoded</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-113"></span></pre></body></html>

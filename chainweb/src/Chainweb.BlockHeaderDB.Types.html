@@ -1,0 +1,614 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE MultiWayIf #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE TupleSections #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.BlockHeaderDB.Types</span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier">BlockHeaderDb</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier">RankedBlockHeader</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHash"><span class="hs-identifier">RankedBlockHash</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockRank"><span class="hs-identifier">BlockRank</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Function</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- internal imports</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS.RocksDB</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Numeric.Additive.html"><span class="hs-identifier">Numeric.Additive</span></a></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- Ranked Block Header</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span id="local-6989586621681485083"><span id="local-6989586621681485084"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="RankedBlockHeader"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-var">RankedBlockHeader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RankedBlockHeader"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-var">RankedBlockHeader</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_getRankedBlockHeader"><span class="annot"><span class="annottext">RankedBlockHeader -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_getRankedBlockHeader"><span class="hs-identifier hs-var hs-var">_getRankedBlockHeader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681485075"><span id="local-6989586621681485077"><span id="local-6989586621681485079"><span class="annot"><span class="annottext">Int -&gt; RankedBlockHeader -&gt; ShowS
+[RankedBlockHeader] -&gt; ShowS
+RankedBlockHeader -&gt; String
+(Int -&gt; RankedBlockHeader -&gt; ShowS)
+-&gt; (RankedBlockHeader -&gt; String)
+-&gt; ([RankedBlockHeader] -&gt; ShowS)
+-&gt; Show RankedBlockHeader
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [RankedBlockHeader] -&gt; ShowS
+$cshowList :: [RankedBlockHeader] -&gt; ShowS
+show :: RankedBlockHeader -&gt; String
+$cshow :: RankedBlockHeader -&gt; String
+showsPrec :: Int -&gt; RankedBlockHeader -&gt; ShowS
+$cshowsPrec :: Int -&gt; RankedBlockHeader -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. RankedBlockHeader -&gt; Rep RankedBlockHeader x)
+-&gt; (forall x. Rep RankedBlockHeader x -&gt; RankedBlockHeader)
+-&gt; Generic RankedBlockHeader
+forall x. Rep RankedBlockHeader x -&gt; RankedBlockHeader
+forall x. RankedBlockHeader -&gt; Rep RankedBlockHeader x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep RankedBlockHeader x -&gt; RankedBlockHeader
+$cfrom :: forall x. RankedBlockHeader -&gt; Rep RankedBlockHeader x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681485069"><span class="annot"><span class="annottext">RankedBlockHeader -&gt; ()
+(RankedBlockHeader -&gt; ()) -&gt; NFData RankedBlockHeader
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: RankedBlockHeader -&gt; ()
+$crnf :: RankedBlockHeader -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681485064"><span id="local-6989586621681485066"><span class="annot"><span class="annottext">Int -&gt; RankedBlockHeader -&gt; Int
+RankedBlockHeader -&gt; Int
+(Int -&gt; RankedBlockHeader -&gt; Int)
+-&gt; (RankedBlockHeader -&gt; Int) -&gt; Hashable RankedBlockHeader
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: RankedBlockHeader -&gt; Int
+$chash :: RankedBlockHeader -&gt; Int
+hashWithSalt :: Int -&gt; RankedBlockHeader -&gt; Int
+$chashWithSalt :: Int -&gt; RankedBlockHeader -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681485059"><span id="local-6989586621681485061"><span class="annot"><span class="annottext">RankedBlockHeader -&gt; RankedBlockHeader -&gt; Bool
+(RankedBlockHeader -&gt; RankedBlockHeader -&gt; Bool)
+-&gt; (RankedBlockHeader -&gt; RankedBlockHeader -&gt; Bool)
+-&gt; Eq RankedBlockHeader
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: RankedBlockHeader -&gt; RankedBlockHeader -&gt; Bool
+$c/= :: RankedBlockHeader -&gt; RankedBlockHeader -&gt; Bool
+== :: RankedBlockHeader -&gt; RankedBlockHeader -&gt; Bool
+$c== :: RankedBlockHeader -&gt; RankedBlockHeader -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681485050"><span id="local-6989586621681485052"><span id="local-6989586621681485054"><span id="local-6989586621681485056"><span class="annot"><span class="annottext">[RankedBlockHeader] -&gt; Encoding
+[RankedBlockHeader] -&gt; Value
+RankedBlockHeader -&gt; Encoding
+RankedBlockHeader -&gt; Value
+(RankedBlockHeader -&gt; Value)
+-&gt; (RankedBlockHeader -&gt; Encoding)
+-&gt; ([RankedBlockHeader] -&gt; Value)
+-&gt; ([RankedBlockHeader] -&gt; Encoding)
+-&gt; ToJSON RankedBlockHeader
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [RankedBlockHeader] -&gt; Encoding
+$ctoEncodingList :: [RankedBlockHeader] -&gt; Encoding
+toJSONList :: [RankedBlockHeader] -&gt; Value
+$ctoJSONList :: [RankedBlockHeader] -&gt; Value
+toEncoding :: RankedBlockHeader -&gt; Encoding
+$ctoEncoding :: RankedBlockHeader -&gt; Encoding
+toJSON :: RankedBlockHeader -&gt; Value
+$ctoJSON :: RankedBlockHeader -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681485045"><span id="local-6989586621681485047"><span class="annot"><span class="annottext">Value -&gt; Parser [RankedBlockHeader]
+Value -&gt; Parser RankedBlockHeader
+(Value -&gt; Parser RankedBlockHeader)
+-&gt; (Value -&gt; Parser [RankedBlockHeader])
+-&gt; FromJSON RankedBlockHeader
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [RankedBlockHeader]
+$cparseJSONList :: Value -&gt; Parser [RankedBlockHeader]
+parseJSON :: Value -&gt; Parser RankedBlockHeader
+$cparseJSON :: Value -&gt; Parser RankedBlockHeader
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681485041"><span class="annot"><a href="Chainweb.Version.html#HasChainwebVersion"><span class="hs-identifier hs-type">HasChainwebVersion</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-54"></span><span>    </span><span id="local-6989586621681485039"><span class="annot"><span class="annottext">_chainwebVersion :: RankedBlockHeader -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; ChainwebVersion)
+-&gt; (RankedBlockHeader -&gt; BlockHeader)
+-&gt; RankedBlockHeader
+-&gt; ChainwebVersion
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">RankedBlockHeader -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_getRankedBlockHeader"><span class="hs-identifier hs-var hs-var">_getRankedBlockHeader</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-pragma hs-type">_chainwebVersion</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681485034"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-58"></span><span>    </span><span id="local-6989586621681485032"><span class="annot"><span class="annottext">_chainId :: RankedBlockHeader -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; ChainId)
+-&gt; (RankedBlockHeader -&gt; BlockHeader)
+-&gt; RankedBlockHeader
+-&gt; ChainId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">RankedBlockHeader -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_getRankedBlockHeader"><span class="hs-identifier hs-var hs-var">_getRankedBlockHeader</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681485028"><span class="annot"><a href="Chainweb.Graph.html#HasChainGraph"><span class="hs-identifier hs-type">HasChainGraph</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-62"></span><span>    </span><span id="local-6989586621681485026"><span class="annot"><span class="annottext">_chainGraph :: RankedBlockHeader -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainGraph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; ChainGraph
+forall a. HasChainGraph a =&gt; a -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var">_chainGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; ChainGraph)
+-&gt; (RankedBlockHeader -&gt; BlockHeader)
+-&gt; RankedBlockHeader
+-&gt; ChainGraph
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">RankedBlockHeader -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_getRankedBlockHeader"><span class="hs-identifier hs-var hs-var">_getRankedBlockHeader</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-pragma hs-type">_chainGraph</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681485011"><span id="local-6989586621681485013"><span id="local-6989586621681485015"><span id="local-6989586621681485017"><span id="local-6989586621681485019"><span id="local-6989586621681485021"><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621681485009"><span class="annot"><span class="annottext">compare :: RankedBlockHeader -&gt; RankedBlockHeader -&gt; Ordering
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">compare</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BlockHeight, BlockHeader)
+-&gt; (BlockHeight, BlockHeader) -&gt; Ordering
+forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
+</span><span class="hs-identifier hs-var">compare</span></span><span> </span><span class="annot"><span class="annottext">((BlockHeight, BlockHeader)
+ -&gt; (BlockHeight, BlockHeader) -&gt; Ordering)
+-&gt; (RankedBlockHeader -&gt; (BlockHeight, BlockHeader))
+-&gt; RankedBlockHeader
+-&gt; RankedBlockHeader
+-&gt; Ordering
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHeight
+</span><a href="Chainweb.BlockHeader.html#_blockHeight"><span class="hs-identifier hs-var hs-var">_blockHeight</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; BlockHeight)
+-&gt; (BlockHeader -&gt; BlockHeader)
+-&gt; BlockHeader
+-&gt; (BlockHeight, BlockHeader)
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHeader
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; (BlockHeight, BlockHeader))
+-&gt; (RankedBlockHeader -&gt; BlockHeader)
+-&gt; RankedBlockHeader
+-&gt; (BlockHeight, BlockHeader)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">RankedBlockHeader -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_getRankedBlockHeader"><span class="hs-identifier hs-var hs-var">_getRankedBlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">compare</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- Ranked Block Hash</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span id="local-6989586621681485002"><span id="local-6989586621681485003"></span></span><span class="hs-keyword">data</span><span> </span><span id="RankedBlockHash"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHash"><span class="hs-identifier hs-var">RankedBlockHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RankedBlockHash"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHash"><span class="hs-identifier hs-var">RankedBlockHash</span></a></span></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_rankedBlockHashHeight"><span class="annot"><span class="annottext">RankedBlockHash -&gt; BlockHeight
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_rankedBlockHashHeight"><span class="hs-identifier hs-var hs-var">_rankedBlockHashHeight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_rankedBlockHash"><span class="annot"><span class="annottext">RankedBlockHash -&gt; BlockHash
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_rankedBlockHash"><span class="hs-identifier hs-var hs-var">_rankedBlockHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681484993"><span id="local-6989586621681484995"><span id="local-6989586621681484997"><span class="annot"><span class="annottext">Int -&gt; RankedBlockHash -&gt; ShowS
+[RankedBlockHash] -&gt; ShowS
+RankedBlockHash -&gt; String
+(Int -&gt; RankedBlockHash -&gt; ShowS)
+-&gt; (RankedBlockHash -&gt; String)
+-&gt; ([RankedBlockHash] -&gt; ShowS)
+-&gt; Show RankedBlockHash
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [RankedBlockHash] -&gt; ShowS
+$cshowList :: [RankedBlockHash] -&gt; ShowS
+show :: RankedBlockHash -&gt; String
+$cshow :: RankedBlockHash -&gt; String
+showsPrec :: Int -&gt; RankedBlockHash -&gt; ShowS
+$cshowsPrec :: Int -&gt; RankedBlockHash -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484989"><span id="local-6989586621681484991"><span class="annot"><span class="annottext">RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+(RankedBlockHash -&gt; RankedBlockHash -&gt; Bool)
+-&gt; (RankedBlockHash -&gt; RankedBlockHash -&gt; Bool)
+-&gt; Eq RankedBlockHash
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+$c/= :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+== :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+$c== :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484974"><span id="local-6989586621681484976"><span id="local-6989586621681484978"><span id="local-6989586621681484980"><span id="local-6989586621681484982"><span id="local-6989586621681484984"><span id="local-6989586621681484986"><span class="annot"><span class="annottext">Eq RankedBlockHash
+Eq RankedBlockHash =&gt;
+(RankedBlockHash -&gt; RankedBlockHash -&gt; Ordering)
+-&gt; (RankedBlockHash -&gt; RankedBlockHash -&gt; Bool)
+-&gt; (RankedBlockHash -&gt; RankedBlockHash -&gt; Bool)
+-&gt; (RankedBlockHash -&gt; RankedBlockHash -&gt; Bool)
+-&gt; (RankedBlockHash -&gt; RankedBlockHash -&gt; Bool)
+-&gt; (RankedBlockHash -&gt; RankedBlockHash -&gt; RankedBlockHash)
+-&gt; (RankedBlockHash -&gt; RankedBlockHash -&gt; RankedBlockHash)
+-&gt; Ord RankedBlockHash
+RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+RankedBlockHash -&gt; RankedBlockHash -&gt; Ordering
+RankedBlockHash -&gt; RankedBlockHash -&gt; RankedBlockHash
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: RankedBlockHash -&gt; RankedBlockHash -&gt; RankedBlockHash
+$cmin :: RankedBlockHash -&gt; RankedBlockHash -&gt; RankedBlockHash
+max :: RankedBlockHash -&gt; RankedBlockHash -&gt; RankedBlockHash
+$cmax :: RankedBlockHash -&gt; RankedBlockHash -&gt; RankedBlockHash
+&gt;= :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+$c&gt;= :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+&gt; :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+$c&gt; :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+&lt;= :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+$c&lt;= :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+&lt; :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+$c&lt; :: RankedBlockHash -&gt; RankedBlockHash -&gt; Bool
+compare :: RankedBlockHash -&gt; RankedBlockHash -&gt; Ordering
+$ccompare :: RankedBlockHash -&gt; RankedBlockHash -&gt; Ordering
+$cp1Ord :: Eq RankedBlockHash
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. RankedBlockHash -&gt; Rep RankedBlockHash x)
+-&gt; (forall x. Rep RankedBlockHash x -&gt; RankedBlockHash)
+-&gt; Generic RankedBlockHash
+forall x. Rep RankedBlockHash x -&gt; RankedBlockHash
+forall x. RankedBlockHash -&gt; Rep RankedBlockHash x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep RankedBlockHash x -&gt; RankedBlockHash
+$cfrom :: forall x. RankedBlockHash -&gt; Rep RankedBlockHash x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681484968"><span id="local-6989586621681484970"><span class="annot"><span class="annottext">Int -&gt; RankedBlockHash -&gt; Int
+RankedBlockHash -&gt; Int
+(Int -&gt; RankedBlockHash -&gt; Int)
+-&gt; (RankedBlockHash -&gt; Int) -&gt; Hashable RankedBlockHash
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: RankedBlockHash -&gt; Int
+$chash :: RankedBlockHash -&gt; Int
+hashWithSalt :: Int -&gt; RankedBlockHash -&gt; Int
+$chashWithSalt :: Int -&gt; RankedBlockHash -&gt; Int
+</span><a href="#local-6989586621681484968"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484966"><span class="annot"><span class="annottext">RankedBlockHash -&gt; ()
+(RankedBlockHash -&gt; ()) -&gt; NFData RankedBlockHash
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: RankedBlockHash -&gt; ()
+$crnf :: RankedBlockHash -&gt; ()
+</span><a href="#local-6989586621681484966"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCasValue</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="CasKeyType"><span class="annot"><span class="hs-identifier hs-var">CasKeyType</span></span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHash"><span class="hs-identifier hs-type">RankedBlockHash</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span id="local-6989586621681484962"><span class="annot"><span class="annottext">casKey :: RankedBlockHeader -&gt; CasKeyType RankedBlockHeader
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">casKey</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span><span> </span><span id="local-6989586621681484960"><span class="annot"><span class="annottext">bh :: BlockHeader
+</span><a href="#local-6989586621681484960"><span class="hs-identifier hs-var">bh</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeight -&gt; BlockHash -&gt; RankedBlockHash
+</span><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHash"><span class="hs-identifier hs-var">RankedBlockHash</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHeight
+</span><a href="Chainweb.BlockHeader.html#_blockHeight"><span class="hs-identifier hs-var hs-var">_blockHeight</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681484960"><span class="hs-identifier hs-var">bh</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHash
+</span><a href="Chainweb.BlockHeader.html#_blockHash"><span class="hs-identifier hs-var hs-var">_blockHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681484960"><span class="hs-identifier hs-var">bh</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">casKey</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-86"></span><span class="hs-comment">-- BlockRank</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span id="local-6989586621681484957"><span id="local-6989586621681484958"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="BlockRank"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockRank"><span class="hs-identifier hs-var">BlockRank</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BlockRank"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockRank"><span class="hs-identifier hs-var">BlockRank</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_getBlockRank"><span class="annot"><span class="annottext">BlockRank -&gt; BlockHeight
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_getBlockRank"><span class="hs-identifier hs-var hs-var">_getBlockRank</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681484949"><span id="local-6989586621681484951"><span id="local-6989586621681484953"><span class="annot"><span class="annottext">Int -&gt; BlockRank -&gt; ShowS
+[BlockRank] -&gt; ShowS
+BlockRank -&gt; String
+(Int -&gt; BlockRank -&gt; ShowS)
+-&gt; (BlockRank -&gt; String)
+-&gt; ([BlockRank] -&gt; ShowS)
+-&gt; Show BlockRank
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [BlockRank] -&gt; ShowS
+$cshowList :: [BlockRank] -&gt; ShowS
+show :: BlockRank -&gt; String
+$cshow :: BlockRank -&gt; String
+showsPrec :: Int -&gt; BlockRank -&gt; ShowS
+$cshowsPrec :: Int -&gt; BlockRank -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. BlockRank -&gt; Rep BlockRank x)
+-&gt; (forall x. Rep BlockRank x -&gt; BlockRank) -&gt; Generic BlockRank
+forall x. Rep BlockRank x -&gt; BlockRank
+forall x. BlockRank -&gt; Rep BlockRank x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep BlockRank x -&gt; BlockRank
+$cfrom :: forall x. BlockRank -&gt; Rep BlockRank x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681484945"><span class="annot"><span class="annottext">BlockRank -&gt; ()
+(BlockRank -&gt; ()) -&gt; NFData BlockRank
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: BlockRank -&gt; ()
+$crnf :: BlockRank -&gt; ()
+</span><a href="#local-6989586621681484945"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span>
+</span><span id="line-92"></span><span>        </span><span class="hs-special">(</span><span> </span><span id="local-6989586621681484941"><span id="local-6989586621681484943"><span class="annot"><span class="annottext">BlockRank -&gt; BlockRank -&gt; Bool
+(BlockRank -&gt; BlockRank -&gt; Bool)
+-&gt; (BlockRank -&gt; BlockRank -&gt; Bool) -&gt; Eq BlockRank
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: BlockRank -&gt; BlockRank -&gt; Bool
+$c/= :: BlockRank -&gt; BlockRank -&gt; Bool
+== :: BlockRank -&gt; BlockRank -&gt; Bool
+$c== :: BlockRank -&gt; BlockRank -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484926"><span id="local-6989586621681484928"><span id="local-6989586621681484930"><span id="local-6989586621681484932"><span id="local-6989586621681484934"><span id="local-6989586621681484936"><span id="local-6989586621681484938"><span class="annot"><span class="annottext">Eq BlockRank
+Eq BlockRank =&gt;
+(BlockRank -&gt; BlockRank -&gt; Ordering)
+-&gt; (BlockRank -&gt; BlockRank -&gt; Bool)
+-&gt; (BlockRank -&gt; BlockRank -&gt; Bool)
+-&gt; (BlockRank -&gt; BlockRank -&gt; Bool)
+-&gt; (BlockRank -&gt; BlockRank -&gt; Bool)
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; Ord BlockRank
+BlockRank -&gt; BlockRank -&gt; Bool
+BlockRank -&gt; BlockRank -&gt; Ordering
+BlockRank -&gt; BlockRank -&gt; BlockRank
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$cmin :: BlockRank -&gt; BlockRank -&gt; BlockRank
+max :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$cmax :: BlockRank -&gt; BlockRank -&gt; BlockRank
+&gt;= :: BlockRank -&gt; BlockRank -&gt; Bool
+$c&gt;= :: BlockRank -&gt; BlockRank -&gt; Bool
+&gt; :: BlockRank -&gt; BlockRank -&gt; Bool
+$c&gt; :: BlockRank -&gt; BlockRank -&gt; Bool
+&lt;= :: BlockRank -&gt; BlockRank -&gt; Bool
+$c&lt;= :: BlockRank -&gt; BlockRank -&gt; Bool
+&lt; :: BlockRank -&gt; BlockRank -&gt; Bool
+$c&lt; :: BlockRank -&gt; BlockRank -&gt; Bool
+compare :: BlockRank -&gt; BlockRank -&gt; Ordering
+$ccompare :: BlockRank -&gt; BlockRank -&gt; Ordering
+$cp1Ord :: Eq BlockRank
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484922"><span id="local-6989586621681484924"><span class="annot"><span class="annottext">Int -&gt; BlockRank -&gt; Int
+BlockRank -&gt; Int
+(Int -&gt; BlockRank -&gt; Int)
+-&gt; (BlockRank -&gt; Int) -&gt; Hashable BlockRank
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: BlockRank -&gt; Int
+$chash :: BlockRank -&gt; Int
+hashWithSalt :: Int -&gt; BlockRank -&gt; Int
+$chashWithSalt :: Int -&gt; BlockRank -&gt; Int
+</span><a href="#local-6989586621681484922"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484914"><span id="local-6989586621681484916"><span id="local-6989586621681484918"><span id="local-6989586621681484920"><span class="annot"><span class="annottext">[BlockRank] -&gt; Encoding
+[BlockRank] -&gt; Value
+BlockRank -&gt; Encoding
+BlockRank -&gt; Value
+(BlockRank -&gt; Value)
+-&gt; (BlockRank -&gt; Encoding)
+-&gt; ([BlockRank] -&gt; Value)
+-&gt; ([BlockRank] -&gt; Encoding)
+-&gt; ToJSON BlockRank
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [BlockRank] -&gt; Encoding
+$ctoEncodingList :: [BlockRank] -&gt; Encoding
+toJSONList :: [BlockRank] -&gt; Value
+$ctoJSONList :: [BlockRank] -&gt; Value
+toEncoding :: BlockRank -&gt; Encoding
+$ctoEncoding :: BlockRank -&gt; Encoding
+toJSON :: BlockRank -&gt; Value
+$ctoJSON :: BlockRank -&gt; Value
+</span><a href="#local-6989586621681484914"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484910"><span id="local-6989586621681484912"><span class="annot"><span class="annottext">Value -&gt; Parser [BlockRank]
+Value -&gt; Parser BlockRank
+(Value -&gt; Parser BlockRank)
+-&gt; (Value -&gt; Parser [BlockRank]) -&gt; FromJSON BlockRank
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [BlockRank]
+$cparseJSONList :: Value -&gt; Parser [BlockRank]
+parseJSON :: Value -&gt; Parser BlockRank
+$cparseJSON :: Value -&gt; Parser BlockRank
+</span><a href="#local-6989586621681484910"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></a></span></span></span><span>
+</span><span id="line-93"></span><span>        </span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484908"><span class="annot"><span class="annottext">BlockRank -&gt; BlockRank -&gt; BlockRank
+(BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; AdditiveSemigroup BlockRank
+forall g. (g -&gt; g -&gt; g) -&gt; AdditiveSemigroup g
+plus :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$cplus :: BlockRank -&gt; BlockRank -&gt; BlockRank
+</span><a href="Numeric.Additive.html#C%3AAdditiveSemigroup"><span class="hs-identifier hs-var hs-var hs-var hs-var">AdditiveSemigroup</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">AdditiveSemigroup BlockRank
+AdditiveSemigroup BlockRank =&gt; AdditiveAbelianSemigroup BlockRank
+forall g. AdditiveSemigroup g =&gt; AdditiveAbelianSemigroup g
+</span><a href="Numeric.Additive.html#C%3AAdditiveAbelianSemigroup"><span class="hs-identifier hs-var hs-var hs-var">AdditiveAbelianSemigroup</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484902"><span class="annot"><span class="annottext">AdditiveSemigroup BlockRank
+BlockRank
+AdditiveSemigroup BlockRank =&gt;
+BlockRank -&gt; AdditiveMonoid BlockRank
+forall g. AdditiveSemigroup g =&gt; g -&gt; AdditiveMonoid g
+zero :: BlockRank
+$czero :: BlockRank
+$cp1AdditiveMonoid :: AdditiveSemigroup BlockRank
+</span><a href="Numeric.Additive.html#C%3AAdditiveMonoid"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">AdditiveMonoid</span></a></span></span><span>
+</span><span id="line-94"></span><span>        </span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484887"><span id="local-6989586621681484889"><span id="local-6989586621681484891"><span id="local-6989586621681484893"><span id="local-6989586621681484895"><span id="local-6989586621681484897"><span id="local-6989586621681484899"><span class="annot"><span class="annottext">Integer -&gt; BlockRank
+BlockRank -&gt; BlockRank
+BlockRank -&gt; BlockRank -&gt; BlockRank
+(BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank)
+-&gt; (Integer -&gt; BlockRank)
+-&gt; Num BlockRank
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Integer -&gt; a)
+-&gt; Num a
+fromInteger :: Integer -&gt; BlockRank
+$cfromInteger :: Integer -&gt; BlockRank
+signum :: BlockRank -&gt; BlockRank
+$csignum :: BlockRank -&gt; BlockRank
+abs :: BlockRank -&gt; BlockRank
+$cabs :: BlockRank -&gt; BlockRank
+negate :: BlockRank -&gt; BlockRank
+$cnegate :: BlockRank -&gt; BlockRank
+* :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$c* :: BlockRank -&gt; BlockRank -&gt; BlockRank
+- :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$c- :: BlockRank -&gt; BlockRank -&gt; BlockRank
++ :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$c+ :: BlockRank -&gt; BlockRank -&gt; BlockRank
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484870"><span id="local-6989586621681484872"><span id="local-6989586621681484874"><span id="local-6989586621681484876"><span id="local-6989586621681484878"><span id="local-6989586621681484880"><span id="local-6989586621681484882"><span class="annot"><span class="annottext">Enum BlockRank
+Real BlockRank
+(Real BlockRank, Enum BlockRank) =&gt;
+(BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank -&gt; (BlockRank, BlockRank))
+-&gt; (BlockRank -&gt; BlockRank -&gt; (BlockRank, BlockRank))
+-&gt; (BlockRank -&gt; Integer)
+-&gt; Integral BlockRank
+BlockRank -&gt; Integer
+BlockRank -&gt; BlockRank -&gt; (BlockRank, BlockRank)
+BlockRank -&gt; BlockRank -&gt; BlockRank
+forall a.
+(Real a, Enum a) =&gt;
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; Integer)
+-&gt; Integral a
+toInteger :: BlockRank -&gt; Integer
+$ctoInteger :: BlockRank -&gt; Integer
+divMod :: BlockRank -&gt; BlockRank -&gt; (BlockRank, BlockRank)
+$cdivMod :: BlockRank -&gt; BlockRank -&gt; (BlockRank, BlockRank)
+quotRem :: BlockRank -&gt; BlockRank -&gt; (BlockRank, BlockRank)
+$cquotRem :: BlockRank -&gt; BlockRank -&gt; (BlockRank, BlockRank)
+mod :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$cmod :: BlockRank -&gt; BlockRank -&gt; BlockRank
+div :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$cdiv :: BlockRank -&gt; BlockRank -&gt; BlockRank
+rem :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$crem :: BlockRank -&gt; BlockRank -&gt; BlockRank
+quot :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$cquot :: BlockRank -&gt; BlockRank -&gt; BlockRank
+$cp2Integral :: Enum BlockRank
+$cp1Integral :: Real BlockRank
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Integral</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484865"><span class="annot"><span class="annottext">Num BlockRank
+Ord BlockRank
+(Num BlockRank, Ord BlockRank) =&gt;
+(BlockRank -&gt; Rational) -&gt; Real BlockRank
+BlockRank -&gt; Rational
+forall a. (Num a, Ord a) =&gt; (a -&gt; Rational) -&gt; Real a
+toRational :: BlockRank -&gt; Rational
+$ctoRational :: BlockRank -&gt; Rational
+$cp2Real :: Ord BlockRank
+$cp1Real :: Num BlockRank
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484848"><span id="local-6989586621681484850"><span id="local-6989586621681484852"><span id="local-6989586621681484854"><span id="local-6989586621681484856"><span id="local-6989586621681484858"><span id="local-6989586621681484860"><span id="local-6989586621681484862"><span class="annot"><span class="annottext">Int -&gt; BlockRank
+BlockRank -&gt; Int
+BlockRank -&gt; [BlockRank]
+BlockRank -&gt; BlockRank
+BlockRank -&gt; BlockRank -&gt; [BlockRank]
+BlockRank -&gt; BlockRank -&gt; BlockRank -&gt; [BlockRank]
+(BlockRank -&gt; BlockRank)
+-&gt; (BlockRank -&gt; BlockRank)
+-&gt; (Int -&gt; BlockRank)
+-&gt; (BlockRank -&gt; Int)
+-&gt; (BlockRank -&gt; [BlockRank])
+-&gt; (BlockRank -&gt; BlockRank -&gt; [BlockRank])
+-&gt; (BlockRank -&gt; BlockRank -&gt; [BlockRank])
+-&gt; (BlockRank -&gt; BlockRank -&gt; BlockRank -&gt; [BlockRank])
+-&gt; Enum BlockRank
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+enumFromThenTo :: BlockRank -&gt; BlockRank -&gt; BlockRank -&gt; [BlockRank]
+$cenumFromThenTo :: BlockRank -&gt; BlockRank -&gt; BlockRank -&gt; [BlockRank]
+enumFromTo :: BlockRank -&gt; BlockRank -&gt; [BlockRank]
+$cenumFromTo :: BlockRank -&gt; BlockRank -&gt; [BlockRank]
+enumFromThen :: BlockRank -&gt; BlockRank -&gt; [BlockRank]
+$cenumFromThen :: BlockRank -&gt; BlockRank -&gt; [BlockRank]
+enumFrom :: BlockRank -&gt; [BlockRank]
+$cenumFrom :: BlockRank -&gt; [BlockRank]
+fromEnum :: BlockRank -&gt; Int
+$cfromEnum :: BlockRank -&gt; Int
+toEnum :: Int -&gt; BlockRank
+$ctoEnum :: Int -&gt; BlockRank
+pred :: BlockRank -&gt; BlockRank
+$cpred :: BlockRank -&gt; BlockRank
+succ :: BlockRank -&gt; BlockRank
+$csucc :: BlockRank -&gt; BlockRank
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-95"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-keyword">data</span><span> </span><span id="BlockHeaderDb"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-var">BlockHeaderDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BlockHeaderDb"><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-var">BlockHeaderDb</span></a></span></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_chainDbId"><span class="annot"><span class="annottext">BlockHeaderDb -&gt; ChainId
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_chainDbId"><span class="hs-identifier hs-var hs-var">_chainDbId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainDbChainwebVersion"><span class="annot"><span class="annottext">BlockHeaderDb -&gt; ChainwebVersion
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_chainDbChainwebVersion"><span class="hs-identifier hs-var hs-var">_chainDbChainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainDbCas"><span class="annot"><span class="annottext">BlockHeaderDb -&gt; RocksDbTable RankedBlockHash RankedBlockHeader
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_chainDbCas"><span class="hs-identifier hs-var hs-var">_chainDbCas</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RocksDbTable</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHash"><span class="hs-identifier hs-type">RankedBlockHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#RankedBlockHeader"><span class="hs-identifier hs-type">RankedBlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>        </span><span class="hs-comment">-- ^ Ranked block hashes provide fast access and iterating  by block</span><span>
+</span><span id="line-102"></span><span>        </span><span class="hs-comment">-- height. Blocks of similar height are stored and cached closely</span><span>
+</span><span id="line-103"></span><span>        </span><span class="hs-comment">-- together. This table is an instance of 'IsCas'.</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainDbRankTable"><span class="annot"><span class="annottext">BlockHeaderDb -&gt; RocksDbTable BlockHash BlockHeight
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_chainDbRankTable"><span class="hs-identifier hs-var hs-var">_chainDbRankTable</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RocksDbTable</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>        </span><span class="hs-comment">-- ^ This index supports lookup of a block hash for which the height</span><span>
+</span><span id="line-107"></span><span>        </span><span class="hs-comment">-- isn't known</span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681484839"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-111"></span><span>    </span><span id="local-6989586621681484838"><span class="annot"><span class="annottext">_chainId :: BlockHeaderDb -&gt; ChainId
+</span><a href="#local-6989586621681484838"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb -&gt; ChainId
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_chainDbId"><span class="hs-identifier hs-var hs-var">_chainDbId</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681484835"><span class="annot"><a href="Chainweb.Version.html#HasChainwebVersion"><span class="hs-identifier hs-type">HasChainwebVersion</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-115"></span><span>    </span><span id="local-6989586621681484834"><span class="annot"><span class="annottext">_chainwebVersion :: BlockHeaderDb -&gt; ChainwebVersion
+</span><a href="#local-6989586621681484834"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb -&gt; ChainwebVersion
+</span><a href="Chainweb.BlockHeaderDB.Types.html#_chainDbChainwebVersion"><span class="hs-identifier hs-var hs-var">_chainDbChainwebVersion</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-pragma hs-type">_chainwebVersion</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-117"></span></pre></body></html>

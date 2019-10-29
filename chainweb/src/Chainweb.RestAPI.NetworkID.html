@@ -1,0 +1,496 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="%24con2tag_8os4TUv9YcnHHktnB8hKr5"></span><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Module: Chainweb.RestAPI.NetworkID</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-20"></span><span class="hs-comment">--</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-22"></span><span class="hs-comment">--</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span><span>
+</span><span id="line-24"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier">NetworkId</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier">networkIdToText</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdFromText"><span class="hs-identifier">networkIdFromText</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#unsafeNetworkIdFromText"><span class="hs-identifier">unsafeNetworkIdFromText</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#pNetworkId"><span class="hs-identifier">pNetworkId</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Typelevel NetworkId</span></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier">NetworkIdT</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeNetworkIdT"><span class="hs-identifier">SomeNetworkIdT</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#someNetworkIdVal"><span class="hs-identifier">someNetworkIdVal</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#KnownNetworkId"><span class="hs-identifier">KnownNetworkId</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="annot"><span class="hs-comment">-- * Singletons</span></span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier">Sing</span></a></span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SChainNetwork"><span class="hs-identifier">SChainNetwork</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SMempoolNetwork"><span class="hs-identifier">SMempoolNetwork</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SCutNetwork"><span class="hs-identifier">SCutNetwork</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SNetwork"><span class="hs-identifier">SNetwork</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Configuration.Utils</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span class="hs-cpp">
+#if !MIN_VERSION_base(4,11,0)
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Semigroup</span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">option</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Stack</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HasCallStack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>  </span><span class="hs-comment">-- Arbitrary V4.UUID</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- Internal imports</span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#check"><span class="hs-identifier">check</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Singletons.html"><span class="hs-identifier">Data.Singletons</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- Network ID</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span id="local-6989586621681475352"><span id="local-6989586621681475353"></span></span><span class="hs-keyword">data</span><span> </span><span id="NetworkId"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-var">NetworkId</span></a></span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span id="ChainNetwork"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-var">ChainNetwork</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span id="MempoolNetwork"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-var">MempoolNetwork</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span id="CutNetwork"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-var">CutNetwork</span></a></span></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475343"><span id="local-6989586621681475345"><span id="local-6989586621681475347"><span class="annot"><span class="annottext">Int -&gt; NetworkId -&gt; ShowS
+[NetworkId] -&gt; ShowS
+NetworkId -&gt; String
+(Int -&gt; NetworkId -&gt; ShowS)
+-&gt; (NetworkId -&gt; String)
+-&gt; ([NetworkId] -&gt; ShowS)
+-&gt; Show NetworkId
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [NetworkId] -&gt; ShowS
+$cshowList :: [NetworkId] -&gt; ShowS
+show :: NetworkId -&gt; String
+$cshow :: NetworkId -&gt; String
+showsPrec :: Int -&gt; NetworkId -&gt; ShowS
+$cshowsPrec :: Int -&gt; NetworkId -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681475338"><span id="local-6989586621681475340"><span class="annot"><span class="annottext">NetworkId -&gt; NetworkId -&gt; Bool
+(NetworkId -&gt; NetworkId -&gt; Bool)
+-&gt; (NetworkId -&gt; NetworkId -&gt; Bool) -&gt; Eq NetworkId
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: NetworkId -&gt; NetworkId -&gt; Bool
+$c/= :: NetworkId -&gt; NetworkId -&gt; Bool
+== :: NetworkId -&gt; NetworkId -&gt; Bool
+$c== :: NetworkId -&gt; NetworkId -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681475322"><span id="local-6989586621681475324"><span id="local-6989586621681475326"><span id="local-6989586621681475328"><span id="local-6989586621681475330"><span id="local-6989586621681475332"><span id="local-6989586621681475334"><span class="annot"><span class="annottext">Eq NetworkId
+Eq NetworkId =&gt;
+(NetworkId -&gt; NetworkId -&gt; Ordering)
+-&gt; (NetworkId -&gt; NetworkId -&gt; Bool)
+-&gt; (NetworkId -&gt; NetworkId -&gt; Bool)
+-&gt; (NetworkId -&gt; NetworkId -&gt; Bool)
+-&gt; (NetworkId -&gt; NetworkId -&gt; Bool)
+-&gt; (NetworkId -&gt; NetworkId -&gt; NetworkId)
+-&gt; (NetworkId -&gt; NetworkId -&gt; NetworkId)
+-&gt; Ord NetworkId
+NetworkId -&gt; NetworkId -&gt; Bool
+NetworkId -&gt; NetworkId -&gt; Ordering
+NetworkId -&gt; NetworkId -&gt; NetworkId
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: NetworkId -&gt; NetworkId -&gt; NetworkId
+$cmin :: NetworkId -&gt; NetworkId -&gt; NetworkId
+max :: NetworkId -&gt; NetworkId -&gt; NetworkId
+$cmax :: NetworkId -&gt; NetworkId -&gt; NetworkId
+&gt;= :: NetworkId -&gt; NetworkId -&gt; Bool
+$c&gt;= :: NetworkId -&gt; NetworkId -&gt; Bool
+&gt; :: NetworkId -&gt; NetworkId -&gt; Bool
+$c&gt; :: NetworkId -&gt; NetworkId -&gt; Bool
+&lt;= :: NetworkId -&gt; NetworkId -&gt; Bool
+$c&lt;= :: NetworkId -&gt; NetworkId -&gt; Bool
+&lt; :: NetworkId -&gt; NetworkId -&gt; Bool
+$c&lt; :: NetworkId -&gt; NetworkId -&gt; Bool
+compare :: NetworkId -&gt; NetworkId -&gt; Ordering
+$ccompare :: NetworkId -&gt; NetworkId -&gt; Ordering
+$cp1Ord :: Eq NetworkId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. NetworkId -&gt; Rep NetworkId x)
+-&gt; (forall x. Rep NetworkId x -&gt; NetworkId) -&gt; Generic NetworkId
+forall x. Rep NetworkId x -&gt; NetworkId
+forall x. NetworkId -&gt; Rep NetworkId x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep NetworkId x -&gt; NetworkId
+$cfrom :: forall x. NetworkId -&gt; Rep NetworkId x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475314"><span id="local-6989586621681475316"><span class="annot"><span class="annottext">Int -&gt; NetworkId -&gt; Int
+NetworkId -&gt; Int
+(Int -&gt; NetworkId -&gt; Int)
+-&gt; (NetworkId -&gt; Int) -&gt; Hashable NetworkId
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: NetworkId -&gt; Int
+$chash :: NetworkId -&gt; Int
+hashWithSalt :: Int -&gt; NetworkId -&gt; Int
+$chashWithSalt :: Int -&gt; NetworkId -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681475311"><span class="annot"><span class="annottext">NetworkId -&gt; ()
+(NetworkId -&gt; ()) -&gt; NFData NetworkId
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: NetworkId -&gt; ()
+$crnf :: NetworkId -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier hs-type">networkIdToText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-78"></span><span id="networkIdToText"><span class="annot"><span class="annottext">networkIdToText :: NetworkId -&gt; Text
+</span><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier hs-var hs-var">networkIdToText</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-type">CutNetwork</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;cut&quot;</span></span><span>
+</span><span id="line-79"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier hs-var">networkIdToText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-type">ChainNetwork</span></a></span><span> </span><span id="local-6989586621681475309"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681475309"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;chain/&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Text
+</span><a href="Chainweb.ChainId.html#chainIdToText"><span class="hs-identifier hs-var">chainIdToText</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681475309"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-80"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier hs-var">networkIdToText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-type">MempoolNetwork</span></a></span><span> </span><span id="local-6989586621681475307"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681475307"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;mempool/&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Text
+</span><a href="Chainweb.ChainId.html#chainIdToText"><span class="hs-identifier hs-var">chainIdToText</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681475307"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-81"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-pragma hs-type">networkIdToText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span id="local-6989586621681475436"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdFromText"><span class="hs-identifier hs-type">networkIdFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681475436"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681475436"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span></span><span>
+</span><span id="line-84"></span><span id="networkIdFromText"><span class="annot"><span class="annottext">networkIdFromText :: Text -&gt; m NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#networkIdFromText"><span class="hs-identifier hs-var hs-var">networkIdFromText</span></a></span></span><span> </span><span class="hs-string">&quot;cut&quot;</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; m NetworkId
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-var">CutNetwork</span></a></span><span>
+</span><span id="line-85"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdFromText"><span class="hs-identifier hs-var">networkIdFromText</span></a></span><span> </span><span id="local-6989586621681475306"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681475306"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; Text -&gt; (Text, Text)
+</span><span class="hs-identifier hs-var">T.break</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-char">'/'</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475306"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681475304"><span class="annot"><span class="annottext">a :: Text
+</span><a href="#local-6989586621681475304"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681475303"><span class="annot"><span class="annottext">b :: Text
+</span><a href="#local-6989586621681475303"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475304"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-string">&quot;chain&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-var">ChainNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; NetworkId) -&gt; m ChainId -&gt; m NetworkId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; m ChainId
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-identifier hs-var">chainIdFromText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.drop</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475303"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475304"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-var">MempoolNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; NetworkId) -&gt; m ChainId -&gt; m NetworkId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; m ChainId
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-identifier hs-var">chainIdFromText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.drop</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475303"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.null</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475303"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EncodingException -&gt; m NetworkId
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m NetworkId)
+-&gt; (Text -&gt; EncodingException) -&gt; Text -&gt; m NetworkId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#TextFormatException"><span class="hs-identifier hs-var">TextFormatException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m NetworkId) -&gt; Text -&gt; m NetworkId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;missing '/' in network id: \&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475306"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;\&quot;.&quot;</span></span><span>
+</span><span id="line-90"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EncodingException -&gt; m NetworkId
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m NetworkId)
+-&gt; EncodingException -&gt; m NetworkId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#TextFormatException"><span class="hs-identifier hs-var">TextFormatException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; EncodingException) -&gt; Text -&gt; EncodingException
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;unrecognized network id: \&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681475306"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;\&quot;.&quot;</span></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#unsafeNetworkIdFromText"><span class="hs-identifier hs-type">unsafeNetworkIdFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasCallStack</span></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span>
+</span><span id="line-93"></span><span id="unsafeNetworkIdFromText"><span class="annot"><span class="annottext">unsafeNetworkIdFromText :: Text -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#unsafeNetworkIdFromText"><span class="hs-identifier hs-var hs-var">unsafeNetworkIdFromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe NetworkId -&gt; NetworkId
+forall a. HasCallStack =&gt; Maybe a -&gt; a
+</span><a href="Chainweb.Utils.html#fromJuste"><span class="hs-identifier hs-var">fromJuste</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe NetworkId -&gt; NetworkId)
+-&gt; (Text -&gt; Maybe NetworkId) -&gt; Text -&gt; NetworkId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe NetworkId
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#networkIdFromText"><span class="hs-identifier hs-var">networkIdFromText</span></a></span><span>
+</span><span id="line-94"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#unsafeNetworkIdFromText"><span class="hs-pragma hs-type">unsafeNetworkIdFromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681475288"><span id="local-6989586621681475290"><span id="local-6989586621681475292"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-97"></span><span>    </span><span id="local-6989586621681475286"><span class="annot"><span class="annottext">toJSON :: NetworkId -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Value) -&gt; (NetworkId -&gt; Text) -&gt; NetworkId -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Text
+</span><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier hs-var">networkIdToText</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSON</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681475282"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>    </span><span id="local-6989586621681475280"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser NetworkId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Value -&gt; Parser NetworkId
+forall a. HasTextRepresentation a =&gt; String -&gt; Value -&gt; Parser a
+</span><a href="Chainweb.Utils.html#parseJsonFromText"><span class="hs-identifier hs-var">parseJsonFromText</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;NetworkId&quot;</span></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">parseJSON</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621681475274"><span class="annot"><span class="annottext">toText :: NetworkId -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var hs-var hs-var hs-var">toText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Text
+</span><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier hs-var">networkIdToText</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#toText"><span class="hs-pragma hs-type">toText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-107"></span><span>    </span><span id="local-6989586621681475272"><span class="annot"><span class="annottext">fromText :: Text -&gt; m NetworkId
+</span><a href="Chainweb.Utils.html#fromText"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m NetworkId
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#networkIdFromText"><span class="hs-identifier hs-var">networkIdFromText</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#fromText"><span class="hs-pragma hs-type">fromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#pNetworkId"><span class="hs-identifier hs-type">pNetworkId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#OptionParser"><span class="hs-identifier hs-type">OptionParser</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span>
+</span><span id="line-111"></span><span id="pNetworkId"><span class="annot"><span class="annottext">pNetworkId :: OptionParser NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#pNetworkId"><span class="hs-identifier hs-var hs-var">pNetworkId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mod OptionFields NetworkId -&gt; OptionParser NetworkId
+forall a. HasTextRepresentation a =&gt; Mod OptionFields a -&gt; Parser a
+</span><a href="Chainweb.Utils.html#textOption"><span class="hs-identifier hs-var">textOption</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">(Mod OptionFields NetworkId -&gt; OptionParser NetworkId)
+-&gt; Mod OptionFields NetworkId -&gt; OptionParser NetworkId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields NetworkId
+forall (f :: * -&gt; *) a. HasName f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="hs-string">&quot;network-id&quot;</span></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681475265"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-115"></span><span>    </span><span id="local-6989586621681475263"><span class="annot"><span class="annottext">arbitrary :: Gen NetworkId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Int, Gen NetworkId)] -&gt; Gen NetworkId
+forall a. [(Int, Gen a)] -&gt; Gen a
+</span><span class="hs-identifier hs-var">frequency</span></span><span>
+</span><span id="line-116"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Gen NetworkId
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-var">CutNetwork</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-var">ChainNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; NetworkId) -&gt; Gen ChainId -&gt; Gen NetworkId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen ChainId
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-var">MempoolNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; NetworkId) -&gt; Gen ChainId -&gt; Gen NetworkId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen ChainId
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- Type Level Network Id</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">data</span><span> </span><span id="NetworkIdT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-var">NetworkIdT</span></a></span></span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span id="ChainNetworkT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-var">ChainNetworkT</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span id="MempoolNetworkT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-var">MempoolNetworkT</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span id="CutNetworkT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-var">CutNetworkT</span></a></span></span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- | SomeNetworkIdT encapsulates a known NetworkIdT, such that its type is</span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- hidden from the compiler.</span><span>
+</span><span id="line-132"></span><span class="hs-comment">--</span><span>
+</span><span id="line-133"></span><span class="hs-keyword">data</span><span> </span><span id="SomeNetworkIdT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeNetworkIdT"><span class="hs-identifier hs-var">SomeNetworkIdT</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-134"></span><span>    </span><span id="SomeChainNetworkT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeChainNetworkT"><span class="hs-identifier hs-var">SomeChainNetworkT</span></a></span></span><span>
+</span><span id="line-135"></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475259"><span class="annot"><a href="#local-6989586621681475259"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475258"><span class="annot"><a href="#local-6989586621681475258"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>        </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475259"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621681475258"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">~</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475259"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>        </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681475258"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-138"></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeNetworkIdT"><span class="hs-identifier hs-type">SomeNetworkIdT</span></a></span><span>
+</span><span id="line-139"></span><span>    </span><span id="SomeMempoolNetworkT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeMempoolNetworkT"><span class="hs-identifier hs-var">SomeMempoolNetworkT</span></a></span></span><span>
+</span><span id="line-140"></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475256"><span class="annot"><a href="#local-6989586621681475256"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475255"><span class="annot"><a href="#local-6989586621681475255"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>        </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475256"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621681475255"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">~</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475256"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>        </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681475255"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-143"></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeNetworkIdT"><span class="hs-identifier hs-type">SomeNetworkIdT</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span id="SomeCutNetworkT"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeCutNetworkT"><span class="hs-identifier hs-var">SomeCutNetworkT</span></a></span></span><span>
+</span><span id="line-145"></span><span>        </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span>
+</span><span id="line-146"></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeNetworkIdT"><span class="hs-identifier hs-type">SomeNetworkIdT</span></a></span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span class="hs-keyword">class</span><span> </span><span id="KnownNetworkId"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#KnownNetworkId"><span class="hs-identifier hs-var">KnownNetworkId</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475399"><span class="annot"><a href="#local-6989586621681475399"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-149"></span><span>    </span><span id="networkIdVal"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#networkIdVal"><span class="hs-identifier hs-type">networkIdVal</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681475399"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeNetworkIdT"><span class="hs-identifier hs-type">SomeNetworkIdT</span></a></span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span id="local-6989586621681475252"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475252"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#KnownNetworkId"><span class="hs-identifier hs-type">KnownNetworkId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475252"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-152"></span><span>    </span><span id="local-6989586621681475249"><span class="annot"><span class="annottext">networkIdVal :: Proxy ('ChainNetworkT c) -&gt; SomeNetworkIdT
+</span><a href="#local-6989586621681475249"><span class="hs-identifier hs-var hs-var hs-var hs-var">networkIdVal</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy ('ChainNetworkT c) -&gt; SomeNetworkIdT
+forall (a :: ChainIdT) (a :: NetworkIdT).
+(KnownChainIdSymbol a, a ~ 'ChainNetworkT a) =&gt;
+Proxy a -&gt; SomeNetworkIdT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SomeChainNetworkT"><span class="hs-identifier hs-var">SomeChainNetworkT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy ('ChainNetworkT c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475252"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span id="local-6989586621681475247"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475247"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#KnownNetworkId"><span class="hs-identifier hs-type">KnownNetworkId</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475247"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-155"></span><span>    </span><span id="local-6989586621681475245"><span class="annot"><span class="annottext">networkIdVal :: Proxy ('MempoolNetworkT c) -&gt; SomeNetworkIdT
+</span><a href="#local-6989586621681475245"><span class="hs-identifier hs-var hs-var hs-var hs-var">networkIdVal</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy ('MempoolNetworkT c) -&gt; SomeNetworkIdT
+forall (a :: ChainIdT) (n :: NetworkIdT).
+(KnownChainIdSymbol a, n ~ 'MempoolNetworkT a) =&gt;
+Proxy n -&gt; SomeNetworkIdT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SomeMempoolNetworkT"><span class="hs-identifier hs-var">SomeMempoolNetworkT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy ('MempoolNetworkT c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475247"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-156"></span><span>
+</span><span id="line-157"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#KnownNetworkId"><span class="hs-identifier hs-type">KnownNetworkId</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-158"></span><span>    </span><span id="local-6989586621681475243"><span class="annot"><span class="annottext">networkIdVal :: Proxy 'CutNetworkT -&gt; SomeNetworkIdT
+</span><a href="#local-6989586621681475243"><span class="hs-identifier hs-var hs-var hs-var hs-var">networkIdVal</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy 'CutNetworkT -&gt; SomeNetworkIdT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SomeCutNetworkT"><span class="hs-identifier hs-var">SomeCutNetworkT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy 'CutNetworkT
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#someNetworkIdVal"><span class="hs-identifier hs-type">someNetworkIdVal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SomeNetworkIdT"><span class="hs-identifier hs-type">SomeNetworkIdT</span></a></span><span>
+</span><span id="line-161"></span><span id="someNetworkIdVal"><span class="annot"><span class="annottext">someNetworkIdVal :: NetworkId -&gt; SomeNetworkIdT
+</span><a href="Chainweb.RestAPI.NetworkID.html#someNetworkIdVal"><span class="hs-identifier hs-var hs-var">someNetworkIdVal</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-type">ChainNetwork</span></a></span><span> </span><span id="local-6989586621681475242"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681475242"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var">someChainIdVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681475242"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-162"></span><span>    </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475239"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681475239"><span class="hs-identifier hs-type">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Proxy ('ChainNetworkT a) -&gt; SomeNetworkIdT
+forall (a :: ChainIdT) (a :: NetworkIdT).
+(KnownChainIdSymbol a, a ~ 'ChainNetworkT a) =&gt;
+Proxy a -&gt; SomeNetworkIdT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SomeChainNetworkT"><span class="hs-identifier hs-var">SomeChainNetworkT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy ('ChainNetworkT a)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475239"><span class="hs-identifier hs-type">cid</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#someNetworkIdVal"><span class="hs-identifier hs-var">someNetworkIdVal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-type">MempoolNetwork</span></a></span><span> </span><span id="local-6989586621681475238"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681475238"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var">someChainIdVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681475238"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-164"></span><span>    </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475237"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681475237"><span class="hs-identifier hs-type">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Proxy ('MempoolNetworkT a) -&gt; SomeNetworkIdT
+forall (a :: ChainIdT) (n :: NetworkIdT).
+(KnownChainIdSymbol a, n ~ 'MempoolNetworkT a) =&gt;
+Proxy n -&gt; SomeNetworkIdT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SomeMempoolNetworkT"><span class="hs-identifier hs-var">SomeMempoolNetworkT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy ('MempoolNetworkT a)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475237"><span class="hs-identifier hs-type">cid</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-165"></span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#someNetworkIdVal"><span class="hs-identifier hs-var">someNetworkIdVal</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-type">CutNetwork</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy 'CutNetworkT -&gt; SomeNetworkIdT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SomeCutNetworkT"><span class="hs-identifier hs-var">SomeCutNetworkT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy 'CutNetworkT
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- Singletons</span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span class="hs-keyword">data</span><span> </span><span class="hs-keyword">instance</span><span> </span><span id="Sing"><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-var">Sing</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475236"><span class="annot"><a href="#local-6989586621681475236"><span class="hs-identifier hs-type hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-171"></span><span>    </span><span id="local-6989586621681475235"><span id="SChainNetwork"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SChainNetwork"><span class="hs-identifier hs-var">SChainNetwork</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475235"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475235"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475235"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-172"></span><span>    </span><span id="local-6989586621681475234"><span id="SMempoolNetwork"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SMempoolNetwork"><span class="hs-identifier hs-var">SMempoolNetwork</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475234"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475234"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475234"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-173"></span><span>    </span><span id="SCutNetwork"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SCutNetwork"><span class="hs-identifier hs-var">SCutNetwork</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span class="hs-keyword">type</span><span> </span><span id="SNetwork"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SNetwork"><span class="hs-identifier hs-var">SNetwork</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475233"><span class="annot"><a href="#local-6989586621681475233"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475233"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span id="local-6989586621681475232"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475232"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475232"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-178"></span><span>    </span><span id="local-6989586621681475229"><span class="annot"><span class="annottext">sing :: Sing ('ChainNetworkT c)
+</span><a href="Data.Singletons.html#sing"><span class="hs-identifier hs-var hs-var hs-var hs-var">sing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing c -&gt; Sing ('ChainNetworkT c)
+forall (c :: ChainIdT).
+SingI c =&gt;
+Sing c -&gt; Sing ('ChainNetworkT c)
+</span><a href="Chainweb.RestAPI.NetworkID.html#SChainNetwork"><span class="hs-identifier hs-var">SChainNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">Sing c
+forall k (a :: k). SingI a =&gt; Sing a
+</span><a href="Data.Singletons.html#sing"><span class="hs-identifier hs-var">sing</span></a></span></span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span id="local-6989586621681475227"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475227"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475227"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-181"></span><span>    </span><span id="local-6989586621681475225"><span class="annot"><span class="annottext">sing :: Sing ('MempoolNetworkT c)
+</span><a href="#local-6989586621681475225"><span class="hs-identifier hs-var hs-var hs-var hs-var">sing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing c -&gt; Sing ('MempoolNetworkT c)
+forall (c :: ChainIdT).
+SingI c =&gt;
+Sing c -&gt; Sing ('MempoolNetworkT c)
+</span><a href="Chainweb.RestAPI.NetworkID.html#SMempoolNetwork"><span class="hs-identifier hs-var">SMempoolNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">Sing c
+forall k (a :: k). SingI a =&gt; Sing a
+</span><a href="Data.Singletons.html#sing"><span class="hs-identifier hs-var">sing</span></a></span></span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-184"></span><span>    </span><span id="local-6989586621681475223"><span class="annot"><span class="annottext">sing :: Sing 'CutNetworkT
+</span><a href="#local-6989586621681475223"><span class="hs-identifier hs-var hs-var hs-var hs-var">sing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing 'CutNetworkT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SCutNetwork"><span class="hs-identifier hs-var">SCutNetwork</span></a></span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingKind"><span class="hs-identifier hs-type">SingKind</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-187"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Demote"><span class="annot"><a href="Data.Singletons.html#Demote"><span class="hs-identifier hs-var">Demote</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span>
+</span><span id="line-188"></span><span>
+</span><span id="line-189"></span><span>    </span><span id="local-6989586621681475219"><span class="annot"><span class="annottext">fromSing :: Sing a -&gt; Demote NetworkIdT
+</span><a href="Data.Singletons.html#fromSing"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromSing</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SChainNetwork"><span class="hs-identifier hs-type">SChainNetwork</span></a></span><span> </span><span id="local-6989586621681475217"><span class="annot"><a href="#local-6989586621681475217"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-var">ChainNetwork</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Sing c -&gt; Demote ChainIdT
+forall k (a :: k). SingKind k =&gt; Sing a -&gt; Demote k
+</span><a href="Data.Singletons.html#fromSing"><span class="hs-identifier hs-var">fromSing</span></a></span><span> </span><span class="annot"><span class="annottext">Sing c
+</span><a href="#local-6989586621681475217"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-190"></span><span>    </span><span class="annot"><a href="Data.Singletons.html#fromSing"><span class="hs-identifier hs-var">fromSing</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SMempoolNetwork"><span class="hs-identifier hs-type">SMempoolNetwork</span></a></span><span> </span><span id="local-6989586621681475216"><span class="annot"><a href="#local-6989586621681475216"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-var">MempoolNetwork</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Sing c -&gt; Demote ChainIdT
+forall k (a :: k). SingKind k =&gt; Sing a -&gt; Demote k
+</span><a href="Data.Singletons.html#fromSing"><span class="hs-identifier hs-var">fromSing</span></a></span><span> </span><span class="annot"><span class="annottext">Sing c
+</span><a href="#local-6989586621681475216"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-191"></span><span>    </span><span class="annot"><a href="Data.Singletons.html#fromSing"><span class="hs-identifier hs-var">fromSing</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SCutNetwork"><span class="hs-identifier hs-type">SCutNetwork</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Demote NetworkIdT
+NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-var">CutNetwork</span></a></span><span>
+</span><span id="line-192"></span><span>
+</span><span id="line-193"></span><span>    </span><span id="local-6989586621681475215"><span class="annot"><span class="annottext">toSing :: Demote NetworkIdT -&gt; SomeSing NetworkIdT
+</span><a href="Data.Singletons.html#toSing"><span class="hs-identifier hs-var hs-var hs-var hs-var">toSing</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-type">ChainNetwork</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span id="local-6989586621681475212"><span class="annot"><a href="#local-6989586621681475212"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing a -&gt; (SingI a =&gt; SomeSing NetworkIdT) -&gt; SomeSing NetworkIdT
+forall k (n :: k) r. Sing n -&gt; (SingI n =&gt; r) -&gt; r
+</span><a href="Data.Singletons.html#withSingI"><span class="hs-identifier hs-var">withSingI</span></a></span><span> </span><span class="annot"><span class="annottext">Sing a
+</span><a href="#local-6989586621681475212"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">((SingI a =&gt; SomeSing NetworkIdT) -&gt; SomeSing NetworkIdT)
+-&gt; (SingI a =&gt; SomeSing NetworkIdT) -&gt; SomeSing NetworkIdT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Sing ('ChainNetworkT a) -&gt; SomeSing NetworkIdT
+forall k (a :: k). Sing a -&gt; SomeSing k
+</span><a href="Data.Singletons.html#SomeSing"><span class="hs-identifier hs-var">SomeSing</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Sing a -&gt; Sing ('ChainNetworkT a)
+forall (c :: ChainIdT).
+SingI c =&gt;
+Sing c -&gt; Sing ('ChainNetworkT c)
+</span><a href="Chainweb.RestAPI.NetworkID.html#SChainNetwork"><span class="hs-identifier hs-var">SChainNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">Sing a
+</span><a href="#local-6989586621681475212"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-194"></span><span>    </span><span class="annot"><a href="Data.Singletons.html#toSing"><span class="hs-identifier hs-var">toSing</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-type">MempoolNetwork</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span id="local-6989586621681475209"><span class="annot"><a href="#local-6989586621681475209"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing a -&gt; (SingI a =&gt; SomeSing NetworkIdT) -&gt; SomeSing NetworkIdT
+forall k (n :: k) r. Sing n -&gt; (SingI n =&gt; r) -&gt; r
+</span><a href="Data.Singletons.html#withSingI"><span class="hs-identifier hs-var">withSingI</span></a></span><span> </span><span class="annot"><span class="annottext">Sing a
+</span><a href="#local-6989586621681475209"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">((SingI a =&gt; SomeSing NetworkIdT) -&gt; SomeSing NetworkIdT)
+-&gt; (SingI a =&gt; SomeSing NetworkIdT) -&gt; SomeSing NetworkIdT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Sing ('MempoolNetworkT a) -&gt; SomeSing NetworkIdT
+forall k (a :: k). Sing a -&gt; SomeSing k
+</span><a href="Data.Singletons.html#SomeSing"><span class="hs-identifier hs-var">SomeSing</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Sing a -&gt; Sing ('MempoolNetworkT a)
+forall (c :: ChainIdT).
+SingI c =&gt;
+Sing c -&gt; Sing ('MempoolNetworkT c)
+</span><a href="Chainweb.RestAPI.NetworkID.html#SMempoolNetwork"><span class="hs-identifier hs-var">SMempoolNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">Sing a
+</span><a href="#local-6989586621681475209"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-195"></span><span>    </span><span class="annot"><a href="Data.Singletons.html#toSing"><span class="hs-identifier hs-var">toSing</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-type">CutNetwork</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing 'CutNetworkT -&gt; SomeSing NetworkIdT
+forall k (a :: k). Sing a -&gt; SomeSing k
+</span><a href="Data.Singletons.html#SomeSing"><span class="hs-identifier hs-var">SomeSing</span></a></span><span> </span><span class="annot"><span class="annottext">Sing 'CutNetworkT
+</span><a href="Chainweb.RestAPI.NetworkID.html#SCutNetwork"><span class="hs-identifier hs-var">SCutNetwork</span></a></span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span></pre></body></html>

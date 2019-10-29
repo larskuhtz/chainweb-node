@@ -1,0 +1,105 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Utils.Watchdog</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Watchdog.html#withWatchdog"><span class="hs-identifier">withWatchdog</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Watchdog.html#notifyReady"><span class="hs-identifier">notifyReady</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span class="hs-cpp">
+
+#ifdef WITH_SYSTEMD
+</span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Async</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Environment</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookupEnv</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Systemd.Daemon</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">SD</span></span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#tryAllSynchronous"><span class="hs-identifier">tryAllSynchronous</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span id="local-6989586621681472890"><span class="annot"><a href="Chainweb.Utils.Watchdog.html#withWatchdog"><span class="hs-identifier hs-type">withWatchdog</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681472890"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681472890"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-15"></span><span id="withWatchdog"><span class="annot"><span class="annottext">withWatchdog :: IO a -&gt; IO a
+</span><a href="Chainweb.Utils.Watchdog.html#withWatchdog"><span class="hs-identifier hs-var hs-var">withWatchdog</span></a></span></span><span> </span><span id="local-6989586621681472889"><span class="annot"><span class="annottext">act :: IO a
+</span><a href="#local-6989586621681472889"><span class="hs-identifier hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-16"></span><span>    </span><span id="local-6989586621681472888"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472888"><span class="hs-identifier hs-var">usec</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; (String -&gt; Int) -&gt; Maybe String -&gt; Int
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Chainweb.Utils.Watchdog.html#defaultWatchdogUsec"><span class="hs-identifier hs-var">defaultWatchdogUsec</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Int
+forall a. Read a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">read</span></span><span> </span><span class="annot"><span class="annottext">(Maybe String -&gt; Int) -&gt; IO (Maybe String) -&gt; IO Int
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (Maybe String)
+</span><span class="hs-identifier hs-var">lookupEnv</span></span><span> </span><span class="annot"><span class="hs-string">&quot;WATCHDOG_USEC&quot;</span></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="annottext">IO a -&gt; IO () -&gt; IO (Either a ())
+forall a b. IO a -&gt; IO b -&gt; IO (Either a b)
+</span><span class="hs-identifier hs-var">Async.race</span></span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621681472889"><span class="hs-identifier hs-var">act</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><a href="#local-6989586621681472882"><span class="hs-identifier hs-var">watchdogTimer</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; IO ()) -&gt; Int -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472888"><span class="hs-identifier hs-var">usec</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="hs-number">2</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO (Either a ()) -&gt; (Either a () -&gt; IO a) -&gt; IO a
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span>
+</span><span id="line-18"></span><span>        </span><span class="annot"><span class="annottext">(a -&gt; IO a) -&gt; (() -&gt; IO a) -&gt; Either a () -&gt; IO a
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; IO a
+forall (m :: * -&gt; *) p a. MonadFail m =&gt; p -&gt; m a
+</span><a href="#local-6989586621681472878"><span class="hs-identifier hs-var">impossible</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>    </span><span id="local-6989586621681472878"><span class="annot"><span class="annottext">impossible :: p -&gt; m a
+</span><a href="#local-6989586621681472878"><span class="hs-identifier hs-var hs-var">impossible</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; m a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="hs-string">&quot;impossible: watchdog returned first&quot;</span></span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span>    </span><span class="annot"><a href="#local-6989586621681472882"><span class="hs-identifier hs-type">watchdogTimer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>    </span><span id="local-6989586621681472882"><span class="annot"><span class="annottext">watchdogTimer :: Int -&gt; IO ()
+</span><a href="#local-6989586621681472882"><span class="hs-identifier hs-var hs-var">watchdogTimer</span></a></span></span><span> </span><span id="local-6989586621681472877"><span class="annot"><span class="annottext">usec0 :: Int
+</span><a href="#local-6989586621681472877"><span class="hs-identifier hs-var">usec0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">forever</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-24"></span><span>        </span><span class="annot"><span class="annottext">IO (Either SomeException (Maybe ())) -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO (Either SomeException (Maybe ())) -&gt; IO ())
+-&gt; IO (Either SomeException (Maybe ())) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO (Maybe ()) -&gt; IO (Either SomeException (Maybe ()))
+forall (m :: * -&gt; *) a.
+(MonadCatch m, NFData a) =&gt;
+m a -&gt; m (Either SomeException a)
+</span><a href="Chainweb.Utils.html#tryAllSynchronous"><span class="hs-identifier hs-var">tryAllSynchronous</span></a></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe ()) -&gt; IO (Either SomeException (Maybe ())))
+-&gt; IO (Maybe ()) -&gt; IO (Either SomeException (Maybe ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO (Maybe ())
+</span><span class="hs-identifier hs-var">SD.notifyWatchdog</span></span><span>
+</span><span id="line-25"></span><span>        </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472872"><span class="hs-identifier hs-var">usec</span></a></span><span>
+</span><span id="line-26"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>        </span><span id="local-6989586621681472872"><span class="annot"><span class="annottext">usec :: Int
+</span><a href="#local-6989586621681472872"><span class="hs-identifier hs-var hs-var">usec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472877"><span class="hs-identifier hs-var">usec0</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="Chainweb.Utils.Watchdog.html#defaultWatchdogUsec"><span class="hs-identifier hs-var">defaultWatchdogUsec</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472877"><span class="hs-identifier hs-var">usec0</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="annot"><a href="Chainweb.Utils.Watchdog.html#defaultWatchdogUsec"><span class="hs-identifier hs-type">defaultWatchdogUsec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-30"></span><span id="defaultWatchdogUsec"><span class="annot"><span class="annottext">defaultWatchdogUsec :: Int
+</span><a href="Chainweb.Utils.Watchdog.html#defaultWatchdogUsec"><span class="hs-identifier hs-var hs-var">defaultWatchdogUsec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">10000000</span></span><span>   </span><span class="hs-comment">-- ten seconds</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="annot"><a href="Chainweb.Utils.Watchdog.html#notifyReady"><span class="hs-identifier hs-type">notifyReady</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span id="notifyReady"><span class="annot"><span class="annottext">notifyReady :: IO ()
+</span><a href="Chainweb.Utils.Watchdog.html#notifyReady"><span class="hs-identifier hs-var hs-var">notifyReady</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Maybe ()) -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">IO (Maybe ())
+</span><span class="hs-identifier hs-var">SD.notifyReady</span></span><span class="hs-cpp">
+#else
+</span><span>
+</span><span id="line-36"></span><span class="hs-identifier">withWatchdog</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-identifier">a</span><span>
+</span><span id="line-37"></span><span class="hs-identifier">withWatchdog</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">id</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-identifier">notifyReady</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-identifier">IO</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-identifier">notifyReady</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">return</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-cpp">
+#endif
+</span></pre></body></html>

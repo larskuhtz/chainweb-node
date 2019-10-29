@@ -1,0 +1,307 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Module: Data.TaskMap</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.TaskMap</span><span>
+</span><span id="line-15"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier">TaskMap</span></a></span><span>
+</span><span id="line-16"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#new"><span class="hs-identifier">new</span></a></span><span>
+</span><span id="line-17"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#insert"><span class="hs-identifier">insert</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#delete"><span class="hs-identifier">delete</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#lookup"><span class="hs-identifier">lookup</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#await"><span class="hs-identifier">await</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#size"><span class="hs-identifier">size</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#null"><span class="hs-identifier">null</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.TaskMap.html#memo"><span class="hs-identifier">memo</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">evaluate</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">finally</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">null</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- Task Map</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span id="local-6989586621681476370"><span id="local-6989586621681476371"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="TaskMap"><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-var">TaskMap</span></a></span></span><span> </span><span id="local-6989586621681476448"><span class="annot"><a href="#local-6989586621681476448"><span class="hs-identifier hs-type">k</span></a></span></span><span> </span><span id="local-6989586621681476447"><span class="annot"><a href="#local-6989586621681476447"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TaskMap"><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-var">TaskMap</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="#local-6989586621681476448"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Async</span></span><span> </span><span class="annot"><a href="#local-6989586621681476447"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. TaskMap k v -&gt; Rep (TaskMap k v) x)
+-&gt; (forall x. Rep (TaskMap k v) x -&gt; TaskMap k v)
+-&gt; Generic (TaskMap k v)
+forall x. Rep (TaskMap k v) x -&gt; TaskMap k v
+forall x. TaskMap k v -&gt; Rep (TaskMap k v) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall k v x. Rep (TaskMap k v) x -&gt; TaskMap k v
+forall k v x. TaskMap k v -&gt; Rep (TaskMap k v) x
+$cto :: forall k v x. Rep (TaskMap k v) x -&gt; TaskMap k v
+$cfrom :: forall k v x. TaskMap k v -&gt; Rep (TaskMap k v) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span id="local-6989586621681476364"><span id="local-6989586621681476365"><span class="annot"><a href="Data.TaskMap.html#new"><span class="hs-identifier hs-type">new</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681476365"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621681476365"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476365"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476364"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-45"></span><span id="new"><span class="annot"><span class="annottext">new :: IO (TaskMap k v)
+</span><a href="Data.TaskMap.html#new"><span class="hs-identifier hs-var hs-var">new</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v)) -&gt; TaskMap k v
+forall k v. MVar (HashMap k (Async v)) -&gt; TaskMap k v
+</span><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-var">TaskMap</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar (HashMap k (Async v)) -&gt; TaskMap k v)
+-&gt; IO (MVar (HashMap k (Async v))) -&gt; IO (TaskMap k v)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v) -&gt; IO (MVar (HashMap k (Async v)))
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v)
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span id="local-6989586621681476360"><span id="local-6989586621681476361"><span class="annot"><a href="Data.TaskMap.html#insert"><span class="hs-identifier hs-type">insert</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681476361"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621681476361"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476361"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476360"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476361"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681476360"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Async</span></span><span> </span><span class="annot"><a href="#local-6989586621681476360"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-48"></span><span id="insert"><span class="annot"><span class="annottext">insert :: TaskMap k v -&gt; k -&gt; IO v -&gt; IO (Async v)
+</span><a href="Data.TaskMap.html#insert"><span class="hs-identifier hs-var hs-var">insert</span></a></span></span><span> </span><span id="local-6989586621681476359"><span class="annot"><span class="annottext">tm :: TaskMap k v
+</span><a href="#local-6989586621681476359"><span class="hs-identifier hs-var">tm</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span id="local-6989586621681476358"><span class="annot"><span class="annottext">var :: MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476358"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681476357"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681476357"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621681476356"><span class="annot"><span class="annottext">t :: IO v
+</span><a href="#local-6989586621681476356"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+-&gt; (HashMap k (Async v) -&gt; IO (HashMap k (Async v), Async v))
+-&gt; IO (Async v)
+forall a b. MVar a -&gt; (a -&gt; IO (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">modifyMVarMasked</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476358"><span class="hs-identifier hs-var">var</span></a></span><span> </span><span class="annot"><span class="annottext">((HashMap k (Async v) -&gt; IO (HashMap k (Async v), Async v))
+ -&gt; IO (Async v))
+-&gt; (HashMap k (Async v) -&gt; IO (HashMap k (Async v), Async v))
+-&gt; IO (Async v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681476354"><span class="annot"><span class="annottext">m :: HashMap k (Async v)
+</span><a href="#local-6989586621681476354"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681476353"><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476353"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">((forall b. IO b -&gt; IO b) -&gt; IO v) -&gt; IO (Async v)
+forall a. ((forall b. IO b -&gt; IO b) -&gt; IO a) -&gt; IO (Async a)
+</span><span class="hs-identifier hs-var">asyncWithUnmask</span></span><span> </span><span class="annot"><span class="annottext">(((forall b. IO b -&gt; IO b) -&gt; IO v) -&gt; IO (Async v))
+-&gt; ((forall b. IO b -&gt; IO b) -&gt; IO v) -&gt; IO (Async v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681476351"><span class="annot"><span class="annottext">umask :: forall b. IO b -&gt; IO b
+</span><a href="#local-6989586621681476351"><span class="hs-identifier hs-var">umask</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO v -&gt; IO v
+forall b. IO b -&gt; IO b
+</span><a href="#local-6989586621681476351"><span class="hs-identifier hs-var">umask</span></a></span><span> </span><span class="annot"><span class="annottext">IO v
+</span><a href="#local-6989586621681476356"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">IO v -&gt; IO () -&gt; IO v
+forall a b. IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-operator hs-var">`finally`</span></span><span> </span><span class="annot"><span class="annottext">TaskMap k v -&gt; k -&gt; IO ()
+forall k v. (Eq k, Hashable k) =&gt; TaskMap k v -&gt; k -&gt; IO ()
+</span><a href="Data.TaskMap.html#delete"><span class="hs-identifier hs-var">delete</span></a></span><span> </span><span class="annot"><span class="annottext">TaskMap k v
+</span><a href="#local-6989586621681476359"><span class="hs-identifier hs-var">tm</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476357"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span id="local-6989586621681476350"><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476350"><span class="hs-identifier hs-var">m'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v) -&gt; IO (HashMap k (Async v))
+forall a. a -&gt; IO a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="annot"><span class="annottext">(HashMap k (Async v) -&gt; IO (HashMap k (Async v)))
+-&gt; HashMap k (Async v) -&gt; IO (HashMap k (Async v))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; Async v -&gt; HashMap k (Async v) -&gt; HashMap k (Async v)
+forall k v.
+(Eq k, Hashable k) =&gt;
+k -&gt; v -&gt; HashMap k v -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.insert</span></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476357"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476353"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476354"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">(HashMap k (Async v), Async v) -&gt; IO (HashMap k (Async v), Async v)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((HashMap k (Async v), Async v)
+ -&gt; IO (HashMap k (Async v), Async v))
+-&gt; (HashMap k (Async v), Async v)
+-&gt; IO (HashMap k (Async v), Async v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476350"><span class="hs-identifier hs-var">m'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476353"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span id="local-6989586621681476428"><span id="local-6989586621681476430"><span class="annot"><a href="Data.TaskMap.html#delete"><span class="hs-identifier hs-type">delete</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681476430"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621681476430"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476430"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476428"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476430"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-54"></span><span id="delete"><span class="annot"><span class="annottext">delete :: TaskMap k v -&gt; k -&gt; IO ()
+</span><a href="Data.TaskMap.html#delete"><span class="hs-identifier hs-var hs-var">delete</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span id="local-6989586621681476347"><span class="annot"><span class="annottext">var :: MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476347"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681476346"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681476346"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+-&gt; (HashMap k (Async v) -&gt; IO (HashMap k (Async v))) -&gt; IO ()
+forall a. MVar a -&gt; (a -&gt; IO a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">modifyMVar_</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476347"><span class="hs-identifier hs-var">var</span></a></span><span> </span><span class="annot"><span class="annottext">((HashMap k (Async v) -&gt; IO (HashMap k (Async v))) -&gt; IO ())
+-&gt; (HashMap k (Async v) -&gt; IO (HashMap k (Async v))) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v) -&gt; IO (HashMap k (Async v))
+forall a. a -&gt; IO a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="annot"><span class="annottext">(HashMap k (Async v) -&gt; IO (HashMap k (Async v)))
+-&gt; (HashMap k (Async v) -&gt; HashMap k (Async v))
+-&gt; HashMap k (Async v)
+-&gt; IO (HashMap k (Async v))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; HashMap k (Async v) -&gt; HashMap k (Async v)
+forall k v. (Eq k, Hashable k) =&gt; k -&gt; HashMap k v -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.delete</span></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476346"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span id="local-6989586621681476394"><span id="local-6989586621681476395"><span class="annot"><a href="Data.TaskMap.html#lookup"><span class="hs-identifier hs-type">lookup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681476395"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621681476395"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476395"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476394"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476395"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Async</span></span><span> </span><span class="annot"><a href="#local-6989586621681476394"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-57"></span><span id="lookup"><span class="annot"><span class="annottext">lookup :: TaskMap k v -&gt; k -&gt; IO (Maybe (Async v))
+</span><a href="Data.TaskMap.html#lookup"><span class="hs-identifier hs-var hs-var">lookup</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span id="local-6989586621681476342"><span class="annot"><span class="annottext">var :: MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476342"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681476341"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681476341"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k -&gt; HashMap k (Async v) -&gt; Maybe (Async v)
+forall k v. (Eq k, Hashable k) =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476341"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMap k (Async v) -&gt; Maybe (Async v))
+-&gt; IO (HashMap k (Async v)) -&gt; IO (Maybe (Async v))
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v)) -&gt; IO (HashMap k (Async v))
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476342"><span class="hs-identifier hs-var">var</span></a></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- | If the key is in the map this blocks and awaits the results, otherwise</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- it returns 'Nothing' immediately.</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span id="local-6989586621681476336"><span id="local-6989586621681476337"><span class="annot"><a href="Data.TaskMap.html#await"><span class="hs-identifier hs-type">await</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681476337"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621681476337"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476337"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476336"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476337"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621681476336"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-63"></span><span id="await"><span class="annot"><span class="annottext">await :: TaskMap k v -&gt; k -&gt; IO (Maybe v)
+</span><a href="Data.TaskMap.html#await"><span class="hs-identifier hs-var hs-var">await</span></a></span></span><span> </span><span id="local-6989586621681476335"><span class="annot"><span class="annottext">t :: TaskMap k v
+</span><a href="#local-6989586621681476335"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Async v -&gt; IO v) -&gt; Maybe (Async v) -&gt; IO (Maybe v)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Async v -&gt; IO v
+forall a. Async a -&gt; IO a
+</span><span class="hs-identifier hs-var">wait</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (Async v) -&gt; IO (Maybe v))
+-&gt; (k -&gt; IO (Maybe (Async v))) -&gt; k -&gt; IO (Maybe v)
+forall (m :: * -&gt; *) b c a.
+Monad m =&gt;
+(b -&gt; m c) -&gt; (a -&gt; m b) -&gt; a -&gt; m c
+</span><span class="hs-operator hs-var">&lt;=&lt;</span></span><span> </span><span class="annot"><span class="annottext">TaskMap k v -&gt; k -&gt; IO (Maybe (Async v))
+forall k v.
+(Eq k, Hashable k) =&gt;
+TaskMap k v -&gt; k -&gt; IO (Maybe (Async v))
+</span><a href="Data.TaskMap.html#lookup"><span class="hs-identifier hs-var">lookup</span></a></span><span> </span><span class="annot"><span class="annottext">TaskMap k v
+</span><a href="#local-6989586621681476335"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621681476330"><span id="local-6989586621681476331"><span class="annot"><a href="Data.TaskMap.html#size"><span class="hs-identifier hs-type">size</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476331"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476330"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span></span></span><span>
+</span><span id="line-66"></span><span id="size"><span class="annot"><span class="annottext">size :: TaskMap k v -&gt; IO Int
+</span><a href="Data.TaskMap.html#size"><span class="hs-identifier hs-var hs-var">size</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span id="local-6989586621681476329"><span class="annot"><span class="annottext">var :: MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476329"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v) -&gt; Int
+forall k v. HashMap k v -&gt; Int
+</span><span class="hs-identifier hs-var">HM.size</span></span><span> </span><span class="annot"><span class="annottext">(HashMap k (Async v) -&gt; Int) -&gt; IO (HashMap k (Async v)) -&gt; IO Int
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v)) -&gt; IO (HashMap k (Async v))
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476329"><span class="hs-identifier hs-var">var</span></a></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span id="local-6989586621681476326"><span id="local-6989586621681476327"><span class="annot"><a href="Data.TaskMap.html#null"><span class="hs-identifier hs-type">null</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476327"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476326"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span><span>
+</span><span id="line-69"></span><span id="null"><span class="annot"><span class="annottext">null :: TaskMap k v -&gt; IO Bool
+</span><a href="Data.TaskMap.html#null"><span class="hs-identifier hs-var hs-var">null</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span id="local-6989586621681476325"><span class="annot"><span class="annottext">var :: MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476325"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v) -&gt; Bool
+forall k v. HashMap k v -&gt; Bool
+</span><span class="hs-identifier hs-var">HM.null</span></span><span> </span><span class="annot"><span class="annottext">(HashMap k (Async v) -&gt; Bool)
+-&gt; IO (HashMap k (Async v)) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v)) -&gt; IO (HashMap k (Async v))
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476325"><span class="hs-identifier hs-var">var</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span id="local-6989586621681476322"><span id="local-6989586621681476323"><span class="annot"><a href="Data.TaskMap.html#memo"><span class="hs-identifier hs-type">memo</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681476323"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621681476323"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476323"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476322"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476323"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681476323"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681476322"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>        </span><span class="hs-comment">-- ^ an action that is used to produce the value if the key isn't in the map.</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681476322"><span class="hs-identifier hs-type">v</span></a></span></span></span><span>
+</span><span id="line-79"></span><span id="memo"><span class="annot"><span class="annottext">memo :: TaskMap k v -&gt; k -&gt; (k -&gt; IO v) -&gt; IO v
+</span><a href="Data.TaskMap.html#memo"><span class="hs-identifier hs-var hs-var">memo</span></a></span></span><span> </span><span id="local-6989586621681476321"><span class="annot"><span class="annottext">tm :: TaskMap k v
+</span><a href="#local-6989586621681476321"><span class="hs-identifier hs-var">tm</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span id="local-6989586621681476320"><span class="annot"><span class="annottext">var :: MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476320"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681476319"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681476319"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621681476318"><span class="annot"><span class="annottext">task :: k -&gt; IO v
+</span><a href="#local-6989586621681476318"><span class="hs-identifier hs-var">task</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-comment">-- TODO: should we insert another lookup here? It depends on how optimistic</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-comment">-- we are that the lookup is successful.</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681476317"><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476317"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+-&gt; (HashMap k (Async v) -&gt; IO (HashMap k (Async v), Async v))
+-&gt; IO (Async v)
+forall a b. MVar a -&gt; (a -&gt; IO (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">modifyMVarMasked</span></span><span> </span><span class="annot"><span class="annottext">MVar (HashMap k (Async v))
+</span><a href="#local-6989586621681476320"><span class="hs-identifier hs-var">var</span></a></span><span> </span><span class="annot"><span class="annottext">((HashMap k (Async v) -&gt; IO (HashMap k (Async v), Async v))
+ -&gt; IO (Async v))
+-&gt; (HashMap k (Async v) -&gt; IO (HashMap k (Async v), Async v))
+-&gt; IO (Async v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681476316"><span class="annot"><span class="annottext">m :: HashMap k (Async v)
+</span><a href="#local-6989586621681476316"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">k -&gt; HashMap k (Async v) -&gt; Maybe (Async v)
+forall k v. (Eq k, Hashable k) =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476319"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476316"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-84"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-85"></span><span>            </span><span class="hs-glyph">!</span><span id="local-6989586621681476315"><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476315"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">((forall b. IO b -&gt; IO b) -&gt; IO v) -&gt; IO (Async v)
+forall a. ((forall b. IO b -&gt; IO b) -&gt; IO a) -&gt; IO (Async a)
+</span><span class="hs-identifier hs-var">asyncWithUnmask</span></span><span> </span><span class="annot"><span class="annottext">(((forall b. IO b -&gt; IO b) -&gt; IO v) -&gt; IO (Async v))
+-&gt; ((forall b. IO b -&gt; IO b) -&gt; IO v) -&gt; IO (Async v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681476314"><span class="annot"><span class="annottext">umask :: forall b. IO b -&gt; IO b
+</span><a href="#local-6989586621681476314"><span class="hs-identifier hs-var">umask</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO v -&gt; IO v
+forall b. IO b -&gt; IO b
+</span><a href="#local-6989586621681476314"><span class="hs-identifier hs-var">umask</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">k -&gt; IO v
+</span><a href="#local-6989586621681476318"><span class="hs-identifier hs-var">task</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476319"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO v -&gt; IO () -&gt; IO v
+forall a b. IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-operator hs-var">`finally`</span></span><span> </span><span class="annot"><span class="annottext">TaskMap k v -&gt; k -&gt; IO ()
+forall k v. (Eq k, Hashable k) =&gt; TaskMap k v -&gt; k -&gt; IO ()
+</span><a href="Data.TaskMap.html#delete"><span class="hs-identifier hs-var">delete</span></a></span><span> </span><span class="annot"><span class="annottext">TaskMap k v
+</span><a href="#local-6989586621681476321"><span class="hs-identifier hs-var">tm</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476319"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-86"></span><span>            </span><span id="local-6989586621681476313"><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476313"><span class="hs-identifier hs-var">m'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v) -&gt; IO (HashMap k (Async v))
+forall a. a -&gt; IO a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="annot"><span class="annottext">(HashMap k (Async v) -&gt; IO (HashMap k (Async v)))
+-&gt; HashMap k (Async v) -&gt; IO (HashMap k (Async v))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; Async v -&gt; HashMap k (Async v) -&gt; HashMap k (Async v)
+forall k v.
+(Eq k, Hashable k) =&gt;
+k -&gt; v -&gt; HashMap k v -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.insert</span></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681476319"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476315"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476316"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-87"></span><span>            </span><span class="annot"><span class="annottext">(HashMap k (Async v), Async v) -&gt; IO (HashMap k (Async v), Async v)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((HashMap k (Async v), Async v)
+ -&gt; IO (HashMap k (Async v), Async v))
+-&gt; (HashMap k (Async v), Async v)
+-&gt; IO (HashMap k (Async v), Async v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476313"><span class="hs-identifier hs-var">m'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476315"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681476312"><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476312"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(HashMap k (Async v), Async v) -&gt; IO (HashMap k (Async v), Async v)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((HashMap k (Async v), Async v)
+ -&gt; IO (HashMap k (Async v), Async v))
+-&gt; (HashMap k (Async v), Async v)
+-&gt; IO (HashMap k (Async v), Async v)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashMap k (Async v)
+</span><a href="#local-6989586621681476316"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476312"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>    </span><span class="annot"><span class="annottext">Async v -&gt; IO v
+forall a. Async a -&gt; IO a
+</span><span class="hs-identifier hs-var">wait</span></span><span> </span><span class="annot"><span class="annottext">Async v
+</span><a href="#local-6989586621681476317"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-90"></span></pre></body></html>

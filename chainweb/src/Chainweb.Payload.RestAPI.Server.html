@@ -1,0 +1,365 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Module: Chainweb.Payload.RestAPI.Server</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Payload.RestAPI.Server</span><span>
+</span><span id="line-19"></span><span class="hs-special">(</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServer"><span class="hs-identifier">somePayloadServer</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServers"><span class="hs-identifier">somePayloadServers</span></a></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="annot"><span class="hs-comment">-- * Single Chain Server</span></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#payloadApp"><span class="hs-identifier">payloadApp</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#payloadApiLayout"><span class="hs-identifier">payloadApiLayout</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Maybe</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.IO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.html"><span class="hs-identifier">Chainweb.Payload.RestAPI</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Orphans.html"><span class="hs-identifier">Chainweb.RestAPI.Orphans</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html"><span class="hs-identifier">Chainweb.RestAPI.Utils</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- Handler</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- | Query the 'BlockPayload' by its 'BlockPayloadHash'</span><span>
+</span><span id="line-57"></span><span class="hs-comment">--</span><span>
+</span><span id="line-58"></span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#payloadHandler"><span class="hs-identifier hs-type">payloadHandler</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681497667"><span class="annot"><a href="#local-6989586621681497667"><span class="hs-identifier hs-type">cas</span></a></span></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497667"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497667"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadData"><span class="hs-identifier hs-type">PayloadData</span></a></span><span>
+</span><span id="line-64"></span><span id="payloadHandler"><span class="annot"><span class="annottext">payloadHandler :: PayloadDb cas -&gt; BlockPayloadHash -&gt; Handler PayloadData
+</span><a href="Chainweb.Payload.RestAPI.Server.html#payloadHandler"><span class="hs-identifier hs-var hs-var">payloadHandler</span></a></span></span><span> </span><span id="local-6989586621681497616"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681497616"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681497615"><span class="annot"><span class="annottext">k :: BlockPayloadHash
+</span><a href="#local-6989586621681497615"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handler (Maybe PayloadData)
+</span><a href="#local-6989586621681497614"><span class="hs-identifier hs-var">run</span></a></span><span> </span><span class="annot"><span class="annottext">Handler (Maybe PayloadData)
+-&gt; (Maybe PayloadData -&gt; Handler PayloadData)
+-&gt; Handler PayloadData
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ServerError -&gt; Handler PayloadData
+forall e (m :: * -&gt; *) a. MonadError e m =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwError</span></span><span> </span><span class="annot"><span class="annottext">(ServerError -&gt; Handler PayloadData)
+-&gt; ServerError -&gt; Handler PayloadData
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; ServerError
+forall msg. ToJSON msg =&gt; msg -&gt; ServerError
+</span><a href="Chainweb.Payload.RestAPI.Server.html#err404Msg"><span class="hs-identifier hs-var">err404Msg</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; ServerError) -&gt; Value -&gt; ServerError
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-66"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;reason&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;key not found&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;key&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; BlockPayloadHash -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681497615"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681497609"><span class="annot"><span class="annottext">e :: PayloadData
+</span><a href="#local-6989586621681497609"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadData -&gt; Handler PayloadData
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">PayloadData
+</span><a href="#local-6989586621681497609"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-70"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-71"></span><span>    </span><span id="local-6989586621681497614"><span class="annot"><span class="annottext">run :: Handler (Maybe PayloadData)
+</span><a href="#local-6989586621681497614"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MaybeT Handler PayloadData -&gt; Handler (Maybe PayloadData)
+forall (m :: * -&gt; *) a. MaybeT m a -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var hs-var">runMaybeT</span></span><span> </span><span class="annot"><span class="annottext">(MaybeT Handler PayloadData -&gt; Handler (Maybe PayloadData))
+-&gt; MaybeT Handler PayloadData -&gt; Handler (Maybe PayloadData)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-72"></span><span>        </span><span id="local-6989586621681497607"><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681497607"><span class="hs-identifier hs-var">payload</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handler (Maybe BlockPayload) -&gt; MaybeT Handler BlockPayload
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="annot"><span class="annottext">(Handler (Maybe BlockPayload) -&gt; MaybeT Handler BlockPayload)
+-&gt; Handler (Maybe BlockPayload) -&gt; MaybeT Handler BlockPayload
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO (Maybe BlockPayload) -&gt; Handler (Maybe BlockPayload)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe BlockPayload) -&gt; Handler (Maybe BlockPayload))
+-&gt; IO (Maybe BlockPayload) -&gt; Handler (Maybe BlockPayload)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockPayloadStore cas
+-&gt; CasKeyType (CasValueType (BlockPayloadStore cas))
+-&gt; IO (Maybe (CasValueType (BlockPayloadStore cas)))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span>
+</span><span id="line-73"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockPayloadStore cas
+forall (cas :: * -&gt; *). TransactionDb cas -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockPayloads"><span class="hs-identifier hs-var hs-var">_transactionDbBlockPayloads</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockPayloadStore cas)
+-&gt; TransactionDb cas -&gt; BlockPayloadStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681497616"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>            </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (BlockPayloadStore cas))
+BlockPayloadHash
+</span><a href="#local-6989586621681497615"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-75"></span><span>        </span><span id="local-6989586621681497601"><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681497601"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handler (Maybe BlockTransactions)
+-&gt; MaybeT Handler BlockTransactions
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="annot"><span class="annottext">(Handler (Maybe BlockTransactions)
+ -&gt; MaybeT Handler BlockTransactions)
+-&gt; Handler (Maybe BlockTransactions)
+-&gt; MaybeT Handler BlockTransactions
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO (Maybe BlockTransactions) -&gt; Handler (Maybe BlockTransactions)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe BlockTransactions) -&gt; Handler (Maybe BlockTransactions))
+-&gt; IO (Maybe BlockTransactions)
+-&gt; Handler (Maybe BlockTransactions)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockTransactionsStore cas
+-&gt; CasKeyType (CasValueType (BlockTransactionsStore cas))
+-&gt; IO (Maybe (CasValueType (BlockTransactionsStore cas)))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span>
+</span><span id="line-76"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockTransactionsStore cas
+forall (cas :: * -&gt; *).
+TransactionDb cas -&gt; BlockTransactionsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockTransactions"><span class="hs-identifier hs-var hs-var">_transactionDbBlockTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockTransactionsStore cas)
+-&gt; TransactionDb cas -&gt; BlockTransactionsStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681497616"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockPayload -&gt; BlockTransactionsHash
+</span><a href="Chainweb.Payload.html#_blockPayloadTransactionsHash"><span class="hs-identifier hs-var hs-var">_blockPayloadTransactionsHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681497607"><span class="hs-identifier hs-var">payload</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>        </span><span class="annot"><span class="annottext">PayloadData -&gt; MaybeT Handler PayloadData
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(PayloadData -&gt; MaybeT Handler PayloadData)
+-&gt; PayloadData -&gt; MaybeT Handler PayloadData
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockTransactions -&gt; BlockPayload -&gt; PayloadData
+</span><a href="Chainweb.Payload.html#payloadData"><span class="hs-identifier hs-var">payloadData</span></a></span><span> </span><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681497601"><span class="hs-identifier hs-var">txs</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681497607"><span class="hs-identifier hs-var">payload</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- | Query the 'PayloadWithOutputs' by its 'BlockPayloadHash'</span><span>
+</span><span id="line-81"></span><span class="hs-comment">--</span><span>
+</span><span id="line-82"></span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#outputsHandler"><span class="hs-identifier hs-type">outputsHandler</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681497662"><span class="annot"><a href="#local-6989586621681497662"><span class="hs-identifier hs-type">cas</span></a></span></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497662"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497662"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span>
+</span><span id="line-88"></span><span id="outputsHandler"><span class="annot"><span class="annottext">outputsHandler :: PayloadDb cas -&gt; BlockPayloadHash -&gt; Handler PayloadWithOutputs
+</span><a href="Chainweb.Payload.RestAPI.Server.html#outputsHandler"><span class="hs-identifier hs-var hs-var">outputsHandler</span></a></span></span><span> </span><span id="local-6989586621681497596"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681497596"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681497595"><span class="annot"><span class="annottext">k :: BlockPayloadHash
+</span><a href="#local-6989586621681497595"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Maybe PayloadWithOutputs) -&gt; Handler (Maybe PayloadWithOutputs)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadDb cas
+-&gt; CasKeyType (CasValueType (PayloadDb cas))
+-&gt; IO (Maybe (CasValueType (PayloadDb cas)))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681497596"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (PayloadDb cas))
+BlockPayloadHash
+</span><a href="#local-6989586621681497595"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Handler (Maybe PayloadWithOutputs)
+-&gt; (Maybe PayloadWithOutputs -&gt; Handler PayloadWithOutputs)
+-&gt; Handler PayloadWithOutputs
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-89"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ServerError -&gt; Handler PayloadWithOutputs
+forall e (m :: * -&gt; *) a. MonadError e m =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwError</span></span><span> </span><span class="annot"><span class="annottext">(ServerError -&gt; Handler PayloadWithOutputs)
+-&gt; ServerError -&gt; Handler PayloadWithOutputs
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; ServerError
+forall msg. ToJSON msg =&gt; msg -&gt; ServerError
+</span><a href="Chainweb.Payload.RestAPI.Server.html#err404Msg"><span class="hs-identifier hs-var">err404Msg</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; ServerError) -&gt; Value -&gt; ServerError
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-90"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;reason&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;key not found&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;key&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; BlockPayloadHash -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681497595"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-92"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681497594"><span class="annot"><span class="annottext">e :: PayloadWithOutputs
+</span><a href="#local-6989586621681497594"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; Handler PayloadWithOutputs
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="#local-6989586621681497594"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span id="local-6989586621681497707"><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#err404Msg"><span class="hs-identifier hs-type">err404Msg</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681497707"><span class="hs-identifier hs-type">msg</span></a></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681497707"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerError</span></span></span><span>
+</span><span id="line-96"></span><span id="err404Msg"><span class="annot"><span class="annottext">err404Msg :: msg -&gt; ServerError
+</span><a href="Chainweb.Payload.RestAPI.Server.html#err404Msg"><span class="hs-identifier hs-var hs-var">err404Msg</span></a></span></span><span> </span><span id="local-6989586621681497593"><span class="annot"><span class="annottext">msg :: msg
+</span><a href="#local-6989586621681497593"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ServerError
+</span><span class="hs-identifier hs-var">err404</span></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">errBody :: ByteString
+</span><span class="hs-identifier hs-var">errBody</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">msg -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">encode</span></span><span> </span><span class="annot"><span class="annottext">msg
+</span><a href="#local-6989586621681497593"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- Payload API Server</span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#payloadServer"><span class="hs-identifier hs-type">payloadServer</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681497650"><span class="annot"><a href="#local-6989586621681497650"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span id="local-6989586621681497649"><span class="annot"><a href="#local-6989586621681497649"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497648"><span class="annot"><a href="#local-6989586621681497648"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497650"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadDb_"><span class="hs-identifier hs-type">PayloadDb_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497650"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497649"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497648"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Server</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadApi"><span class="hs-identifier hs-type">PayloadApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497649"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497648"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span id="payloadServer"><span class="annot"><span class="annottext">payloadServer :: PayloadDb_ cas v c -&gt; Server (PayloadApi v c)
+</span><a href="Chainweb.Payload.RestAPI.Server.html#payloadServer"><span class="hs-identifier hs-var hs-var">payloadServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadDb_"><span class="hs-identifier hs-type">PayloadDb_</span></a></span><span> </span><span id="local-6989586621681497587"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681497587"><span class="hs-identifier hs-var">db</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; BlockPayloadHash -&gt; Handler PayloadData
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+PayloadDb cas -&gt; BlockPayloadHash -&gt; Handler PayloadData
+</span><a href="Chainweb.Payload.RestAPI.Server.html#payloadHandler"><span class="hs-identifier hs-var">payloadHandler</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497650"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681497587"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="annottext">(BlockPayloadHash -&gt; Handler PayloadData)
+-&gt; (BlockPayloadHash -&gt; Handler PayloadWithOutputs)
+-&gt; (BlockPayloadHash -&gt; Handler PayloadData)
+   :&lt;|&gt; (BlockPayloadHash -&gt; Handler PayloadWithOutputs)
+forall a b. a -&gt; b -&gt; a :&lt;|&gt; b
+</span><span class="hs-operator hs-var">:&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; BlockPayloadHash -&gt; Handler PayloadWithOutputs
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+PayloadDb cas -&gt; BlockPayloadHash -&gt; Handler PayloadWithOutputs
+</span><a href="Chainweb.Payload.RestAPI.Server.html#outputsHandler"><span class="hs-identifier hs-var">outputsHandler</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497650"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681497587"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- Application for a single PayloadDb</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#payloadApp"><span class="hs-identifier hs-type">payloadApp</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681497585"><span class="annot"><a href="#local-6989586621681497585"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span id="local-6989586621681497584"><span class="annot"><a href="#local-6989586621681497584"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span id="local-6989586621681497583"><span class="annot"><a href="#local-6989586621681497583"><span class="hs-identifier hs-type">c</span></a></span></span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497585"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497584"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497583"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadDb_"><span class="hs-identifier hs-type">PayloadDb_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497585"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497584"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497583"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Application</span></span><span>
+</span><span id="line-120"></span><span id="payloadApp"><span class="annot"><span class="annottext">payloadApp :: PayloadDb_ cas v c -&gt; Application
+</span><a href="Chainweb.Payload.RestAPI.Server.html#payloadApp"><span class="hs-identifier hs-var hs-var">payloadApp</span></a></span></span><span> </span><span id="local-6989586621681497580"><span class="annot"><span class="annottext">db :: PayloadDb_ cas v c
+</span><a href="#local-6989586621681497580"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (PayloadApi v c) -&gt; Server (PayloadApi v c) -&gt; Application
+forall api.
+HasServer api '[] =&gt;
+Proxy api -&gt; Server api -&gt; Application
+</span><span class="hs-identifier hs-var">serve</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (PayloadApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadApi"><span class="hs-identifier hs-type">PayloadApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497584"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497583"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadDb_ cas v c -&gt; Server (PayloadApi v c)
+forall (cas :: * -&gt; *) (v :: ChainwebVersionT) (c :: ChainIdT).
+PayloadCas cas =&gt;
+PayloadDb_ cas v c -&gt; Server (PayloadApi v c)
+</span><a href="Chainweb.Payload.RestAPI.Server.html#payloadServer"><span class="hs-identifier hs-var">payloadServer</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb_ cas v c
+</span><a href="#local-6989586621681497580"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#payloadApiLayout"><span class="hs-identifier hs-type">payloadApiLayout</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681497577"><span class="annot"><a href="#local-6989586621681497577"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span id="local-6989586621681497576"><span class="annot"><a href="#local-6989586621681497576"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span id="local-6989586621681497575"><span class="annot"><a href="#local-6989586621681497575"><span class="hs-identifier hs-type">c</span></a></span></span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497576"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497575"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadDb_"><span class="hs-identifier hs-type">PayloadDb_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497577"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497576"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497575"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span id="payloadApiLayout"><span class="annot"><span class="annottext">payloadApiLayout :: PayloadDb_ cas v c -&gt; IO ()
+</span><a href="Chainweb.Payload.RestAPI.Server.html#payloadApiLayout"><span class="hs-identifier hs-var hs-var">payloadApiLayout</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ()
+</span><span class="hs-identifier hs-var">T.putStrLn</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (PayloadApi v c) -&gt; Text
+forall api. HasServer api '[] =&gt; Proxy api -&gt; Text
+</span><span class="hs-identifier hs-var">layout</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (PayloadApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadApi"><span class="hs-identifier hs-type">PayloadApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497576"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497575"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- Multichain Server</span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span id="local-6989586621681497627"><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServer"><span class="hs-identifier hs-type">somePayloadServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497627"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#SomePayloadDb"><span class="hs-identifier hs-type">SomePayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497627"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span>
+</span><span id="line-134"></span><span id="somePayloadServer"><span class="annot"><span class="annottext">somePayloadServer :: SomePayloadDb cas -&gt; SomeServer
+</span><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServer"><span class="hs-identifier hs-var hs-var">somePayloadServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#SomePayloadDb"><span class="hs-identifier hs-type">SomePayloadDb</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497569"><span id="local-6989586621681497570"><span id="local-6989586621681497571"><span id="local-6989586621681497568"><span class="annot"><span class="annottext">PayloadDb_ cas v c
+</span><a href="#local-6989586621681497568"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadDb_"><span class="hs-identifier hs-type">PayloadDb_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497571"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497570"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497569"><span class="hs-identifier hs-type">c</span></a></span></span></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (PayloadApi v c) -&gt; Server (PayloadApi v c) -&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (PayloadApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.RestAPI.html#PayloadApi"><span class="hs-identifier hs-type">PayloadApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497570"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497569"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadDb_ cas v c -&gt; Server (PayloadApi v c)
+forall (cas :: * -&gt; *) (v :: ChainwebVersionT) (c :: ChainIdT).
+PayloadCas cas =&gt;
+PayloadDb_ cas v c -&gt; Server (PayloadApi v c)
+</span><a href="Chainweb.Payload.RestAPI.Server.html#payloadServer"><span class="hs-identifier hs-var">payloadServer</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb_ cas v c
+</span><a href="#local-6989586621681497568"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span id="local-6989586621681497566"><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServers"><span class="hs-identifier hs-type">somePayloadServers</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497566"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497566"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span>
+</span><span id="line-142"></span><span id="somePayloadServers"><span class="annot"><span class="annottext">somePayloadServers :: ChainwebVersion -&gt; [(ChainId, PayloadDb cas)] -&gt; SomeServer
+</span><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServers"><span class="hs-identifier hs-var hs-var">somePayloadServers</span></a></span></span><span> </span><span id="local-6989586621681497565"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681497565"><span class="hs-identifier hs-var">v</span></a></span></span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[SomeServer] -&gt; SomeServer
+forall a. Monoid a =&gt; [a] -&gt; a
+</span><span class="hs-identifier hs-var">mconcat</span></span><span> </span><span class="annot"><span class="annottext">([SomeServer] -&gt; SomeServer)
+-&gt; ([(ChainId, PayloadDb cas)] -&gt; [SomeServer])
+-&gt; [(ChainId, PayloadDb cas)]
+-&gt; SomeServer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((ChainId, PayloadDb cas) -&gt; SomeServer)
+-&gt; [(ChainId, PayloadDb cas)] -&gt; [SomeServer]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SomePayloadDb cas -&gt; SomeServer
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+SomePayloadDb cas -&gt; SomeServer
+</span><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServer"><span class="hs-identifier hs-var">somePayloadServer</span></a></span><span> </span><span class="annot"><span class="annottext">(SomePayloadDb cas -&gt; SomeServer)
+-&gt; ((ChainId, PayloadDb cas) -&gt; SomePayloadDb cas)
+-&gt; (ChainId, PayloadDb cas)
+-&gt; SomeServer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; PayloadDb cas -&gt; SomePayloadDb cas)
+-&gt; (ChainId, PayloadDb cas) -&gt; SomePayloadDb cas
+forall a b c. (a -&gt; b -&gt; c) -&gt; (a, b) -&gt; c
+</span><span class="hs-identifier hs-var">uncurry</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; PayloadDb cas -&gt; SomePayloadDb cas
+forall (cas :: * -&gt; *).
+ChainwebVersion -&gt; ChainId -&gt; PayloadDb cas -&gt; SomePayloadDb cas
+</span><a href="Chainweb.Payload.RestAPI.html#somePayloadDbVal"><span class="hs-identifier hs-var">somePayloadDbVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497565"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span></pre></body></html>

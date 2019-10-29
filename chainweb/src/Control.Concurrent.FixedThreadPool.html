@@ -1,0 +1,630 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE MultiWayIf #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Control.Concurrent.FixedThreadPool</span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier">ThreadPool</span></a></span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier">Action</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#newThreadPool"><span class="hs-identifier">newThreadPool</span></a></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#stopThreadPool"><span class="hs-identifier">stopThreadPool</span></a></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#killThreadPool"><span class="hs-identifier">killThreadPool</span></a></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#waitThreadPool"><span class="hs-identifier">waitThreadPool</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#withThreadPool"><span class="hs-identifier">withThreadPool</span></a></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#runAction"><span class="hs-identifier">runAction</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#runActionGroup"><span class="hs-identifier">runActionGroup</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#mapAction"><span class="hs-identifier">mapAction</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#mapAction_"><span class="hs-identifier">mapAction_</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#waitAction"><span class="hs-identifier">waitAction</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ThreadId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">forkIOWithUnmask</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">killThread</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.STM</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.STM.TBMChan</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TBMChan</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.STM.TBMChan</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">TBMChan</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">forever</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">void</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">when</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">isJust</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Vector</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-32"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">data</span><span> </span><span id="Action"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-var">Action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Action"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-var">Action</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-35"></span><span>    </span><span id="_action"><span class="annot"><span class="annottext">Action -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#_action"><span class="hs-identifier hs-var hs-var">_action</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_actionDone"><span class="annot"><span class="annottext">Action -&gt; Maybe SomeException -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#_actionDone"><span class="hs-identifier hs-var hs-var">_actionDone</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_wait"><span class="annot"><span class="annottext">Action -&gt; IO (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#_wait"><span class="hs-identifier hs-var hs-var">_wait</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">type</span><span> </span><span id="Chan"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Chan"><span class="hs-identifier hs-var">Chan</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TBMChan</span></span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-type">Action</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">data</span><span> </span><span id="ThreadPool"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-var">ThreadPool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ThreadPool"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-var">ThreadPool</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-43"></span><span>    </span><span id="_threads"><span class="annot"><span class="annottext">ThreadPool -&gt; Vector ThreadId
+</span><a href="Control.Concurrent.FixedThreadPool.html#_threads"><span class="hs-identifier hs-var hs-var">_threads</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ThreadId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_joins"><span class="annot"><span class="annottext">ThreadPool -&gt; Vector (IO ())
+</span><a href="Control.Concurrent.FixedThreadPool.html#_joins"><span class="hs-identifier hs-var hs-var">_joins</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_chan"><span class="annot"><span class="annottext">ThreadPool -&gt; Chan
+</span><a href="Control.Concurrent.FixedThreadPool.html#_chan"><span class="hs-identifier hs-var hs-var">_chan</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Chan"><span class="hs-identifier hs-type">Chan</span></a></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-50"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#newThreadPool"><span class="hs-identifier hs-type">newThreadPool</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span>
+</span><span id="line-51"></span><span id="newThreadPool"><span class="annot"><span class="annottext">newThreadPool :: Int -&gt; IO ThreadPool
+</span><a href="Control.Concurrent.FixedThreadPool.html#newThreadPool"><span class="hs-identifier hs-var hs-var">newThreadPool</span></a></span></span><span> </span><span id="local-6989586621681473047"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681473047"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-52"></span><span>    </span><span id="local-6989586621681473046"><span class="annot"><span class="annottext">Chan
+</span><a href="#local-6989586621681473046"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM Chan -&gt; IO Chan
+forall a. STM a -&gt; IO a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM Chan -&gt; IO Chan) -&gt; STM Chan -&gt; IO Chan
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; STM Chan
+forall a. Int -&gt; STM (TBMChan a)
+</span><span class="hs-identifier hs-var">TBMChan.newTBMChan</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681473047"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span id="local-6989586621681473043"><span class="annot"><span class="annottext">Vector (MVar ())
+</span><a href="#local-6989586621681473043"><span class="hs-identifier hs-var">mvars</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (MVar ()) -&gt; IO (Vector (MVar ()))
+forall (m :: * -&gt; *) a. Monad m =&gt; Int -&gt; m a -&gt; m (Vector a)
+</span><span class="hs-identifier hs-var">V.replicateM</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681473047"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">IO (MVar ())
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-54"></span><span>    </span><span id="local-6989586621681473040"><span class="annot"><span class="annottext">Vector ThreadId
+</span><a href="#local-6989586621681473040"><span class="hs-identifier hs-var">threads</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(MVar () -&gt; IO ThreadId)
+-&gt; Vector (MVar ()) -&gt; IO (Vector ThreadId)
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Vector a -&gt; m (Vector b)
+</span><span class="hs-identifier hs-var">V.mapM</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681473038"><span class="annot"><span class="annottext">m :: MVar ()
+</span><a href="#local-6989586621681473038"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">((forall a. IO a -&gt; IO a) -&gt; IO ()) -&gt; IO ThreadId
+</span><span class="hs-identifier hs-var">forkIOWithUnmask</span></span><span> </span><span class="annot"><span class="annottext">(((forall a. IO a -&gt; IO a) -&gt; IO ()) -&gt; IO ThreadId)
+-&gt; ((forall a. IO a -&gt; IO a) -&gt; IO ()) -&gt; IO ThreadId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Chan -&gt; MVar () -&gt; (IO () -&gt; IO ()) -&gt; IO ()
+forall b. Chan -&gt; MVar () -&gt; (IO b -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621681473037"><span class="hs-identifier hs-var">worker</span></a></span><span> </span><span class="annot"><span class="annottext">Chan
+</span><a href="#local-6989586621681473046"><span class="hs-identifier hs-var">chan</span></a></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621681473038"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Vector (MVar ())
+</span><a href="#local-6989586621681473043"><span class="hs-identifier hs-var">mvars</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681473036"><span class="annot"><span class="annottext">joins :: Vector (IO ())
+</span><a href="#local-6989586621681473036"><span class="hs-identifier hs-var hs-var">joins</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(MVar () -&gt; IO ()) -&gt; Vector (MVar ()) -&gt; Vector (IO ())
+forall a b. (a -&gt; b) -&gt; Vector a -&gt; Vector b
+</span><span class="hs-identifier hs-var">V.map</span></span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; IO ()
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">Vector (MVar ())
+</span><a href="#local-6989586621681473043"><span class="hs-identifier hs-var">mvars</span></a></span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><span class="annottext">ThreadPool -&gt; IO ThreadPool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(ThreadPool -&gt; IO ThreadPool) -&gt; ThreadPool -&gt; IO ThreadPool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Vector ThreadId -&gt; Vector (IO ()) -&gt; Chan -&gt; ThreadPool
+</span><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-var">ThreadPool</span></a></span><span> </span><span class="annot"><span class="annottext">Vector ThreadId
+</span><a href="#local-6989586621681473040"><span class="hs-identifier hs-var">threads</span></a></span><span> </span><span class="annot"><span class="annottext">Vector (IO ())
+</span><a href="#local-6989586621681473036"><span class="hs-identifier hs-var">joins</span></a></span><span> </span><span class="annot"><span class="annottext">Chan
+</span><a href="#local-6989586621681473046"><span class="hs-identifier hs-var">chan</span></a></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-59"></span><span>    </span><span id="local-6989586621681473032"><span class="annot"><span class="annottext">eatExceptions :: IO () -&gt; IO ()
+</span><a href="#local-6989586621681473032"><span class="hs-identifier hs-var hs-var">eatExceptions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(SomeException -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall e a. Exception e =&gt; (e -&gt; IO a) -&gt; IO a -&gt; IO a
+</span><span class="hs-identifier hs-var">handle</span></span><span> </span><span class="annot"><span class="annottext">((SomeException -&gt; IO ()) -&gt; IO () -&gt; IO ())
+-&gt; (SomeException -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681473030"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681473030"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO SomeException -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO SomeException -&gt; IO ()) -&gt; IO SomeException -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; IO SomeException
+forall a. a -&gt; IO a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681473030"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span id="local-6989586621681473028"><span class="annot"><span class="annottext">performAction :: Action -&gt; IO ()
+</span><a href="#local-6989586621681473028"><span class="hs-identifier hs-var hs-var">performAction</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-type">Action</span></a></span><span> </span><span id="local-6989586621681473027"><span class="annot"><span class="annottext">action :: IO ()
+</span><a href="#local-6989586621681473027"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span id="local-6989586621681473026"><span class="annot"><span class="annottext">done :: Maybe SomeException -&gt; IO ()
+</span><a href="#local-6989586621681473026"><span class="hs-identifier hs-var">done</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-61"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681473027"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException -&gt; IO ()
+</span><a href="#local-6989586621681473026"><span class="hs-identifier hs-var">done</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (SomeException -&gt; IO ()) -&gt; IO ()
+forall e a. Exception e =&gt; IO a -&gt; (e -&gt; IO a) -&gt; IO a
+</span><span class="hs-operator hs-var">`catch`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="#local-6989586621681473032"><span class="hs-identifier hs-var">eatExceptions</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ())
+-&gt; (SomeException -&gt; IO ()) -&gt; SomeException -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException -&gt; IO ()
+</span><a href="#local-6989586621681473026"><span class="hs-identifier hs-var">done</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe SomeException -&gt; IO ())
+-&gt; (SomeException -&gt; Maybe SomeException) -&gt; SomeException -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; Maybe SomeException
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>    </span><span id="local-6989586621681473037"><span class="annot"><span class="annottext">worker :: Chan -&gt; MVar () -&gt; (IO b -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621681473037"><span class="hs-identifier hs-var hs-var">worker</span></a></span></span><span> </span><span id="local-6989586621681473023"><span class="annot"><span class="annottext">chan :: Chan
+</span><a href="#local-6989586621681473023"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span id="local-6989586621681473022"><span class="annot"><span class="annottext">mv :: MVar ()
+</span><a href="#local-6989586621681473022"><span class="hs-identifier hs-var">mv</span></a></span></span><span> </span><span id="local-6989586621681473021"><span class="annot"><span class="annottext">restore :: IO b -&gt; IO ()
+</span><a href="#local-6989586621681473021"><span class="hs-identifier hs-var">restore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall a b. IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-operator hs-var">`finally`</span></span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; () -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621681473022"><span class="hs-identifier hs-var">mv</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="#local-6989586621681473032"><span class="hs-identifier hs-var">eatExceptions</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-63"></span><span>                             </span><span class="annot"><span class="annottext">IO b -&gt; IO ()
+</span><a href="#local-6989586621681473021"><span class="hs-identifier hs-var">restore</span></a></span><span> </span><span class="annot"><span class="annottext">(IO b -&gt; IO ()) -&gt; IO b -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">forever</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO b) -&gt; IO () -&gt; IO b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-64"></span><span>        </span><span id="local-6989586621681473018"><span class="annot"><span class="annottext">Maybe Action
+</span><a href="#local-6989586621681473018"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM (Maybe Action) -&gt; IO (Maybe Action)
+forall a. STM a -&gt; IO a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM (Maybe Action) -&gt; IO (Maybe Action))
+-&gt; STM (Maybe Action) -&gt; IO (Maybe Action)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Chan -&gt; STM (Maybe Action)
+forall a. TBMChan a -&gt; STM (Maybe a)
+</span><span class="hs-identifier hs-var">TBMChan.readTBMChan</span></span><span> </span><span class="annot"><span class="annottext">Chan
+</span><a href="#local-6989586621681473023"><span class="hs-identifier hs-var">chan</span></a></span><span>
+</span><span id="line-65"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe Action
+</span><a href="#local-6989586621681473018"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-66"></span><span>          </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AsyncException -&gt; IO ()
+forall e a. Exception e =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">AsyncException
+</span><span class="hs-identifier hs-var">ThreadKilled</span></span><span>
+</span><span id="line-67"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681473014"><span class="annot"><span class="annottext">act :: Action
+</span><a href="#local-6989586621681473014"><span class="hs-identifier hs-var">act</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Action -&gt; IO ()
+</span><a href="#local-6989586621681473028"><span class="hs-identifier hs-var">performAction</span></a></span><span> </span><span class="annot"><span class="annottext">Action
+</span><a href="#local-6989586621681473014"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- | Runs an IO action asynchronously. Returns an 'Action' you can wait on with</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- 'waitAction'.</span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#runAction"><span class="hs-identifier hs-type">runAction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-type">Action</span></a></span><span>
+</span><span id="line-73"></span><span id="runAction"><span class="annot"><span class="annottext">runAction :: ThreadPool -&gt; IO () -&gt; IO Action
+</span><a href="Control.Concurrent.FixedThreadPool.html#runAction"><span class="hs-identifier hs-var hs-var">runAction</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681473013"><span class="annot"><span class="annottext">chan :: Chan
+</span><a href="#local-6989586621681473013"><span class="hs-identifier hs-var">chan</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681473012"><span class="annot"><span class="annottext">action :: IO ()
+</span><a href="#local-6989586621681473012"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-74"></span><span>    </span><span id="local-6989586621681473011"><span class="annot"><span class="annottext">MVar (Maybe SomeException)
+</span><a href="#local-6989586621681473011"><span class="hs-identifier hs-var">mv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar (Maybe SomeException))
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681473010"><span class="annot"><span class="annottext">actData :: Action
+</span><a href="#local-6989586621681473010"><span class="hs-identifier hs-var hs-var">actData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ()
+-&gt; (Maybe SomeException -&gt; IO ())
+-&gt; IO (Maybe SomeException)
+-&gt; Action
+</span><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-var">Action</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681473012"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MVar (Maybe SomeException) -&gt; Maybe SomeException -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Maybe SomeException)
+</span><a href="#local-6989586621681473011"><span class="hs-identifier hs-var">mv</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MVar (Maybe SomeException) -&gt; IO (Maybe SomeException)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Maybe SomeException)
+</span><a href="#local-6989586621681473011"><span class="hs-identifier hs-var">mv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">STM () -&gt; IO ()
+forall a. STM a -&gt; IO a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM () -&gt; IO ()) -&gt; STM () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Chan -&gt; Action -&gt; STM ()
+forall a. TBMChan a -&gt; a -&gt; STM ()
+</span><span class="hs-identifier hs-var">TBMChan.writeTBMChan</span></span><span> </span><span class="annot"><span class="annottext">Chan
+</span><a href="#local-6989586621681473013"><span class="hs-identifier hs-var">chan</span></a></span><span> </span><span class="annot"><span class="annottext">Action
+</span><a href="#local-6989586621681473010"><span class="hs-identifier hs-var">actData</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">Action -&gt; IO Action
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Action
+</span><a href="#local-6989586621681473010"><span class="hs-identifier hs-var">actData</span></a></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#waitAction"><span class="hs-identifier hs-type">waitAction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-type">Action</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span id="waitAction"><span class="annot"><span class="annottext">waitAction :: Action -&gt; IO (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#waitAction"><span class="hs-identifier hs-var hs-var">waitAction</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-type">Action</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681473007"><span class="annot"><span class="annottext">wait :: IO (Maybe SomeException)
+</span><a href="#local-6989586621681473007"><span class="hs-identifier hs-var">wait</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Maybe SomeException)
+</span><a href="#local-6989586621681473007"><span class="hs-identifier hs-var">wait</span></a></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- | Run a group of actions and wait for them all to finish</span><span>
+</span><span id="line-85"></span><span class="hs-keyword">data</span><span> </span><span id="Group"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-var">Group</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Group"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-var">Group</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-86"></span><span>    </span><span id="_sema"><span class="annot"><span class="annottext">Group -&gt; MVar Int
+</span><a href="Control.Concurrent.FixedThreadPool.html#_sema"><span class="hs-identifier hs-var hs-var">_sema</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_groupErr"><span class="annot"><span class="annottext">Group -&gt; IORef (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#_groupErr"><span class="hs-identifier hs-var hs-var">_groupErr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_groupDone"><span class="annot"><span class="annottext">Group -&gt; MVar (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#_groupDone"><span class="hs-identifier hs-var hs-var">_groupDone</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#newGroup"><span class="hs-identifier hs-type">newGroup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-type">Group</span></a></span><span>
+</span><span id="line-93"></span><span id="newGroup"><span class="annot"><span class="annottext">newGroup :: Int -&gt; IO Group
+</span><a href="Control.Concurrent.FixedThreadPool.html#newGroup"><span class="hs-identifier hs-var hs-var">newGroup</span></a></span></span><span> </span><span id="local-6989586621681473001"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621681473001"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar Int
+-&gt; IORef (Maybe SomeException)
+-&gt; MVar (Maybe SomeException)
+-&gt; Group
+</span><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-var">Group</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar Int
+ -&gt; IORef (Maybe SomeException)
+ -&gt; MVar (Maybe SomeException)
+ -&gt; Group)
+-&gt; IO (MVar Int)
+-&gt; IO
+     (IORef (Maybe SomeException)
+      -&gt; MVar (Maybe SomeException) -&gt; Group)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (MVar Int)
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681473001"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">IO
+  (IORef (Maybe SomeException)
+   -&gt; MVar (Maybe SomeException) -&gt; Group)
+-&gt; IO (IORef (Maybe SomeException))
+-&gt; IO (MVar (Maybe SomeException) -&gt; Group)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException -&gt; IO (IORef (Maybe SomeException))
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">IO (MVar (Maybe SomeException) -&gt; Group)
+-&gt; IO (MVar (Maybe SomeException)) -&gt; IO Group
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (MVar (Maybe SomeException))
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#doneGroup"><span class="hs-identifier hs-type">doneGroup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-type">Group</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span id="doneGroup"><span class="annot"><span class="annottext">doneGroup :: Group -&gt; Maybe SomeException -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#doneGroup"><span class="hs-identifier hs-var hs-var">doneGroup</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-type">Group</span></a></span><span> </span><span id="local-6989586621681472996"><span class="annot"><span class="annottext">sema :: MVar Int
+</span><a href="#local-6989586621681472996"><span class="hs-identifier hs-var">sema</span></a></span></span><span> </span><span id="local-6989586621681472995"><span class="annot"><span class="annottext">gerr :: IORef (Maybe SomeException)
+</span><a href="#local-6989586621681472995"><span class="hs-identifier hs-var">gerr</span></a></span></span><span> </span><span id="local-6989586621681472994"><span class="annot"><span class="annottext">done :: MVar (Maybe SomeException)
+</span><a href="#local-6989586621681472994"><span class="hs-identifier hs-var">done</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681472993"><span class="annot"><span class="annottext">mberr :: Maybe SomeException
+</span><a href="#local-6989586621681472993"><span class="hs-identifier hs-var">mberr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+forall a. IO a -&gt; IO a
+</span><span class="hs-identifier hs-var">mask_</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>    </span><span id="local-6989586621681472991"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681472991"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar Int -&gt; (Int -&gt; IO (Int, Bool)) -&gt; IO Bool
+forall a b. MVar a -&gt; (a -&gt; IO (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">modifyMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar Int
+</span><a href="#local-6989586621681472996"><span class="hs-identifier hs-var">sema</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (Int, Bool)
+forall (m :: * -&gt; *) a. (Monad m, Eq a, Num a) =&gt; a -&gt; m (a, Bool)
+</span><a href="#local-6989586621681472989"><span class="hs-identifier hs-var">dec</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe SomeException -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><span class="hs-identifier hs-var">isJust</span></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException
+</span><a href="#local-6989586621681472993"><span class="hs-identifier hs-var">mberr</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681472988"><span class="hs-identifier hs-var">handleErr</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681472991"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IORef (Maybe SomeException) -&gt; IO (Maybe SomeException)
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe SomeException)
+</span><a href="#local-6989586621681472995"><span class="hs-identifier hs-var">gerr</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Maybe SomeException)
+-&gt; (Maybe SomeException -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">MVar (Maybe SomeException) -&gt; Maybe SomeException -&gt; IO Bool
+forall a. MVar a -&gt; a -&gt; IO Bool
+</span><span class="hs-identifier hs-var">tryPutMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Maybe SomeException)
+</span><a href="#local-6989586621681472994"><span class="hs-identifier hs-var">done</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-102"></span><span>    </span><span id="local-6989586621681472988"><span class="annot"><span class="annottext">handleErr :: IO ()
+</span><a href="#local-6989586621681472988"><span class="hs-identifier hs-var hs-var">handleErr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef (Maybe SomeException) -&gt; Maybe SomeException -&gt; IO ()
+forall a. IORef a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">writeIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe SomeException)
+</span><a href="#local-6989586621681472995"><span class="hs-identifier hs-var">gerr</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException
+</span><a href="#local-6989586621681472993"><span class="hs-identifier hs-var">mberr</span></a></span><span>
+</span><span id="line-103"></span><span>    </span><span id="local-6989586621681472989"><span class="annot"><span class="annottext">dec :: a -&gt; m (a, Bool)
+</span><a href="#local-6989586621681472989"><span class="hs-identifier hs-var hs-var">dec</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681472984"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681472984"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681472983"><span class="annot"><span class="annottext">k' :: a
+</span><a href="#local-6989586621681472983"><span class="hs-identifier hs-var hs-var">k'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681472984"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span>
+</span><span id="line-104"></span><span>             </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(a, Bool) -&gt; m (a, Bool)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((a, Bool) -&gt; m (a, Bool)) -&gt; (a, Bool) -&gt; m (a, Bool)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681472983"><span class="hs-identifier hs-var">k'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681472983"><span class="hs-identifier hs-var">k'</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#waitGroup"><span class="hs-identifier hs-type">waitGroup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-type">Group</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span id="waitGroup"><span class="annot"><span class="annottext">waitGroup :: Group -&gt; IO (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#waitGroup"><span class="hs-identifier hs-var hs-var">waitGroup</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#Group"><span class="hs-identifier hs-type">Group</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681472981"><span class="annot"><span class="annottext">done :: MVar (Maybe SomeException)
+</span><a href="#local-6989586621681472981"><span class="hs-identifier hs-var">done</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Maybe SomeException) -&gt; IO (Maybe SomeException)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Maybe SomeException)
+</span><a href="#local-6989586621681472981"><span class="hs-identifier hs-var">done</span></a></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- | Runs a group of IO actions and waits for them to finish. If any of the IO</span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- actions throws an exception, 'runActionGroup' will return it. If more than</span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- one action throws an exception, 'runActionGroup' will arbitrarily return one</span><span>
+</span><span id="line-114"></span><span class="hs-comment">-- of the exceptions. The 'runActionGroup' function will wait until all of the</span><span>
+</span><span id="line-115"></span><span class="hs-comment">-- actions have run, even if an exception is thrown.</span><span>
+</span><span id="line-116"></span><span id="local-6989586621681472980"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#runActionGroup"><span class="hs-identifier hs-type">runActionGroup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621681472980"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-117"></span><span>               </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span>
+</span><span id="line-118"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681472980"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>               </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-120"></span><span id="runActionGroup"><span class="annot"><span class="annottext">runActionGroup :: ThreadPool -&gt; t (IO ()) -&gt; IO (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#runActionGroup"><span class="hs-identifier hs-var hs-var">runActionGroup</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681472979"><span class="annot"><span class="annottext">chan :: Chan
+</span><a href="#local-6989586621681472979"><span class="hs-identifier hs-var">chan</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681472978"><span class="annot"><span class="annottext">actions :: t (IO ())
+</span><a href="#local-6989586621681472978"><span class="hs-identifier hs-var">actions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472977"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Maybe SomeException -&gt; IO (Maybe SomeException)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Maybe SomeException
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IO (Maybe SomeException)
+</span><a href="#local-6989586621681472976"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-123"></span><span>    </span><span id="local-6989586621681472977"><span class="annot"><span class="annottext">len :: Int
+</span><a href="#local-6989586621681472977"><span class="hs-identifier hs-var hs-var">len</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t (IO ()) -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">t (IO ())
+</span><a href="#local-6989586621681472978"><span class="hs-identifier hs-var">actions</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span>    </span><span id="local-6989586621681472976"><span class="annot"><span class="annottext">go :: IO (Maybe SomeException)
+</span><a href="#local-6989586621681472976"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-126"></span><span>        </span><span id="local-6989586621681472974"><span class="annot"><span class="annottext">Group
+</span><a href="#local-6989586621681472974"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Group
+</span><a href="Control.Concurrent.FixedThreadPool.html#newGroup"><span class="hs-identifier hs-var">newGroup</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472977"><span class="hs-identifier hs-var">len</span></a></span><span>
+</span><span id="line-127"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681472973"><span class="annot"><span class="annottext">actData :: t Action
+</span><a href="#local-6989586621681472973"><span class="hs-identifier hs-var hs-var">actData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; Action) -&gt; t (IO ()) -&gt; t Action
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Group -&gt; IO () -&gt; Action
+</span><a href="#local-6989586621681472972"><span class="hs-identifier hs-var">toAction</span></a></span><span> </span><span class="annot"><span class="annottext">Group
+</span><a href="#local-6989586621681472974"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">t (IO ())
+</span><a href="#local-6989586621681472978"><span class="hs-identifier hs-var">actions</span></a></span><span>
+</span><span id="line-128"></span><span>        </span><span class="annot"><span class="annottext">(Action -&gt; IO ()) -&gt; t Action -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m ()
+</span><span class="hs-identifier hs-var">mapM_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM () -&gt; IO ()
+forall a. STM a -&gt; IO a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM () -&gt; IO ()) -&gt; (Action -&gt; STM ()) -&gt; Action -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Chan -&gt; Action -&gt; STM ()
+forall a. TBMChan a -&gt; a -&gt; STM ()
+</span><span class="hs-identifier hs-var">TBMChan.writeTBMChan</span></span><span> </span><span class="annot"><span class="annottext">Chan
+</span><a href="#local-6989586621681472979"><span class="hs-identifier hs-var">chan</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">t Action
+</span><a href="#local-6989586621681472973"><span class="hs-identifier hs-var">actData</span></a></span><span>
+</span><span id="line-129"></span><span>        </span><span class="annot"><span class="annottext">Group -&gt; IO (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#waitGroup"><span class="hs-identifier hs-var">waitGroup</span></a></span><span> </span><span class="annot"><span class="annottext">Group
+</span><a href="#local-6989586621681472974"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span>    </span><span id="local-6989586621681472972"><span class="annot"><span class="annottext">toAction :: Group -&gt; IO () -&gt; Action
+</span><a href="#local-6989586621681472972"><span class="hs-identifier hs-var hs-var">toAction</span></a></span></span><span> </span><span id="local-6989586621681472970"><span class="annot"><span class="annottext">g :: Group
+</span><a href="#local-6989586621681472970"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span id="local-6989586621681472969"><span class="annot"><span class="annottext">a :: IO ()
+</span><a href="#local-6989586621681472969"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ()
+-&gt; (Maybe SomeException -&gt; IO ())
+-&gt; IO (Maybe SomeException)
+-&gt; Action
+</span><a href="Control.Concurrent.FixedThreadPool.html#Action"><span class="hs-identifier hs-var">Action</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681472969"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Group -&gt; Maybe SomeException -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#doneGroup"><span class="hs-identifier hs-var">doneGroup</span></a></span><span> </span><span class="annot"><span class="annottext">Group
+</span><a href="#local-6989586621681472970"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Group -&gt; IO (Maybe SomeException)
+</span><a href="Control.Concurrent.FixedThreadPool.html#waitGroup"><span class="hs-identifier hs-var">waitGroup</span></a></span><span> </span><span class="annot"><span class="annottext">Group
+</span><a href="#local-6989586621681472970"><span class="hs-identifier hs-var">g</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#stopThreadPool"><span class="hs-identifier hs-type">stopThreadPool</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span id="stopThreadPool"><span class="annot"><span class="annottext">stopThreadPool :: ThreadPool -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#stopThreadPool"><span class="hs-identifier hs-var hs-var">stopThreadPool</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681472968"><span class="annot"><span class="annottext">chan :: Chan
+</span><a href="#local-6989586621681472968"><span class="hs-identifier hs-var">chan</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>    </span><span class="annot"><span class="annottext">STM () -&gt; IO ()
+forall a. STM a -&gt; IO a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM () -&gt; IO ()) -&gt; STM () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Chan -&gt; STM ()
+forall a. TBMChan a -&gt; STM ()
+</span><span class="hs-identifier hs-var">TBMChan.closeTBMChan</span></span><span> </span><span class="annot"><span class="annottext">Chan
+</span><a href="#local-6989586621681472968"><span class="hs-identifier hs-var">chan</span></a></span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#killThreadPool"><span class="hs-identifier hs-type">killThreadPool</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span id="killThreadPool"><span class="annot"><span class="annottext">killThreadPool :: ThreadPool -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#killThreadPool"><span class="hs-identifier hs-var hs-var">killThreadPool</span></a></span></span><span> </span><span id="local-6989586621681472966"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681472966"><span class="hs-identifier hs-var">tp</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span id="local-6989586621681472965"><span class="annot"><span class="annottext">threads :: Vector ThreadId
+</span><a href="#local-6989586621681472965"><span class="hs-identifier hs-var">threads</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-141"></span><span>    </span><span class="annot"><span class="annottext">ThreadPool -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#stopThreadPool"><span class="hs-identifier hs-var">stopThreadPool</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681472966"><span class="hs-identifier hs-var">tp</span></a></span><span>
+</span><span id="line-142"></span><span>    </span><span class="annot"><span class="annottext">(ThreadId -&gt; IO ()) -&gt; Vector ThreadId -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; Vector a -&gt; m ()
+</span><span class="hs-identifier hs-var">V.mapM_</span></span><span> </span><span class="annot"><span class="annottext">ThreadId -&gt; IO ()
+</span><span class="hs-identifier hs-var">killThread</span></span><span> </span><span class="annot"><span class="annottext">Vector ThreadId
+</span><a href="#local-6989586621681472965"><span class="hs-identifier hs-var">threads</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#waitThreadPool"><span class="hs-identifier hs-type">waitThreadPool</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span id="waitThreadPool"><span class="annot"><span class="annottext">waitThreadPool :: ThreadPool -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#waitThreadPool"><span class="hs-identifier hs-var hs-var">waitThreadPool</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681472963"><span class="annot"><span class="annottext">waits :: Vector (IO ())
+</span><a href="#local-6989586621681472963"><span class="hs-identifier hs-var">waits</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector (IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; Vector (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">V.sequence_</span></span><span> </span><span class="annot"><span class="annottext">Vector (IO ())
+</span><a href="#local-6989586621681472963"><span class="hs-identifier hs-var">waits</span></a></span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span id="local-6989586621681472961"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#withThreadPool"><span class="hs-identifier hs-type">withThreadPool</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681472961"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681472961"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-150"></span><span id="withThreadPool"><span class="annot"><span class="annottext">withThreadPool :: Int -&gt; (ThreadPool -&gt; IO a) -&gt; IO a
+</span><a href="Control.Concurrent.FixedThreadPool.html#withThreadPool"><span class="hs-identifier hs-var hs-var">withThreadPool</span></a></span></span><span> </span><span id="local-6989586621681472960"><span class="annot"><span class="annottext">k :: Int
+</span><a href="#local-6989586621681472960"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621681472959"><span class="annot"><span class="annottext">userFunc :: ThreadPool -&gt; IO a
+</span><a href="#local-6989586621681472959"><span class="hs-identifier hs-var">userFunc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ThreadPool
+-&gt; (ThreadPool -&gt; IO ()) -&gt; (ThreadPool -&gt; IO a) -&gt; IO a
+forall a b c. IO a -&gt; (a -&gt; IO b) -&gt; (a -&gt; IO c) -&gt; IO c
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="annot"><span class="annottext">IO ThreadPool
+</span><a href="#local-6989586621681472957"><span class="hs-identifier hs-var">create</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool -&gt; IO ()
+</span><a href="#local-6989586621681472956"><span class="hs-identifier hs-var">destroy</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool -&gt; IO a
+</span><a href="#local-6989586621681472959"><span class="hs-identifier hs-var">userFunc</span></a></span><span>
+</span><span id="line-151"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-152"></span><span>    </span><span id="local-6989586621681472957"><span class="annot"><span class="annottext">create :: IO ThreadPool
+</span><a href="#local-6989586621681472957"><span class="hs-identifier hs-var hs-var">create</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO ThreadPool
+</span><a href="Control.Concurrent.FixedThreadPool.html#newThreadPool"><span class="hs-identifier hs-var">newThreadPool</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681472960"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span id="local-6989586621681472956"><span class="annot"><span class="annottext">destroy :: ThreadPool -&gt; IO ()
+</span><a href="#local-6989586621681472956"><span class="hs-identifier hs-var hs-var">destroy</span></a></span></span><span> </span><span id="local-6989586621681472955"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681472955"><span class="hs-identifier hs-var">tp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ThreadPool -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#stopThreadPool"><span class="hs-identifier hs-var">stopThreadPool</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681472955"><span class="hs-identifier hs-var">tp</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ThreadPool -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#waitThreadPool"><span class="hs-identifier hs-var">waitThreadPool</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681472955"><span class="hs-identifier hs-var">tp</span></a></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span id="local-6989586621681473075"><span id="local-6989586621681473076"><span id="local-6989586621681473077"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#mapAction"><span class="hs-identifier hs-type">mapAction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621681473077"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-157"></span><span>          </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span>
+</span><span id="line-158"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681473076"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681473075"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473077"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473076"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-160"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681473077"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span> </span><span class="annot"><a href="#local-6989586621681473075"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-161"></span><span id="mapAction"><span class="annot"><span class="annottext">mapAction :: ThreadPool -&gt; (a -&gt; IO b) -&gt; t a -&gt; IO (t (Either SomeException b))
+</span><a href="Control.Concurrent.FixedThreadPool.html#mapAction"><span class="hs-identifier hs-var hs-var">mapAction</span></a></span></span><span> </span><span id="local-6989586621681472954"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681472954"><span class="hs-identifier hs-var">tp</span></a></span></span><span> </span><span id="local-6989586621681472953"><span class="annot"><span class="annottext">userFunc :: a -&gt; IO b
+</span><a href="#local-6989586621681472953"><span class="hs-identifier hs-var">userFunc</span></a></span></span><span> </span><span id="local-6989586621681472952"><span class="annot"><span class="annottext">xs :: t a
+</span><a href="#local-6989586621681472952"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-162"></span><span>    </span><span id="local-6989586621681472951"><span class="annot"><span class="annottext">t (a, MVar (Either SomeException b))
+</span><a href="#local-6989586621681472951"><span class="hs-identifier hs-var">vals</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(a -&gt; IO (a, MVar (Either SomeException b)))
+-&gt; t a -&gt; IO (t (a, MVar (Either SomeException b)))
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m (t b)
+</span><span class="hs-identifier hs-var">mapM</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; IO (a, MVar (Either SomeException b))
+forall a a. a -&gt; IO (a, MVar a)
+</span><a href="#local-6989586621681472949"><span class="hs-identifier hs-var">zipMV</span></a></span><span> </span><span class="annot"><span class="annottext">t a
+</span><a href="#local-6989586621681472952"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681472948"><span class="annot"><span class="annottext">mvs :: t (MVar (Either SomeException b))
+</span><a href="#local-6989586621681472948"><span class="hs-identifier hs-var hs-var">mvs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a, MVar (Either SomeException b))
+ -&gt; MVar (Either SomeException b))
+-&gt; t (a, MVar (Either SomeException b))
+-&gt; t (MVar (Either SomeException b))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(a, MVar (Either SomeException b)) -&gt; MVar (Either SomeException b)
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">t (a, MVar (Either SomeException b))
+</span><a href="#local-6989586621681472951"><span class="hs-identifier hs-var">vals</span></a></span><span>
+</span><span id="line-164"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681472947"><span class="annot"><span class="annottext">actions :: t (IO ())
+</span><a href="#local-6989586621681472947"><span class="hs-identifier hs-var hs-var">actions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((a, MVar (Either SomeException b)) -&gt; IO ())
+-&gt; t (a, MVar (Either SomeException b)) -&gt; t (IO ())
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(a, MVar (Either SomeException b)) -&gt; IO ()
+forall e. Exception e =&gt; (a, MVar (Either e b)) -&gt; IO ()
+</span><a href="#local-6989586621681472946"><span class="hs-identifier hs-var">toAction</span></a></span><span> </span><span class="annot"><span class="annottext">t (a, MVar (Either SomeException b))
+</span><a href="#local-6989586621681472951"><span class="hs-identifier hs-var">vals</span></a></span><span>
+</span><span id="line-165"></span><span>    </span><span class="annot"><span class="annottext">(IO () -&gt; IO Action) -&gt; t (IO ()) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m ()
+</span><span class="hs-identifier hs-var">mapM_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ThreadPool -&gt; IO () -&gt; IO Action
+</span><a href="Control.Concurrent.FixedThreadPool.html#runAction"><span class="hs-identifier hs-var">runAction</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681472954"><span class="hs-identifier hs-var">tp</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">t (IO ())
+</span><a href="#local-6989586621681472947"><span class="hs-identifier hs-var">actions</span></a></span><span>
+</span><span id="line-166"></span><span>    </span><span class="annot"><span class="annottext">(MVar (Either SomeException b) -&gt; IO (Either SomeException b))
+-&gt; t (MVar (Either SomeException b))
+-&gt; IO (t (Either SomeException b))
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m (t b)
+</span><span class="hs-identifier hs-var">mapM</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either SomeException b) -&gt; IO (Either SomeException b)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">t (MVar (Either SomeException b))
+</span><a href="#local-6989586621681472948"><span class="hs-identifier hs-var">mvs</span></a></span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-169"></span><span>    </span><span id="local-6989586621681472949"><span class="annot"><span class="annottext">zipMV :: a -&gt; IO (a, MVar a)
+</span><a href="#local-6989586621681472949"><span class="hs-identifier hs-var hs-var">zipMV</span></a></span></span><span> </span><span id="local-6989586621681472945"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621681472945"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-170"></span><span>        </span><span id="local-6989586621681472944"><span class="annot"><span class="annottext">MVar a
+</span><a href="#local-6989586621681472944"><span class="hs-identifier hs-var">mv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar a)
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-171"></span><span>        </span><span class="annot"><span class="annottext">(a, MVar a) -&gt; IO (a, MVar a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((a, MVar a) -&gt; IO (a, MVar a)) -&gt; (a, MVar a) -&gt; IO (a, MVar a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681472945"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">MVar a
+</span><a href="#local-6989586621681472944"><span class="hs-identifier hs-var">mv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>    </span><span id="local-6989586621681472946"><span class="annot"><span class="annottext">toAction :: (a, MVar (Either e b)) -&gt; IO ()
+</span><a href="#local-6989586621681472946"><span class="hs-identifier hs-var hs-var">toAction</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681472943"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621681472943"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681472942"><span class="annot"><span class="annottext">mv :: MVar (Either e b)
+</span><a href="#local-6989586621681472942"><span class="hs-identifier hs-var">mv</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO b -&gt; IO (Either e b)
+forall e a. Exception e =&gt; IO a -&gt; IO (Either e a)
+</span><span class="hs-identifier hs-var">try</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; IO b
+</span><a href="#local-6989586621681472953"><span class="hs-identifier hs-var">userFunc</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681472943"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO (Either e b) -&gt; (Either e b -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either e b) -&gt; Either e b -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either e b)
+</span><a href="#local-6989586621681472942"><span class="hs-identifier hs-var">mv</span></a></span><span>
+</span><span id="line-173"></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span id="local-6989586621681472938"><span id="local-6989586621681472939"><span id="local-6989586621681472940"><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#mapAction_"><span class="hs-identifier hs-type">mapAction_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621681472940"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-176"></span><span>           </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span>
+</span><span id="line-177"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681472939"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681472938"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-178"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681472940"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681472939"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-179"></span><span>           </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-180"></span><span id="mapAction_"><span class="annot"><span class="annottext">mapAction_ :: ThreadPool -&gt; (a -&gt; IO b) -&gt; t a -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#mapAction_"><span class="hs-identifier hs-var hs-var">mapAction_</span></a></span></span><span> </span><span id="local-6989586621681472937"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681472937"><span class="hs-identifier hs-var">tp</span></a></span></span><span> </span><span id="local-6989586621681472936"><span class="annot"><span class="annottext">userFunc :: a -&gt; IO b
+</span><a href="#local-6989586621681472936"><span class="hs-identifier hs-var">userFunc</span></a></span></span><span> </span><span id="local-6989586621681472935"><span class="annot"><span class="annottext">xs0 :: t a
+</span><a href="#local-6989586621681472935"><span class="hs-identifier hs-var">xs0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-181"></span><span>    </span><span id="local-6989586621681472934"><span class="annot"><span class="annottext">Either SomeException ()
+</span><a href="#local-6989586621681472934"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">t (Either SomeException ()) -&gt; Either SomeException ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable t, Monad m) =&gt;
+t (m a) -&gt; m ()
+</span><span class="hs-identifier hs-var">sequence_</span></span><span> </span><span class="annot"><span class="annottext">(t (Either SomeException ()) -&gt; Either SomeException ())
+-&gt; IO (t (Either SomeException ())) -&gt; IO (Either SomeException ())
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+-&gt; (a -&gt; IO ()) -&gt; t a -&gt; IO (t (Either SomeException ()))
+forall (t :: * -&gt; *) a b.
+Traversable t =&gt;
+ThreadPool -&gt; (a -&gt; IO b) -&gt; t a -&gt; IO (t (Either SomeException b))
+</span><a href="Control.Concurrent.FixedThreadPool.html#mapAction"><span class="hs-identifier hs-var">mapAction</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681472937"><span class="hs-identifier hs-var">tp</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO b -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO b -&gt; IO ()) -&gt; (a -&gt; IO b) -&gt; a -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; IO b
+</span><a href="#local-6989586621681472936"><span class="hs-identifier hs-var">userFunc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">t a
+</span><a href="#local-6989586621681472935"><span class="hs-identifier hs-var">xs0</span></a></span><span>
+</span><span id="line-182"></span><span>    </span><span class="annot"><span class="annottext">(SomeException -&gt; IO ())
+-&gt; (() -&gt; IO ()) -&gt; Either SomeException () -&gt; IO ()
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; IO ()
+forall e a. Exception e =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Either SomeException ()
+</span><a href="#local-6989586621681472934"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-183"></span></pre></body></html>

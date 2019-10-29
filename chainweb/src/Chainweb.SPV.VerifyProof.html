@@ -1,0 +1,168 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Module: Chainweb.SPV.VerifyProof</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.SPV.VerifyProof</span><span>
+</span><span id="line-15"></span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span class="annot"><span class="hs-comment">-- * Transaction Proofs</span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#runTransactionProof"><span class="hs-identifier">runTransactionProof</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionProof"><span class="hs-identifier">verifyTransactionProof</span></a></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- * Transaction Output Proofs</span></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#runTransactionOutputProof"><span class="hs-identifier">runTransactionOutputProof</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionOutputProof"><span class="hs-identifier">verifyTransactionOutputProof</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.Algorithms</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.MerkleLog</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html"><span class="hs-identifier">Chainweb.Crypto.MerkleLog</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html"><span class="hs-identifier">Chainweb.MerkleLogHash</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.SPV.html"><span class="hs-identifier">Chainweb.SPV</span></a></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- Transaction Proofs</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- | Runs a transaction Proof. Returns the block hash on the target chain for</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- which inclusion is proven.</span><span>
+</span><span id="line-48"></span><span class="hs-comment">--</span><span>
+</span><span id="line-49"></span><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#runTransactionProof"><span class="hs-identifier hs-type">runTransactionProof</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span>
+</span><span id="line-50"></span><span id="runTransactionProof"><span class="annot"><span class="annottext">runTransactionProof :: TransactionProof SHA512t_256 -&gt; BlockHash
+</span><a href="Chainweb.SPV.VerifyProof.html#runTransactionProof"><span class="hs-identifier hs-var hs-var">runTransactionProof</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681504077"><span class="annot"><span class="annottext">p :: MerkleProof SHA512t_256
+</span><a href="#local-6989586621681504077"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; BlockHash
+</span><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-var">BlockHash</span></a></span><span> </span><span class="annot"><span class="annottext">(MerkleLogHash -&gt; BlockHash) -&gt; MerkleLogHash -&gt; BlockHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-var">MerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash)
+-&gt; MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256 -&gt; MerkleRoot SHA512t_256
+forall a. HashAlgorithm a =&gt; MerkleProof a -&gt; MerkleRoot a
+</span><span class="hs-identifier hs-var">runMerkleProof</span></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+</span><a href="#local-6989586621681504077"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span id="local-6989586621681504073"><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionProof"><span class="hs-identifier hs-type">verifyTransactionProof</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504073"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a></span></span><span>
+</span><span id="line-57"></span><span id="verifyTransactionProof"><span class="annot"><span class="annottext">verifyTransactionProof :: CutDb cas -&gt; TransactionProof SHA512t_256 -&gt; IO Transaction
+</span><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionProof"><span class="hs-identifier hs-var hs-var">verifyTransactionProof</span></a></span></span><span> </span><span id="local-6989586621681504072"><span class="annot"><span class="annottext">cutDb :: CutDb cas
+</span><a href="#local-6989586621681504072"><span class="hs-identifier hs-var">cutDb</span></a></span></span><span> </span><span id="local-6989586621681504071"><span class="annot"><span class="annottext">proof :: TransactionProof SHA512t_256
+</span><a href="#local-6989586621681504071"><span class="hs-identifier hs-var">proof</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span id="local-6989586621681504070"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681504070"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681504069"><span class="annot"><span class="annottext">p :: MerkleProof SHA512t_256
+</span><a href="#local-6989586621681504069"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">IO Bool -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *). Monad m =&gt; m Bool -&gt; m () -&gt; m ()
+</span><a href="Chainweb.Utils.html#unlessM"><span class="hs-identifier hs-var">unlessM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDb cas -&gt; ChainId -&gt; BlockHash -&gt; IO Bool
+forall (cas :: * -&gt; *).
+CutDb cas -&gt; ChainId -&gt; BlockHash -&gt; IO Bool
+</span><a href="Chainweb.CutDB.html#member"><span class="hs-identifier hs-var">member</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504072"><span class="hs-identifier hs-var">cutDb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504070"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHash
+</span><a href="#local-6989586621681504066"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SpvException -&gt; IO ()
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span>
+</span><span id="line-59"></span><span>        </span><span class="annot"><span class="annottext">(SpvException -&gt; IO ()) -&gt; SpvException -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; SpvException
+</span><a href="Chainweb.SPV.html#SpvExceptionVerificationFailed"><span class="hs-identifier hs-var">SpvExceptionVerificationFailed</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;target header is not in the chain&quot;</span></span><span>
+</span><span id="line-60"></span><span>    </span><span class="annot"><span class="annottext">MerkleProof (HashAlg ChainwebHashTag) -&gt; IO Transaction
+forall u b (m :: * -&gt; *).
+(MonadThrow m, IsMerkleLogEntry u b) =&gt;
+MerkleProof (HashAlg u) -&gt; m b
+</span><a href="Chainweb.Crypto.MerkleLog.html#proofSubject"><span class="hs-identifier hs-var">proofSubject</span></a></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+MerkleProof (HashAlg ChainwebHashTag)
+</span><a href="#local-6989586621681504069"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-62"></span><span>    </span><span id="local-6989586621681504066"><span class="annot"><span class="annottext">h :: BlockHash
+</span><a href="#local-6989586621681504066"><span class="hs-identifier hs-var hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionProof SHA512t_256 -&gt; BlockHash
+</span><a href="Chainweb.SPV.VerifyProof.html#runTransactionProof"><span class="hs-identifier hs-var">runTransactionProof</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionProof SHA512t_256
+</span><a href="#local-6989586621681504071"><span class="hs-identifier hs-var">proof</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- Output Proofs</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- | Runs a transaction Proof. Returns the block hash on the target chain for</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- which inclusion is proven.</span><span>
+</span><span id="line-69"></span><span class="hs-comment">--</span><span>
+</span><span id="line-70"></span><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#runTransactionOutputProof"><span class="hs-identifier hs-type">runTransactionOutputProof</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span>
+</span><span id="line-71"></span><span id="runTransactionOutputProof"><span class="annot"><span class="annottext">runTransactionOutputProof :: TransactionOutputProof SHA512t_256 -&gt; BlockHash
+</span><a href="Chainweb.SPV.VerifyProof.html#runTransactionOutputProof"><span class="hs-identifier hs-var hs-var">runTransactionOutputProof</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681504061"><span class="annot"><span class="annottext">p :: MerkleProof SHA512t_256
+</span><a href="#local-6989586621681504061"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; BlockHash
+</span><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-var">BlockHash</span></a></span><span> </span><span class="annot"><span class="annottext">(MerkleLogHash -&gt; BlockHash) -&gt; MerkleLogHash -&gt; BlockHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-var">MerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash)
+-&gt; MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256 -&gt; MerkleRoot SHA512t_256
+forall a. HashAlgorithm a =&gt; MerkleProof a -&gt; MerkleRoot a
+</span><span class="hs-identifier hs-var">runMerkleProof</span></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+</span><a href="#local-6989586621681504061"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span id="local-6989586621681504060"><span class="annot"><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionOutputProof"><span class="hs-identifier hs-type">verifyTransactionOutputProof</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504060"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#TransactionOutput"><span class="hs-identifier hs-type">TransactionOutput</span></a></span></span><span>
+</span><span id="line-78"></span><span id="verifyTransactionOutputProof"><span class="annot"><span class="annottext">verifyTransactionOutputProof :: CutDb cas
+-&gt; TransactionOutputProof SHA512t_256 -&gt; IO TransactionOutput
+</span><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionOutputProof"><span class="hs-identifier hs-var hs-var">verifyTransactionOutputProof</span></a></span></span><span> </span><span id="local-6989586621681504059"><span class="annot"><span class="annottext">cutDb :: CutDb cas
+</span><a href="#local-6989586621681504059"><span class="hs-identifier hs-var">cutDb</span></a></span></span><span> </span><span id="local-6989586621681504058"><span class="annot"><span class="annottext">proof :: TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504058"><span class="hs-identifier hs-var">proof</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span id="local-6989586621681504057"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681504057"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681504056"><span class="annot"><span class="annottext">p :: MerkleProof SHA512t_256
+</span><a href="#local-6989586621681504056"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">IO Bool -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *). Monad m =&gt; m Bool -&gt; m () -&gt; m ()
+</span><a href="Chainweb.Utils.html#unlessM"><span class="hs-identifier hs-var">unlessM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDb cas -&gt; ChainId -&gt; BlockHash -&gt; IO Bool
+forall (cas :: * -&gt; *).
+CutDb cas -&gt; ChainId -&gt; BlockHash -&gt; IO Bool
+</span><a href="Chainweb.CutDB.html#member"><span class="hs-identifier hs-var">member</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504059"><span class="hs-identifier hs-var">cutDb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504057"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHash
+</span><a href="#local-6989586621681504055"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SpvException -&gt; IO ()
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span>
+</span><span id="line-80"></span><span>        </span><span class="annot"><span class="annottext">(SpvException -&gt; IO ()) -&gt; SpvException -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; SpvException
+</span><a href="Chainweb.SPV.html#SpvExceptionVerificationFailed"><span class="hs-identifier hs-var">SpvExceptionVerificationFailed</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;target header is not in the chain&quot;</span></span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">MerkleProof (HashAlg ChainwebHashTag) -&gt; IO TransactionOutput
+forall u b (m :: * -&gt; *).
+(MonadThrow m, IsMerkleLogEntry u b) =&gt;
+MerkleProof (HashAlg u) -&gt; m b
+</span><a href="Chainweb.Crypto.MerkleLog.html#proofSubject"><span class="hs-identifier hs-var">proofSubject</span></a></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+MerkleProof (HashAlg ChainwebHashTag)
+</span><a href="#local-6989586621681504056"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-82"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681504055"><span class="annot"><span class="annottext">h :: BlockHash
+</span><a href="#local-6989586621681504055"><span class="hs-identifier hs-var hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionOutputProof SHA512t_256 -&gt; BlockHash
+</span><a href="Chainweb.SPV.VerifyProof.html#runTransactionOutputProof"><span class="hs-identifier hs-var">runTransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504058"><span class="hs-identifier hs-var">proof</span></a></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span></pre></body></html>

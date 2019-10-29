@@ -1,0 +1,464 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Mempool.RestAPI.Server</span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolServer"><span class="hs-identifier">mempoolServer</span></a></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServer"><span class="hs-identifier">someMempoolServer</span></a></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServers"><span class="hs-identifier">someMempoolServers</span></a></span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolApp"><span class="hs-identifier">mempoolApp</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Handler</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.DList</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">D</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html"><span class="hs-identifier">Chainweb.Mempool.Mempool</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html"><span class="hs-identifier">Chainweb.Mempool.RestAPI</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Orphans.html"><span class="hs-identifier">Chainweb.RestAPI.Orphans</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html"><span class="hs-identifier">Chainweb.RestAPI.Utils</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-34"></span><span id="local-6989586621681497896"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#insertHandler"><span class="hs-identifier hs-type">insertHandler</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497896"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497896"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NoContent</span></span></span><span>
+</span><span id="line-35"></span><span id="insertHandler"><span class="annot"><span class="annottext">insertHandler :: MempoolBackend t -&gt; [Text] -&gt; Handler NoContent
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#insertHandler"><span class="hs-identifier hs-var hs-var">insertHandler</span></a></span></span><span> </span><span id="local-6989586621681497877"><span class="annot"><span class="annottext">mempool :: MempoolBackend t
+</span><a href="#local-6989586621681497877"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span id="local-6989586621681497876"><span class="annot"><span class="annottext">txsT :: [Text]
+</span><a href="#local-6989586621681497876"><span class="hs-identifier hs-var">txsT</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handler NoContent -&gt; Handler NoContent
+forall a. Handler a -&gt; Handler a
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#handleErrs"><span class="hs-identifier hs-var">handleErrs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NoContent
+</span><span class="hs-identifier hs-var">NoContent</span></span><span> </span><span class="annot"><span class="annottext">NoContent -&gt; Handler () -&gt; Handler NoContent
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span> </span><span class="annot"><span class="annottext">Handler ()
+</span><a href="#local-6989586621681497872"><span class="hs-identifier hs-var">begin</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-37"></span><span>    </span><span id="local-6989586621681497871"><span class="annot"><span class="annottext">txcfg :: TransactionConfig t
+</span><a href="#local-6989586621681497871"><span class="hs-identifier hs-var hs-var">txcfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MempoolBackend t -&gt; TransactionConfig t
+forall t. MempoolBackend t -&gt; TransactionConfig t
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolTxConfig"><span class="hs-identifier hs-var hs-var">mempoolTxConfig</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497877"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span id="local-6989586621681497869"><span class="annot"><span class="annottext">decode :: Text -&gt; Either String t
+</span><a href="#local-6989586621681497869"><span class="hs-identifier hs-var hs-var">decode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Codec t -&gt; ByteString -&gt; Either String t
+forall t. Codec t -&gt; ByteString -&gt; Either String t
+</span><a href="Chainweb.Utils.html#codecDecode"><span class="hs-identifier hs-var hs-var">codecDecode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionConfig t -&gt; Codec t
+forall t. TransactionConfig t -&gt; Codec t
+</span><a href="Chainweb.Mempool.Mempool.html#txCodec"><span class="hs-identifier hs-var hs-var">txCodec</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionConfig t
+</span><a href="#local-6989586621681497871"><span class="hs-identifier hs-var">txcfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either String t)
+-&gt; (Text -&gt; ByteString) -&gt; Text -&gt; Either String t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621681497864"><span class="annot"><span class="annottext">go :: Text -&gt; m t
+</span><a href="#local-6989586621681497864"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621681497863"><span class="annot"><span class="annottext">h :: Text
+</span><a href="#local-6989586621681497863"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either String t
+</span><a href="#local-6989586621681497869"><span class="hs-identifier hs-var">decode</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681497863"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-41"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681497862"><span class="annot"><span class="annottext">e :: String
+</span><a href="#local-6989586621681497862"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EncodingException -&gt; m t
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m t)
+-&gt; (Text -&gt; EncodingException) -&gt; Text -&gt; m t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#DecodeException"><span class="hs-identifier hs-var">DecodeException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m t) -&gt; Text -&gt; m t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681497862"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-42"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681497858"><span class="annot"><span class="annottext">t :: t
+</span><a href="#local-6989586621681497858"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">t -&gt; m t
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621681497858"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span>    </span><span id="local-6989586621681497872"><span class="annot"><span class="annottext">begin :: Handler ()
+</span><a href="#local-6989586621681497872"><span class="hs-identifier hs-var hs-var">begin</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-45"></span><span>        </span><span id="local-6989586621681497857"><span class="annot"><span class="annottext">[t]
+</span><a href="#local-6989586621681497857"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Handler t) -&gt; [Text] -&gt; Handler [t]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m (t b)
+</span><span class="hs-identifier hs-var">mapM</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Handler t
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m t
+</span><a href="#local-6989586621681497864"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621681497876"><span class="hs-identifier hs-var">txsT</span></a></span><span>
+</span><span id="line-46"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681497855"><span class="annot"><span class="annottext">txV :: Vector t
+</span><a href="#local-6989586621681497855"><span class="hs-identifier hs-var hs-var">txV</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[t] -&gt; Vector t
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">[t]
+</span><a href="#local-6989586621681497857"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-47"></span><span>        </span><span class="annot"><span class="annottext">IO () -&gt; Handler ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; Handler ()) -&gt; IO () -&gt; Handler ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t -&gt; InsertType -&gt; Vector t -&gt; IO ()
+forall t. MempoolBackend t -&gt; InsertType -&gt; Vector t -&gt; IO ()
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolInsert"><span class="hs-identifier hs-var hs-var">mempoolInsert</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497877"><span class="hs-identifier hs-var">mempool</span></a></span><span> </span><span class="annot"><span class="annottext">InsertType
+</span><a href="Chainweb.Mempool.Mempool.html#CheckedInsert"><span class="hs-identifier hs-var">CheckedInsert</span></a></span><span> </span><span class="annot"><span class="annottext">Vector t
+</span><a href="#local-6989586621681497855"><span class="hs-identifier hs-var">txV</span></a></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621681497892"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#memberHandler"><span class="hs-identifier hs-type">memberHandler</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497892"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497892"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionHash"><span class="hs-identifier hs-type">TransactionHash</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">]</span></span><span>
+</span><span id="line-51"></span><span id="memberHandler"><span class="annot"><span class="annottext">memberHandler :: MempoolBackend t -&gt; [TransactionHash] -&gt; Handler [Bool]
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#memberHandler"><span class="hs-identifier hs-var hs-var">memberHandler</span></a></span></span><span> </span><span id="local-6989586621681497849"><span class="annot"><span class="annottext">mempool :: MempoolBackend t
+</span><a href="#local-6989586621681497849"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span id="local-6989586621681497848"><span class="annot"><span class="annottext">txs :: [TransactionHash]
+</span><a href="#local-6989586621681497848"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handler [Bool] -&gt; Handler [Bool]
+forall a. Handler a -&gt; Handler a
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#handleErrs"><span class="hs-identifier hs-var">handleErrs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO [Bool] -&gt; Handler [Bool]
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">IO [Bool]
+</span><a href="#local-6989586621681497847"><span class="hs-identifier hs-var">mem</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-53"></span><span>    </span><span id="local-6989586621681497846"><span class="annot"><span class="annottext">txV :: Vector TransactionHash
+</span><a href="#local-6989586621681497846"><span class="hs-identifier hs-var hs-var">txV</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TransactionHash] -&gt; Vector TransactionHash
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">[TransactionHash]
+</span><a href="#local-6989586621681497848"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span id="local-6989586621681497847"><span class="annot"><span class="annottext">mem :: IO [Bool]
+</span><a href="#local-6989586621681497847"><span class="hs-identifier hs-var hs-var">mem</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector Bool -&gt; [Bool]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">(Vector Bool -&gt; [Bool]) -&gt; IO (Vector Bool) -&gt; IO [Bool]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t -&gt; Vector TransactionHash -&gt; IO (Vector Bool)
+forall t.
+MempoolBackend t -&gt; Vector TransactionHash -&gt; IO (Vector Bool)
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolMember"><span class="hs-identifier hs-var hs-var">mempoolMember</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497849"><span class="hs-identifier hs-var">mempool</span></a></span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash
+</span><a href="#local-6989586621681497846"><span class="hs-identifier hs-var">txV</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span id="local-6989586621681497891"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#lookupHandler"><span class="hs-identifier hs-type">lookupHandler</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497891"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497891"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionHash"><span class="hs-identifier hs-type">TransactionHash</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#LookupResult"><span class="hs-identifier hs-type">LookupResult</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span></span><span>
+</span><span id="line-62"></span><span id="lookupHandler"><span class="annot"><span class="annottext">lookupHandler :: MempoolBackend t
+-&gt; [TransactionHash] -&gt; Handler [LookupResult Text]
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#lookupHandler"><span class="hs-identifier hs-var hs-var">lookupHandler</span></a></span></span><span> </span><span id="local-6989586621681497841"><span class="annot"><span class="annottext">mempool :: MempoolBackend t
+</span><a href="#local-6989586621681497841"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span id="local-6989586621681497840"><span class="annot"><span class="annottext">txs :: [TransactionHash]
+</span><a href="#local-6989586621681497840"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Handler [LookupResult Text] -&gt; Handler [LookupResult Text]
+forall a. Handler a -&gt; Handler a
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#handleErrs"><span class="hs-identifier hs-var">handleErrs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO [LookupResult Text] -&gt; Handler [LookupResult Text]
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">IO [LookupResult Text]
+</span><a href="#local-6989586621681497839"><span class="hs-identifier hs-var">look</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-64"></span><span>    </span><span id="local-6989586621681497838"><span class="annot"><span class="annottext">txV :: Vector TransactionHash
+</span><a href="#local-6989586621681497838"><span class="hs-identifier hs-var hs-var">txV</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TransactionHash] -&gt; Vector TransactionHash
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">[TransactionHash]
+</span><a href="#local-6989586621681497840"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-65"></span><span>    </span><span id="local-6989586621681497837"><span class="annot"><span class="annottext">txcfg :: TransactionConfig t
+</span><a href="#local-6989586621681497837"><span class="hs-identifier hs-var hs-var">txcfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MempoolBackend t -&gt; TransactionConfig t
+forall t. MempoolBackend t -&gt; TransactionConfig t
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolTxConfig"><span class="hs-identifier hs-var hs-var">mempoolTxConfig</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497841"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621681497836"><span class="annot"><span class="annottext">encode :: t -&gt; Text
+</span><a href="#local-6989586621681497836"><span class="hs-identifier hs-var hs-var">encode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; (t -&gt; ByteString) -&gt; t -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Codec t -&gt; t -&gt; ByteString
+forall t. Codec t -&gt; t -&gt; ByteString
+</span><a href="Chainweb.Utils.html#codecEncode"><span class="hs-identifier hs-var hs-var">codecEncode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionConfig t -&gt; Codec t
+forall t. TransactionConfig t -&gt; Codec t
+</span><a href="Chainweb.Mempool.Mempool.html#txCodec"><span class="hs-identifier hs-var hs-var">txCodec</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionConfig t
+</span><a href="#local-6989586621681497837"><span class="hs-identifier hs-var">txcfg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>    </span><span id="local-6989586621681497839"><span class="annot"><span class="annottext">look :: IO [LookupResult Text]
+</span><a href="#local-6989586621681497839"><span class="hs-identifier hs-var hs-var">look</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector (LookupResult Text) -&gt; [LookupResult Text]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">(Vector (LookupResult Text) -&gt; [LookupResult Text])
+-&gt; (Vector (LookupResult t) -&gt; Vector (LookupResult Text))
+-&gt; Vector (LookupResult t)
+-&gt; [LookupResult Text]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(LookupResult t -&gt; LookupResult Text)
+-&gt; Vector (LookupResult t) -&gt; Vector (LookupResult Text)
+forall a b. (a -&gt; b) -&gt; Vector a -&gt; Vector b
+</span><span class="hs-identifier hs-var">V.map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(t -&gt; Text) -&gt; LookupResult t -&gt; LookupResult Text
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">t -&gt; Text
+</span><a href="#local-6989586621681497836"><span class="hs-identifier hs-var">encode</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Vector (LookupResult t) -&gt; [LookupResult Text])
+-&gt; IO (Vector (LookupResult t)) -&gt; IO [LookupResult Text]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+-&gt; Vector TransactionHash -&gt; IO (Vector (LookupResult t))
+forall t.
+MempoolBackend t
+-&gt; Vector TransactionHash -&gt; IO (Vector (LookupResult t))
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolLookup"><span class="hs-identifier hs-var hs-var">mempoolLookup</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497841"><span class="hs-identifier hs-var">mempool</span></a></span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash
+</span><a href="#local-6989586621681497838"><span class="hs-identifier hs-var">txV</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span id="local-6989586621681497890"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#getPendingHandler"><span class="hs-identifier hs-type">getPendingHandler</span></a></span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497890"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497890"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#ServerNonce"><span class="hs-identifier hs-type">ServerNonce</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolTxId"><span class="hs-identifier hs-type">MempoolTxId</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#PendingTransactions"><span class="hs-identifier hs-type">PendingTransactions</span></a></span></span><span>
+</span><span id="line-75"></span><span id="getPendingHandler"><span class="annot"><span class="annottext">getPendingHandler :: MempoolBackend t
+-&gt; Maybe ServerNonce
+-&gt; Maybe MempoolTxId
+-&gt; Handler PendingTransactions
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#getPendingHandler"><span class="hs-identifier hs-var hs-var">getPendingHandler</span></a></span></span><span> </span><span id="local-6989586621681497830"><span class="annot"><span class="annottext">mempool :: MempoolBackend t
+</span><a href="#local-6989586621681497830"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span id="local-6989586621681497829"><span class="annot"><span class="annottext">mbNonce :: Maybe ServerNonce
+</span><a href="#local-6989586621681497829"><span class="hs-identifier hs-var">mbNonce</span></a></span></span><span> </span><span id="local-6989586621681497828"><span class="annot"><span class="annottext">mbHw :: Maybe MempoolTxId
+</span><a href="#local-6989586621681497828"><span class="hs-identifier hs-var">mbHw</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO PendingTransactions -&gt; Handler PendingTransactions
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO PendingTransactions -&gt; Handler PendingTransactions)
+-&gt; IO PendingTransactions -&gt; Handler PendingTransactions
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-comment">-- Ideally, this would serialize directly into the output buffer, but</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-comment">-- that's not how servant works. So we first collect the hashes into a</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-comment">-- dlist serialize them latter on a second pass over the list.</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-81"></span><span>    </span><span id="local-6989586621681497827"><span class="annot"><span class="annottext">IORef (DList TransactionHash)
+</span><a href="#local-6989586621681497827"><span class="hs-identifier hs-var">ref</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">DList TransactionHash -&gt; IO (IORef (DList TransactionHash))
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="annottext">DList TransactionHash
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681497825"><span class="annot"><span class="annottext">HighwaterMark
+</span><a href="#local-6989586621681497825"><span class="hs-identifier hs-var">hw'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+-&gt; Maybe HighwaterMark
+-&gt; (Vector TransactionHash -&gt; IO ())
+-&gt; IO HighwaterMark
+forall t.
+MempoolBackend t
+-&gt; Maybe HighwaterMark
+-&gt; (Vector TransactionHash -&gt; IO ())
+-&gt; IO HighwaterMark
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolGetPendingTransactions"><span class="hs-identifier hs-var hs-var">mempoolGetPendingTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497830"><span class="hs-identifier hs-var">mempool</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe HighwaterMark
+</span><a href="#local-6989586621681497823"><span class="hs-identifier hs-var">hw</span></a></span><span> </span><span class="annot"><span class="annottext">((Vector TransactionHash -&gt; IO ()) -&gt; IO HighwaterMark)
+-&gt; (Vector TransactionHash -&gt; IO ()) -&gt; IO HighwaterMark
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681497822"><span class="annot"><span class="annottext">chunk :: Vector TransactionHash
+</span><a href="#local-6989586621681497822"><span class="hs-identifier hs-var">chunk</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">IORef (DList TransactionHash)
+-&gt; (DList TransactionHash -&gt; DList TransactionHash) -&gt; IO ()
+forall a. IORef a -&gt; (a -&gt; a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">modifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef (DList TransactionHash)
+</span><a href="#local-6989586621681497827"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DList TransactionHash
+-&gt; DList TransactionHash -&gt; DList TransactionHash
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">[TransactionHash] -&gt; DList TransactionHash
+forall a. [a] -&gt; DList a
+</span><span class="hs-identifier hs-var">D.fromList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector TransactionHash -&gt; [TransactionHash]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash
+</span><a href="#local-6989586621681497822"><span class="hs-identifier hs-var">chunk</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>            </span><span class="hs-comment">-- fromList is applied lazily, so the vector isn't traversed at this</span><span>
+</span><span id="line-85"></span><span>            </span><span class="hs-comment">-- point.</span><span>
+</span><span id="line-86"></span><span>    </span><span class="annot"><span class="annottext">[TransactionHash] -&gt; HighwaterMark -&gt; PendingTransactions
+</span><a href="Chainweb.Mempool.RestAPI.html#PendingTransactions"><span class="hs-identifier hs-var">PendingTransactions</span></a></span><span>
+</span><span id="line-87"></span><span>        </span><span class="annot"><span class="annottext">([TransactionHash] -&gt; HighwaterMark -&gt; PendingTransactions)
+-&gt; IO [TransactionHash]
+-&gt; IO (HighwaterMark -&gt; PendingTransactions)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DList TransactionHash -&gt; [TransactionHash]
+forall a. DList a -&gt; [a]
+</span><span class="hs-identifier hs-var">D.toList</span></span><span> </span><span class="annot"><span class="annottext">(DList TransactionHash -&gt; [TransactionHash])
+-&gt; IO (DList TransactionHash) -&gt; IO [TransactionHash]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IORef (DList TransactionHash) -&gt; IO (DList TransactionHash)
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (DList TransactionHash)
+</span><a href="#local-6989586621681497827"><span class="hs-identifier hs-var">ref</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>            </span><span class="hs-comment">-- at this point only the head of the list of forced. It is fully</span><span>
+</span><span id="line-89"></span><span>            </span><span class="hs-comment">-- evaluated when servant calls toEncoding on it.</span><span>
+</span><span id="line-90"></span><span>        </span><span class="annot"><span class="annottext">IO (HighwaterMark -&gt; PendingTransactions)
+-&gt; IO HighwaterMark -&gt; IO PendingTransactions
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">HighwaterMark -&gt; IO HighwaterMark
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">HighwaterMark
+</span><a href="#local-6989586621681497825"><span class="hs-identifier hs-var">hw'</span></a></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-93"></span><span>    </span><span class="annot"><a href="#local-6989586621681497823"><span class="hs-identifier hs-type">hw</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#ServerNonce"><span class="hs-identifier hs-type">ServerNonce</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolTxId"><span class="hs-identifier hs-type">MempoolTxId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>    </span><span id="local-6989586621681497823"><span class="annot"><span class="annottext">hw :: Maybe HighwaterMark
+</span><a href="#local-6989586621681497823"><span class="hs-identifier hs-var hs-var">hw</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-95"></span><span>        </span><span class="hs-comment">-- check that both nonce and txid are supplied and stuff them into one maybe</span><span>
+</span><span id="line-96"></span><span>        </span><span id="local-6989586621681497816"><span class="annot"><span class="annottext">ServerNonce
+</span><a href="#local-6989586621681497816"><span class="hs-identifier hs-var">oldNonce</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe ServerNonce
+</span><a href="#local-6989586621681497829"><span class="hs-identifier hs-var">mbNonce</span></a></span><span>
+</span><span id="line-97"></span><span>        </span><span id="local-6989586621681497815"><span class="annot"><span class="annottext">MempoolTxId
+</span><a href="#local-6989586621681497815"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe MempoolTxId
+</span><a href="#local-6989586621681497828"><span class="hs-identifier hs-var">mbHw</span></a></span><span>
+</span><span id="line-98"></span><span>        </span><span class="annot"><span class="annottext">HighwaterMark -&gt; Maybe HighwaterMark
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ServerNonce
+</span><a href="#local-6989586621681497816"><span class="hs-identifier hs-var">oldNonce</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">MempoolTxId
+</span><a href="#local-6989586621681497815"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span id="local-6989586621681498005"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#handleErrs"><span class="hs-identifier hs-type">handleErrs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><a href="#local-6989586621681498005"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><a href="#local-6989586621681498005"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-102"></span><span id="handleErrs"><span class="annot"><span class="annottext">handleErrs :: Handler a -&gt; Handler a
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#handleErrs"><span class="hs-identifier hs-var hs-var">handleErrs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handler a -&gt; (SomeException -&gt; Handler a) -&gt; Handler a
+forall (m :: * -&gt; *) e a.
+(MonadCatch m, Exception e) =&gt;
+m a -&gt; (e -&gt; m a) -&gt; m a
+</span><span class="hs-operator hs-var">`catch`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681497813"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681497813"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-103"></span><span>                 </span><span class="annot"><span class="annottext">ServerError -&gt; Handler a
+forall e (m :: * -&gt; *) a. MonadError e m =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwError</span></span><span> </span><span class="annot"><span class="annottext">(ServerError -&gt; Handler a) -&gt; ServerError -&gt; Handler a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ServerError
+</span><span class="hs-identifier hs-var">err400</span></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">errBody :: ByteString
+</span><span class="hs-identifier hs-var">errBody</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; ByteString
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681497813"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span id="local-6989586621681497904"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServer"><span class="hs-identifier hs-type">someMempoolServer</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497904"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#SomeMempool"><span class="hs-identifier hs-type">SomeMempool</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497904"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span>
+</span><span id="line-109"></span><span id="someMempoolServer"><span class="annot"><span class="annottext">someMempoolServer :: SomeMempool t -&gt; SomeServer
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServer"><span class="hs-identifier hs-var hs-var">someMempoolServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#SomeMempool"><span class="hs-identifier hs-type">SomeMempool</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497805"><span id="local-6989586621681497806"><span id="local-6989586621681497807"><span id="local-6989586621681497804"><span class="annot"><span class="annottext">Mempool_ v c t
+</span><a href="#local-6989586621681497804"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#Mempool_"><span class="hs-identifier hs-type">Mempool_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497807"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497806"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497805"><span class="hs-identifier hs-type">t</span></a></span></span></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (MempoolApi v c) -&gt; Server (MempoolApi v c) -&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (MempoolApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#MempoolApi"><span class="hs-identifier hs-type">MempoolApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497807"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497806"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Mempool_ v c t -&gt; Server (MempoolApi v c)
+forall t (v :: ChainwebVersionT) (c :: ChainIdT).
+Show t =&gt;
+Mempool_ v c t -&gt; Server (MempoolApi v c)
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolServer"><span class="hs-identifier hs-var">mempoolServer</span></a></span><span> </span><span class="annot"><span class="annottext">Mempool_ v c t
+</span><a href="#local-6989586621681497804"><span class="hs-identifier hs-var">mempool</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span id="local-6989586621681497801"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServers"><span class="hs-identifier hs-type">someMempoolServers</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497801"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497801"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span>
+</span><span id="line-116"></span><span id="someMempoolServers"><span class="annot"><span class="annottext">someMempoolServers :: ChainwebVersion -&gt; [(ChainId, MempoolBackend t)] -&gt; SomeServer
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServers"><span class="hs-identifier hs-var hs-var">someMempoolServers</span></a></span></span><span> </span><span id="local-6989586621681497800"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681497800"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[SomeServer] -&gt; SomeServer
+forall a. Monoid a =&gt; [a] -&gt; a
+</span><span class="hs-identifier hs-var">mconcat</span></span><span>
+</span><span id="line-117"></span><span>    </span><span class="annot"><span class="annottext">([SomeServer] -&gt; SomeServer)
+-&gt; ([(ChainId, MempoolBackend t)] -&gt; [SomeServer])
+-&gt; [(ChainId, MempoolBackend t)]
+-&gt; SomeServer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((ChainId, MempoolBackend t) -&gt; SomeServer)
+-&gt; [(ChainId, MempoolBackend t)] -&gt; [SomeServer]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SomeMempool t -&gt; SomeServer
+forall t. Show t =&gt; SomeMempool t -&gt; SomeServer
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServer"><span class="hs-identifier hs-var">someMempoolServer</span></a></span><span> </span><span class="annot"><span class="annottext">(SomeMempool t -&gt; SomeServer)
+-&gt; ((ChainId, MempoolBackend t) -&gt; SomeMempool t)
+-&gt; (ChainId, MempoolBackend t)
+-&gt; SomeServer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; MempoolBackend t -&gt; SomeMempool t)
+-&gt; (ChainId, MempoolBackend t) -&gt; SomeMempool t
+forall a b c. (a -&gt; b -&gt; c) -&gt; (a, b) -&gt; c
+</span><span class="hs-identifier hs-var">uncurry</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; MempoolBackend t -&gt; SomeMempool t
+forall t.
+ChainwebVersion -&gt; ChainId -&gt; MempoolBackend t -&gt; SomeMempool t
+</span><a href="Chainweb.Mempool.RestAPI.html#someMempoolVal"><span class="hs-identifier hs-var">someMempoolVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497800"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span id="local-6989586621681497908"><span id="local-6989586621681497909"><span id="local-6989586621681497910"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolServer"><span class="hs-identifier hs-type">mempoolServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497910"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#Mempool_"><span class="hs-identifier hs-type">Mempool_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497909"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497908"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497910"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Server</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#MempoolApi"><span class="hs-identifier hs-type">MempoolApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497909"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497908"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-121"></span><span id="mempoolServer"><span class="annot"><span class="annottext">mempoolServer :: Mempool_ v c t -&gt; Server (MempoolApi v c)
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolServer"><span class="hs-identifier hs-var hs-var">mempoolServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#Mempool_"><span class="hs-identifier hs-type">Mempool_</span></a></span><span> </span><span id="local-6989586621681497796"><span class="annot"><span class="annottext">mempool :: MempoolBackend t
+</span><a href="#local-6989586621681497796"><span class="hs-identifier hs-var">mempool</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-122"></span><span>    </span><span class="annot"><span class="annottext">MempoolBackend t -&gt; [Text] -&gt; Handler NoContent
+forall t. Show t =&gt; MempoolBackend t -&gt; [Text] -&gt; Handler NoContent
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#insertHandler"><span class="hs-identifier hs-var">insertHandler</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497796"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="annot"><span class="annottext">([Text] -&gt; Handler NoContent)
+-&gt; (([TransactionHash] -&gt; Handler [Bool])
+    :&lt;|&gt; (([TransactionHash] -&gt; Handler [LookupResult Text])
+          :&lt;|&gt; (Maybe ServerNonce
+                -&gt; Maybe MempoolTxId -&gt; Handler PendingTransactions)))
+-&gt; ([Text] -&gt; Handler NoContent)
+   :&lt;|&gt; (([TransactionHash] -&gt; Handler [Bool])
+         :&lt;|&gt; (([TransactionHash] -&gt; Handler [LookupResult Text])
+               :&lt;|&gt; (Maybe ServerNonce
+                     -&gt; Maybe MempoolTxId -&gt; Handler PendingTransactions)))
+forall a b. a -&gt; b -&gt; a :&lt;|&gt; b
+</span><span class="hs-operator hs-var">:&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t -&gt; [TransactionHash] -&gt; Handler [Bool]
+forall t.
+Show t =&gt;
+MempoolBackend t -&gt; [TransactionHash] -&gt; Handler [Bool]
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#memberHandler"><span class="hs-identifier hs-var">memberHandler</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497796"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-124"></span><span>    </span><span class="annot"><span class="annottext">([TransactionHash] -&gt; Handler [Bool])
+-&gt; (([TransactionHash] -&gt; Handler [LookupResult Text])
+    :&lt;|&gt; (Maybe ServerNonce
+          -&gt; Maybe MempoolTxId -&gt; Handler PendingTransactions))
+-&gt; ([TransactionHash] -&gt; Handler [Bool])
+   :&lt;|&gt; (([TransactionHash] -&gt; Handler [LookupResult Text])
+         :&lt;|&gt; (Maybe ServerNonce
+               -&gt; Maybe MempoolTxId -&gt; Handler PendingTransactions))
+forall a b. a -&gt; b -&gt; a :&lt;|&gt; b
+</span><span class="hs-operator hs-var">:&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+-&gt; [TransactionHash] -&gt; Handler [LookupResult Text]
+forall t.
+Show t =&gt;
+MempoolBackend t
+-&gt; [TransactionHash] -&gt; Handler [LookupResult Text]
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#lookupHandler"><span class="hs-identifier hs-var">lookupHandler</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497796"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-125"></span><span>    </span><span class="annot"><span class="annottext">([TransactionHash] -&gt; Handler [LookupResult Text])
+-&gt; (Maybe ServerNonce
+    -&gt; Maybe MempoolTxId -&gt; Handler PendingTransactions)
+-&gt; ([TransactionHash] -&gt; Handler [LookupResult Text])
+   :&lt;|&gt; (Maybe ServerNonce
+         -&gt; Maybe MempoolTxId -&gt; Handler PendingTransactions)
+forall a b. a -&gt; b -&gt; a :&lt;|&gt; b
+</span><span class="hs-operator hs-var">:&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+-&gt; Maybe ServerNonce
+-&gt; Maybe MempoolTxId
+-&gt; Handler PendingTransactions
+forall t.
+Show t =&gt;
+MempoolBackend t
+-&gt; Maybe ServerNonce
+-&gt; Maybe MempoolTxId
+-&gt; Handler PendingTransactions
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#getPendingHandler"><span class="hs-identifier hs-var">getPendingHandler</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681497796"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolApp"><span class="hs-identifier hs-type">mempoolApp</span></a></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681497794"><span class="annot"><a href="#local-6989586621681497794"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span id="local-6989586621681497793"><span class="annot"><a href="#local-6989586621681497793"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span id="local-6989586621681497792"><span class="annot"><a href="#local-6989586621681497792"><span class="hs-identifier hs-type">t</span></a></span></span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497794"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497793"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497792"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#Mempool_"><span class="hs-identifier hs-type">Mempool_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497794"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497793"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497792"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Application</span></span><span>
+</span><span id="line-134"></span><span id="mempoolApp"><span class="annot"><span class="annottext">mempoolApp :: Mempool_ v c t -&gt; Application
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolApp"><span class="hs-identifier hs-var hs-var">mempoolApp</span></a></span></span><span> </span><span id="local-6989586621681497789"><span class="annot"><span class="annottext">mempool :: Mempool_ v c t
+</span><a href="#local-6989586621681497789"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (MempoolApi v c) -&gt; Server (MempoolApi v c) -&gt; Application
+forall api.
+HasServer api '[] =&gt;
+Proxy api -&gt; Server api -&gt; Application
+</span><span class="hs-identifier hs-var">serve</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (MempoolApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#MempoolApi"><span class="hs-identifier hs-type">MempoolApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497794"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497793"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Mempool_ v c t -&gt; Server (MempoolApi v c)
+forall t (v :: ChainwebVersionT) (c :: ChainIdT).
+Show t =&gt;
+Mempool_ v c t -&gt; Server (MempoolApi v c)
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#mempoolServer"><span class="hs-identifier hs-var">mempoolServer</span></a></span><span> </span><span class="annot"><span class="annottext">Mempool_ v c t
+</span><a href="#local-6989586621681497789"><span class="hs-identifier hs-var">mempool</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span></pre></body></html>

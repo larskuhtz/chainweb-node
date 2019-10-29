@@ -1,0 +1,223 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Module: Chainweb.CutDB.RestAPI.Server</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.CutDB.RestAPI.Server</span><span>
+</span><span id="line-19"></span><span class="hs-special">(</span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- * Handlers</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#cutGetHandler"><span class="hs-identifier">cutGetHandler</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#cutPutHandler"><span class="hs-identifier">cutPutHandler</span></a></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="annot"><span class="hs-comment">-- * Cut Server</span></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#cutServer"><span class="hs-identifier">cutServer</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- * Some Cut Server</span></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServer"><span class="hs-identifier">someCutServer</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Run server</span></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#serveCutOnPort"><span class="hs-identifier">serveCutOnPort</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">view</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Except</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Semigroup</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai.Handler.Warp</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Port</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.API</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Server</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Cut.html"><span class="hs-identifier">Chainweb.Cut</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html"><span class="hs-identifier">Chainweb.Cut.CutHashes</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.RestAPI.html"><span class="hs-identifier">Chainweb.CutDB.RestAPI</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html"><span class="hs-identifier">Chainweb.HostAddress</span></a></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html"><span class="hs-identifier">Chainweb.RestAPI.Utils</span></a></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html"><span class="hs-identifier">Chainweb.TreeDB</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.html#MaxRank"><span class="hs-identifier">MaxRank</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- Handlers</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span id="local-6989586621681508022"><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#cutGetHandler"><span class="hs-identifier hs-type">cutGetHandler</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508022"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html#MaxRank"><span class="hs-identifier hs-type">MaxRank</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span></span><span>
+</span><span id="line-61"></span><span id="cutGetHandler"><span class="annot"><span class="annottext">cutGetHandler :: CutDb cas -&gt; Maybe MaxRank -&gt; Handler CutHashes
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#cutGetHandler"><span class="hs-identifier hs-var hs-var">cutGetHandler</span></a></span></span><span> </span><span id="local-6989586621681507971"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681507971"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CutHashes -&gt; Handler CutHashes
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO CutHashes -&gt; Handler CutHashes)
+-&gt; IO CutHashes -&gt; Handler CutHashes
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Maybe PeerInfo -&gt; Cut -&gt; CutHashes
+</span><a href="Chainweb.Cut.CutHashes.html#cutToCutHashes"><span class="hs-identifier hs-var">cutToCutHashes</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe PeerInfo
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">(Cut -&gt; CutHashes) -&gt; IO Cut -&gt; IO CutHashes
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">CutDb cas -&gt; IO Cut
+forall (cas :: * -&gt; *). CutDb cas -&gt; IO Cut
+</span><a href="Chainweb.CutDB.html#_cut"><span class="hs-identifier hs-var">_cut</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681507971"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-62"></span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#cutGetHandler"><span class="hs-identifier hs-var">cutGetHandler</span></a></span><span> </span><span id="local-6989586621681507966"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681507966"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.html#MaxRank"><span class="hs-identifier hs-type">MaxRank</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Max</span></span><span> </span><span id="local-6989586621681507963"><span class="annot"><span class="annottext">mar :: Natural
+</span><a href="#local-6989586621681507963"><span class="hs-identifier hs-var">mar</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO CutHashes -&gt; Handler CutHashes
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO CutHashes -&gt; Handler CutHashes)
+-&gt; IO CutHashes -&gt; Handler CutHashes
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681507962"><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681507962"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CutDb cas -&gt; IO Cut
+forall (cas :: * -&gt; *). CutDb cas -&gt; IO Cut
+</span><a href="Chainweb.CutDB.html#_cut"><span class="hs-identifier hs-var">_cut</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681507966"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681507961"><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681507961"><span class="hs-identifier hs-var">c'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; WebBlockHeaderDb -&gt; BlockHeight -&gt; Cut -&gt; IO Cut
+WebBlockHeaderDb -&gt; BlockHeight -&gt; Cut -&gt; IO Cut
+</span><a href="Chainweb.Cut.html#limitCut"><span class="hs-identifier hs-var">limitCut</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting WebBlockHeaderDb (CutDb cas) WebBlockHeaderDb
+-&gt; CutDb cas -&gt; WebBlockHeaderDb
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting WebBlockHeaderDb (CutDb cas) WebBlockHeaderDb
+forall (cas :: * -&gt; *). Getter (CutDb cas) WebBlockHeaderDb
+</span><a href="Chainweb.CutDB.html#cutDbWebBlockHeaderDb"><span class="hs-identifier hs-var">cutDbWebBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681507966"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; BlockHeight
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681507963"><span class="hs-identifier hs-var">mar</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681507962"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">CutHashes -&gt; IO CutHashes
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(CutHashes -&gt; IO CutHashes) -&gt; CutHashes -&gt; IO CutHashes
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Maybe PeerInfo -&gt; Cut -&gt; CutHashes
+</span><a href="Chainweb.Cut.CutHashes.html#cutToCutHashes"><span class="hs-identifier hs-var">cutToCutHashes</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe PeerInfo
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681507961"><span class="hs-identifier hs-var">c'</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span id="local-6989586621681508018"><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#cutPutHandler"><span class="hs-identifier hs-type">cutPutHandler</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508018"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NoContent</span></span></span><span>
+</span><span id="line-68"></span><span id="cutPutHandler"><span class="annot"><span class="annottext">cutPutHandler :: CutDb cas -&gt; CutHashes -&gt; Handler NoContent
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#cutPutHandler"><span class="hs-identifier hs-var hs-var">cutPutHandler</span></a></span></span><span> </span><span id="local-6989586621681507956"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681507956"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681507955"><span class="annot"><span class="annottext">c :: CutHashes
+</span><a href="#local-6989586621681507955"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NoContent
+</span><span class="hs-identifier hs-var">NoContent</span></span><span> </span><span class="annot"><span class="annottext">NoContent -&gt; Handler () -&gt; Handler NoContent
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; Handler ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDb cas -&gt; CutHashes -&gt; IO ()
+forall (cas :: * -&gt; *). CutDb cas -&gt; CutHashes -&gt; IO ()
+</span><a href="Chainweb.CutDB.html#addCutHashes"><span class="hs-identifier hs-var">addCutHashes</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681507956"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681507955"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- Cut API Server</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#cutServer"><span class="hs-identifier hs-type">cutServer</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681507991"><span class="annot"><a href="#local-6989586621681507991"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681507990"><span class="annot"><a href="#local-6989586621681507990"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersionT"><span class="hs-identifier hs-type">ChainwebVersionT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507991"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507990"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Server</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.RestAPI.html#CutApi"><span class="hs-identifier hs-type">CutApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507990"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span id="cutServer"><span class="annot"><span class="annottext">cutServer :: CutDbT cas v -&gt; Server (CutApi v)
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#cutServer"><span class="hs-identifier hs-var hs-var">cutServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span id="local-6989586621681507950"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681507950"><span class="hs-identifier hs-var">db</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutDb cas -&gt; Maybe MaxRank -&gt; Handler CutHashes
+forall (cas :: * -&gt; *).
+CutDb cas -&gt; Maybe MaxRank -&gt; Handler CutHashes
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#cutGetHandler"><span class="hs-identifier hs-var">cutGetHandler</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681507950"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe MaxRank -&gt; Handler CutHashes)
+-&gt; (CutHashes -&gt; Handler NoContent)
+-&gt; (Maybe MaxRank -&gt; Handler CutHashes)
+   :&lt;|&gt; (CutHashes -&gt; Handler NoContent)
+forall a b. a -&gt; b -&gt; a :&lt;|&gt; b
+</span><span class="hs-operator hs-var">:&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">CutDb cas -&gt; CutHashes -&gt; Handler NoContent
+forall (cas :: * -&gt; *). CutDb cas -&gt; CutHashes -&gt; Handler NoContent
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#cutPutHandler"><span class="hs-identifier hs-var">cutPutHandler</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681507950"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- Some Cut Server</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span id="local-6989586621681507987"><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServerT"><span class="hs-identifier hs-type">someCutServerT</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#SomeCutDb"><span class="hs-identifier hs-type">SomeCutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507987"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span>
+</span><span id="line-83"></span><span id="someCutServerT"><span class="annot"><span class="annottext">someCutServerT :: SomeCutDb cas -&gt; SomeServer
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServerT"><span class="hs-identifier hs-var hs-var">someCutServerT</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.html#SomeCutDb"><span class="hs-identifier hs-type">SomeCutDb</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681507945"><span id="local-6989586621681507946"><span id="local-6989586621681507944"><span class="annot"><span class="annottext">CutDbT cas v
+</span><a href="#local-6989586621681507944"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507946"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507945"><span class="hs-identifier hs-type">v</span></a></span></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">Proxy
+  (('ChainwebEndpoint v
+    :&gt; ('NetworkEndpoint 'CutNetworkT
+        :&gt; (QueryParam' '[Optional, Strict] &quot;maxheight&quot; MaxRank
+            :&gt; Verb 'GET 200 '[JSON] CutHashes)))
+   :&lt;|&gt; ('ChainwebEndpoint v
+         :&gt; ('NetworkEndpoint 'CutNetworkT
+             :&gt; (ReqBody' '[Required, Strict] '[JSON] CutHashes
+                 :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; Server
+     (('ChainwebEndpoint v
+       :&gt; ('NetworkEndpoint 'CutNetworkT
+           :&gt; (QueryParam' '[Optional, Strict] &quot;maxheight&quot; MaxRank
+               :&gt; Verb 'GET 200 '[JSON] CutHashes)))
+      :&lt;|&gt; ('ChainwebEndpoint v
+            :&gt; ('NetworkEndpoint 'CutNetworkT
+                :&gt; (ReqBody' '[Required, Strict] '[JSON] CutHashes
+                    :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (CutApi v)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.RestAPI.html#CutApi"><span class="hs-identifier hs-type">CutApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507945"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDbT cas v -&gt; Server (CutApi v)
+forall (cas :: * -&gt; *) (v :: ChainwebVersionT).
+CutDbT cas v -&gt; Server (CutApi v)
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#cutServer"><span class="hs-identifier hs-var">cutServer</span></a></span><span> </span><span class="annot"><span class="annottext">CutDbT cas v
+</span><a href="#local-6989586621681507944"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span id="local-6989586621681507978"><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServer"><span class="hs-identifier hs-type">someCutServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507978"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span>
+</span><span id="line-87"></span><span id="someCutServer"><span class="annot"><span class="annottext">someCutServer :: ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServer"><span class="hs-identifier hs-var hs-var">someCutServer</span></a></span></span><span> </span><span id="local-6989586621681507941"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681507941"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SomeCutDb cas -&gt; SomeServer
+forall (cas :: * -&gt; *). SomeCutDb cas -&gt; SomeServer
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServerT"><span class="hs-identifier hs-var">someCutServerT</span></a></span><span> </span><span class="annot"><span class="annottext">(SomeCutDb cas -&gt; SomeServer)
+-&gt; (CutDb cas -&gt; SomeCutDb cas) -&gt; CutDb cas -&gt; SomeServer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; CutDb cas -&gt; SomeCutDb cas
+forall (cas :: * -&gt; *).
+ChainwebVersion -&gt; CutDb cas -&gt; SomeCutDb cas
+</span><a href="Chainweb.CutDB.html#someCutDbVal"><span class="hs-identifier hs-var">someCutDbVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681507941"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- Run Server</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span id="local-6989586621681507938"><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html#serveCutOnPort"><span class="hs-identifier hs-type">serveCutOnPort</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html#Port"><span class="hs-identifier hs-type">Port</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681507938"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-93"></span><span id="serveCutOnPort"><span class="annot"><span class="annottext">serveCutOnPort :: Port -&gt; ChainwebVersion -&gt; CutDb cas -&gt; IO ()
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#serveCutOnPort"><span class="hs-identifier hs-var hs-var">serveCutOnPort</span></a></span></span><span> </span><span id="local-6989586621681507937"><span class="annot"><span class="annottext">p :: Port
+</span><a href="#local-6989586621681507937"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621681507936"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681507936"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Port -&gt; Application -&gt; IO ()
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Port -&gt; Port
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Port
+</span><a href="#local-6989586621681507937"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Application -&gt; IO ())
+-&gt; (CutDb cas -&gt; Application) -&gt; CutDb cas -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SomeServer -&gt; Application
+</span><a href="Chainweb.RestAPI.Utils.html#someServerApplication"><span class="hs-identifier hs-var">someServerApplication</span></a></span><span> </span><span class="annot"><span class="annottext">(SomeServer -&gt; Application)
+-&gt; (CutDb cas -&gt; SomeServer) -&gt; CutDb cas -&gt; Application
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+forall (cas :: * -&gt; *). ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServer"><span class="hs-identifier hs-var">someCutServer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681507936"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-94"></span></pre></body></html>

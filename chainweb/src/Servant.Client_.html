@@ -1,0 +1,400 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE AllowAmbiguousTypes #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveFunctor #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Module: Servant.Client_</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-20"></span><span class="hs-comment">--</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-22"></span><span class="hs-comment">--</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Servant.Client_</span><span>
+</span><span id="line-24"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier">ClientM_</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Servant.Client_.html#client_"><span class="hs-identifier">client_</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Servant.Client_.html#runClientM_"><span class="hs-identifier">runClientM_</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Servant.Client_.html#modifyRequest"><span class="hs-identifier">modifyRequest</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Servant.Client_.html#modifyResponse"><span class="hs-identifier">modifyResponse</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Error.Class</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Reader</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client.Core</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- Run Modified Client</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">data</span><span> </span><span id="Mods"><span class="annot"><a href="Servant.Client_.html#Mods"><span class="hs-identifier hs-var">Mods</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Mods"><span class="annot"><a href="Servant.Client_.html#Mods"><span class="hs-identifier hs-var">Mods</span></a></span></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_modReq"><span class="annot"><span class="annottext">Mods -&gt; Request -&gt; IO Request
+</span><a href="Servant.Client_.html#_modReq"><span class="hs-identifier hs-var hs-var">_modReq</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Request</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Request</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_modRes"><span class="annot"><span class="annottext">Mods -&gt; Response -&gt; IO Response
+</span><a href="Servant.Client_.html#_modRes"><span class="hs-identifier hs-var hs-var">_modRes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Response</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Response</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span id="modRes"><span id="modReq"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">Mods</span></span></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- | 'ClientM_' mimics the behavior of 'ClientM', but provides the functions</span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- 'modifyResponse' and 'modifyRequest' that allow to locally overwrite requests</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- and responses.</span><span>
+</span><span id="line-56"></span><span class="hs-comment">--</span><span>
+</span><span id="line-57"></span><span id="local-6989586621681501246"><span id="local-6989586621681501247"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="ClientM_"><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-var">ClientM_</span></a></span></span><span> </span><span id="local-6989586621681501301"><span class="annot"><a href="#local-6989586621681501301"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ClientM_"><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-var">ClientM_</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unClientM_"><span class="annot"><span class="annottext">ClientM_ a -&gt; ReaderT Mods ClientM a
+</span><a href="Servant.Client_.html#unClientM_"><span class="hs-identifier hs-var hs-var">unClientM_</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ReaderT</span></span><span> </span><span class="annot"><a href="Servant.Client_.html#Mods"><span class="hs-identifier hs-type">Mods</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="#local-6989586621681501301"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-keyword">deriving</span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">(</span><span> </span><span id="local-6989586621681501240"><span id="local-6989586621681501242"><span class="annot"><span class="annottext">a -&gt; ClientM_ b -&gt; ClientM_ a
+(a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+(forall a b. (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b)
+-&gt; (forall a b. a -&gt; ClientM_ b -&gt; ClientM_ a) -&gt; Functor ClientM_
+forall a b. a -&gt; ClientM_ b -&gt; ClientM_ a
+forall a b. (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; ClientM_ b -&gt; ClientM_ a
+$c&lt;$ :: forall a b. a -&gt; ClientM_ b -&gt; ClientM_ a
+fmap :: (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+$cfmap :: forall a b. (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681501228"><span id="local-6989586621681501230"><span id="local-6989586621681501232"><span id="local-6989586621681501234"><span id="local-6989586621681501236"><span class="annot"><span class="annottext">Functor ClientM_
+a -&gt; ClientM_ a
+Functor ClientM_ =&gt;
+(forall a. a -&gt; ClientM_ a)
+-&gt; (forall a b. ClientM_ (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b)
+-&gt; (forall a b c.
+    (a -&gt; b -&gt; c) -&gt; ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ c)
+-&gt; (forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b)
+-&gt; (forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ a)
+-&gt; Applicative ClientM_
+ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ a
+ClientM_ (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+(a -&gt; b -&gt; c) -&gt; ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ c
+forall a. a -&gt; ClientM_ a
+forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ a
+forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+forall a b. ClientM_ (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+forall a b c.
+(a -&gt; b -&gt; c) -&gt; ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ c
+forall (f :: * -&gt; *).
+Functor f =&gt;
+(forall a. a -&gt; f a)
+-&gt; (forall a b. f (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b c. (a -&gt; b -&gt; c) -&gt; f a -&gt; f b -&gt; f c)
+-&gt; (forall a b. f a -&gt; f b -&gt; f b)
+-&gt; (forall a b. f a -&gt; f b -&gt; f a)
+-&gt; Applicative f
+&lt;* :: ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ a
+$c&lt;* :: forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ a
+*&gt; :: ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+$c*&gt; :: forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+liftA2 :: (a -&gt; b -&gt; c) -&gt; ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ c
+$cliftA2 :: forall a b c.
+(a -&gt; b -&gt; c) -&gt; ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ c
+&lt;*&gt; :: ClientM_ (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+$c&lt;*&gt; :: forall a b. ClientM_ (a -&gt; b) -&gt; ClientM_ a -&gt; ClientM_ b
+pure :: a -&gt; ClientM_ a
+$cpure :: forall a. a -&gt; ClientM_ a
+$cp1Applicative :: Functor ClientM_
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681501220"><span id="local-6989586621681501222"><span id="local-6989586621681501224"><span class="annot"><span class="annottext">Applicative ClientM_
+a -&gt; ClientM_ a
+Applicative ClientM_ =&gt;
+(forall a b. ClientM_ a -&gt; (a -&gt; ClientM_ b) -&gt; ClientM_ b)
+-&gt; (forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b)
+-&gt; (forall a. a -&gt; ClientM_ a)
+-&gt; Monad ClientM_
+ClientM_ a -&gt; (a -&gt; ClientM_ b) -&gt; ClientM_ b
+ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+forall a. a -&gt; ClientM_ a
+forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+forall a b. ClientM_ a -&gt; (a -&gt; ClientM_ b) -&gt; ClientM_ b
+forall (m :: * -&gt; *).
+Applicative m =&gt;
+(forall a b. m a -&gt; (a -&gt; m b) -&gt; m b)
+-&gt; (forall a b. m a -&gt; m b -&gt; m b)
+-&gt; (forall a. a -&gt; m a)
+-&gt; Monad m
+return :: a -&gt; ClientM_ a
+$creturn :: forall a. a -&gt; ClientM_ a
+&gt;&gt; :: ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+$c&gt;&gt; :: forall a b. ClientM_ a -&gt; ClientM_ b -&gt; ClientM_ b
+&gt;&gt;= :: ClientM_ a -&gt; (a -&gt; ClientM_ b) -&gt; ClientM_ b
+$c&gt;&gt;= :: forall a b. ClientM_ a -&gt; (a -&gt; ClientM_ b) -&gt; ClientM_ b
+$cp1Monad :: Applicative ClientM_
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681501216"><span class="annot"><span class="annottext">Monad ClientM_
+Monad ClientM_ =&gt;
+(forall a. IO a -&gt; ClientM_ a) -&gt; MonadIO ClientM_
+IO a -&gt; ClientM_ a
+forall a. IO a -&gt; ClientM_ a
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(forall a. IO a -&gt; m a) -&gt; MonadIO m
+liftIO :: IO a -&gt; ClientM_ a
+$cliftIO :: forall a. IO a -&gt; ClientM_ a
+$cp1MonadIO :: Monad ClientM_
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></span></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. ClientM_ a -&gt; Rep (ClientM_ a) x)
+-&gt; (forall x. Rep (ClientM_ a) x -&gt; ClientM_ a)
+-&gt; Generic (ClientM_ a)
+forall x. Rep (ClientM_ a) x -&gt; ClientM_ a
+forall x. ClientM_ a -&gt; Rep (ClientM_ a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall a x. Rep (ClientM_ a) x -&gt; ClientM_ a
+forall a x. ClientM_ a -&gt; Rep (ClientM_ a) x
+$cto :: forall a x. Rep (ClientM_ a) x -&gt; ClientM_ a
+$cfrom :: forall a x. ClientM_ a -&gt; Rep (ClientM_ a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621681501207"><span id="local-6989586621681501209"><span class="annot"><span class="hs-identifier hs-type">MonadError</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientError</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681501203"><span class="annot"><span class="annottext">Monad ClientM_
+e -&gt; ClientM_ a
+Monad ClientM_ =&gt;
+(forall e a. Exception e =&gt; e -&gt; ClientM_ a) -&gt; MonadThrow ClientM_
+forall e a. Exception e =&gt; e -&gt; ClientM_ a
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(forall e a. Exception e =&gt; e -&gt; m a) -&gt; MonadThrow m
+throwM :: e -&gt; ClientM_ a
+$cthrowM :: forall e a. Exception e =&gt; e -&gt; ClientM_ a
+$cp1MonadThrow :: Monad ClientM_
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadThrow</span></span></span><span> </span><span class="hs-special">,</span><span> </span><span id="local-6989586621681501199"><span class="annot"><span class="annottext">MonadThrow ClientM_
+MonadThrow ClientM_ =&gt;
+(forall e a.
+ Exception e =&gt;
+ ClientM_ a -&gt; (e -&gt; ClientM_ a) -&gt; ClientM_ a)
+-&gt; MonadCatch ClientM_
+ClientM_ a -&gt; (e -&gt; ClientM_ a) -&gt; ClientM_ a
+forall e a.
+Exception e =&gt;
+ClientM_ a -&gt; (e -&gt; ClientM_ a) -&gt; ClientM_ a
+forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+(forall e a. Exception e =&gt; m a -&gt; (e -&gt; m a) -&gt; m a)
+-&gt; MonadCatch m
+catch :: ClientM_ a -&gt; (e -&gt; ClientM_ a) -&gt; ClientM_ a
+$ccatch :: forall e a.
+Exception e =&gt;
+ClientM_ a -&gt; (e -&gt; ClientM_ a) -&gt; ClientM_ a
+$cp1MonadCatch :: MonadThrow ClientM_
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadCatch</span></span></span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681501193"><span class="annot"><span class="hs-identifier hs-type">MonadReader</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>    </span><span id="local-6989586621681501191"><span class="annot"><span class="annottext">ask :: ClientM_ ClientEnv
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">ask</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT Mods ClientM ClientEnv -&gt; ClientM_ ClientEnv
+forall a. ReaderT Mods ClientM a -&gt; ClientM_ a
+</span><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-var">ClientM_</span></a></span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM ClientEnv -&gt; ClientM_ ClientEnv)
+-&gt; ReaderT Mods ClientM ClientEnv -&gt; ClientM_ ClientEnv
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientM ClientEnv -&gt; ReaderT Mods ClientM ClientEnv
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">ClientM ClientEnv
+forall r (m :: * -&gt; *). MonadReader r m =&gt; m r
+</span><span class="hs-identifier hs-var">ask</span></span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621681501188"><span class="annot"><span class="annottext">local :: (ClientEnv -&gt; ClientEnv) -&gt; ClientM_ a -&gt; ClientM_ a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">local</span></span></span><span> </span><span id="local-6989586621681501186"><span class="annot"><span class="annottext">f :: ClientEnv -&gt; ClientEnv
+</span><a href="#local-6989586621681501186"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT Mods ClientM a -&gt; ClientM_ a
+forall a. ReaderT Mods ClientM a -&gt; ClientM_ a
+</span><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-var">ClientM_</span></a></span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; ClientM_ a)
+-&gt; (ClientM_ a -&gt; ReaderT Mods ClientM a)
+-&gt; ClientM_ a
+-&gt; ClientM_ a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ClientM a -&gt; ClientM a)
+-&gt; ReaderT Mods ClientM a -&gt; ReaderT Mods ClientM a
+forall (m :: * -&gt; *) a (n :: * -&gt; *) b r.
+(m a -&gt; n b) -&gt; ReaderT r m a -&gt; ReaderT r n b
+</span><span class="hs-identifier hs-var">mapReaderT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(ClientEnv -&gt; ClientEnv) -&gt; ClientM a -&gt; ClientM a
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; r) -&gt; m a -&gt; m a
+</span><span class="hs-identifier hs-var">local</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv -&gt; ClientEnv
+</span><a href="#local-6989586621681501186"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; ReaderT Mods ClientM a)
+-&gt; (ClientM_ a -&gt; ReaderT Mods ClientM a)
+-&gt; ClientM_ a
+-&gt; ReaderT Mods ClientM a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientM_ a -&gt; ReaderT Mods ClientM a
+forall a. ClientM_ a -&gt; ReaderT Mods ClientM a
+</span><a href="Servant.Client_.html#unClientM_"><span class="hs-identifier hs-var hs-var">unClientM_</span></a></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">ask</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">local</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RunClient</span></span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-71"></span><span>    </span><span id="local-6989586621681501179"><span class="annot"><span class="annottext">runRequest :: Request -&gt; ClientM_ Response
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">runRequest</span></span></span><span> </span><span id="local-6989586621681501177"><span class="annot"><span class="annottext">req :: Request
+</span><a href="#local-6989586621681501177"><span class="hs-identifier hs-var">req</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT Mods ClientM Response -&gt; ClientM_ Response
+forall a. ReaderT Mods ClientM a -&gt; ClientM_ a
+</span><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-var">ClientM_</span></a></span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM Response -&gt; ClientM_ Response)
+-&gt; ReaderT Mods ClientM Response -&gt; ClientM_ Response
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-72"></span><span>        </span><span id="local-6989586621681501176"><span class="annot"><span class="annottext">Mods
+</span><a href="#local-6989586621681501176"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ReaderT Mods ClientM Mods
+forall r (m :: * -&gt; *). MonadReader r m =&gt; m r
+</span><span class="hs-identifier hs-var">ask</span></span><span>
+</span><span id="line-73"></span><span>        </span><span id="local-6989586621681501175"><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621681501175"><span class="hs-identifier hs-var">req'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Request -&gt; ReaderT Mods ClientM Request
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Request -&gt; ReaderT Mods ClientM Request)
+-&gt; IO Request -&gt; ReaderT Mods ClientM Request
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Mods -&gt; Request -&gt; IO Request
+</span><a href="Servant.Client_.html#_modReq"><span class="hs-identifier hs-var hs-var">_modReq</span></a></span><span> </span><span class="annot"><span class="annottext">Mods
+</span><a href="#local-6989586621681501176"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621681501177"><span class="hs-identifier hs-var">req</span></a></span><span>
+</span><span id="line-74"></span><span>        </span><span id="local-6989586621681501173"><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621681501173"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ClientM Response -&gt; ReaderT Mods ClientM Response
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Request -&gt; ClientM Response
+forall (m :: * -&gt; *). RunClient m =&gt; Request -&gt; m Response
+</span><span class="hs-identifier hs-var">runRequest</span></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621681501175"><span class="hs-identifier hs-var">req'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>        </span><span class="annot"><span class="annottext">IO Response -&gt; ReaderT Mods ClientM Response
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Response -&gt; ReaderT Mods ClientM Response)
+-&gt; IO Response -&gt; ReaderT Mods ClientM Response
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Mods -&gt; Response -&gt; IO Response
+</span><a href="Servant.Client_.html#_modRes"><span class="hs-identifier hs-var hs-var">_modRes</span></a></span><span> </span><span class="annot"><span class="annottext">Mods
+</span><a href="#local-6989586621681501176"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621681501173"><span class="hs-identifier hs-var">res</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">runRequest</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span>    </span><span id="local-6989586621681501172"><span class="annot"><span class="annottext">throwClientError :: ClientError -&gt; ClientM_ a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">throwClientError</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; ClientM_ a
+forall e (m :: * -&gt; *) a. MonadError e m =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwError</span></span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">throwClientError</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- | Locally overwrite 'Request's made the inner computation.</span><span>
+</span><span id="line-82"></span><span class="hs-comment">--</span><span>
+</span><span id="line-83"></span><span id="local-6989586621681501169"><span class="annot"><a href="Servant.Client_.html#modifyRequest"><span class="hs-identifier hs-type">modifyRequest</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Request</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Request</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681501169"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681501169"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-84"></span><span id="modifyRequest"><span class="annot"><span class="annottext">modifyRequest :: (Request -&gt; IO Request) -&gt; ClientM_ a -&gt; ClientM_ a
+</span><a href="Servant.Client_.html#modifyRequest"><span class="hs-identifier hs-var hs-var">modifyRequest</span></a></span></span><span> </span><span id="local-6989586621681501168"><span class="annot"><span class="annottext">f :: Request -&gt; IO Request
+</span><a href="#local-6989586621681501168"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT Mods ClientM a -&gt; ClientM_ a
+forall a. ReaderT Mods ClientM a -&gt; ClientM_ a
+</span><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-var">ClientM_</span></a></span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; ClientM_ a)
+-&gt; (ClientM_ a -&gt; ReaderT Mods ClientM a)
+-&gt; ClientM_ a
+-&gt; ClientM_ a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Mods -&gt; Mods) -&gt; ReaderT Mods ClientM a -&gt; ReaderT Mods ClientM a
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; r) -&gt; m a -&gt; m a
+</span><span class="hs-identifier hs-var">local</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ASetter Mods Mods (Request -&gt; IO Request) (Request -&gt; IO Request)
+-&gt; (Request -&gt; IO Request) -&gt; Mods -&gt; Mods
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">set</span></span><span> </span><span class="annot"><span class="annottext">ASetter Mods Mods (Request -&gt; IO Request) (Request -&gt; IO Request)
+Lens' Mods (Request -&gt; IO Request)
+</span><a href="Servant.Client_.html#modReq"><span class="hs-identifier hs-var">modReq</span></a></span><span> </span><span class="annot"><span class="annottext">Request -&gt; IO Request
+</span><a href="#local-6989586621681501168"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; ReaderT Mods ClientM a)
+-&gt; (ClientM_ a -&gt; ReaderT Mods ClientM a)
+-&gt; ClientM_ a
+-&gt; ReaderT Mods ClientM a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientM_ a -&gt; ReaderT Mods ClientM a
+forall a. ClientM_ a -&gt; ReaderT Mods ClientM a
+</span><a href="Servant.Client_.html#unClientM_"><span class="hs-identifier hs-var hs-var">unClientM_</span></a></span><span>
+</span><span id="line-85"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Servant.Client_.html#modifyResponse"><span class="hs-pragma hs-type">modifyResponse</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="hs-comment">-- | Locally overwrite 'Response's received the inner computation.</span><span>
+</span><span id="line-88"></span><span class="hs-comment">--</span><span>
+</span><span id="line-89"></span><span id="local-6989586621681501166"><span class="annot"><a href="Servant.Client_.html#modifyResponse"><span class="hs-identifier hs-type">modifyResponse</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Response</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Response</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681501166"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681501166"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-90"></span><span id="modifyResponse"><span class="annot"><span class="annottext">modifyResponse :: (Response -&gt; IO Response) -&gt; ClientM_ a -&gt; ClientM_ a
+</span><a href="Servant.Client_.html#modifyResponse"><span class="hs-identifier hs-var hs-var">modifyResponse</span></a></span></span><span> </span><span id="local-6989586621681501165"><span class="annot"><span class="annottext">f :: Response -&gt; IO Response
+</span><a href="#local-6989586621681501165"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT Mods ClientM a -&gt; ClientM_ a
+forall a. ReaderT Mods ClientM a -&gt; ClientM_ a
+</span><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-var">ClientM_</span></a></span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; ClientM_ a)
+-&gt; (ClientM_ a -&gt; ReaderT Mods ClientM a)
+-&gt; ClientM_ a
+-&gt; ClientM_ a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Mods -&gt; Mods) -&gt; ReaderT Mods ClientM a -&gt; ReaderT Mods ClientM a
+forall r (m :: * -&gt; *) a. MonadReader r m =&gt; (r -&gt; r) -&gt; m a -&gt; m a
+</span><span class="hs-identifier hs-var">local</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ASetter
+  Mods Mods (Response -&gt; IO Response) (Response -&gt; IO Response)
+-&gt; (Response -&gt; IO Response) -&gt; Mods -&gt; Mods
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">set</span></span><span> </span><span class="annot"><span class="annottext">ASetter
+  Mods Mods (Response -&gt; IO Response) (Response -&gt; IO Response)
+Lens' Mods (Response -&gt; IO Response)
+</span><a href="Servant.Client_.html#modRes"><span class="hs-identifier hs-var">modRes</span></a></span><span> </span><span class="annot"><span class="annottext">Response -&gt; IO Response
+</span><a href="#local-6989586621681501165"><span class="hs-identifier hs-var">f</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; ReaderT Mods ClientM a)
+-&gt; (ClientM_ a -&gt; ReaderT Mods ClientM a)
+-&gt; ClientM_ a
+-&gt; ReaderT Mods ClientM a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientM_ a -&gt; ReaderT Mods ClientM a
+forall a. ClientM_ a -&gt; ReaderT Mods ClientM a
+</span><a href="Servant.Client_.html#unClientM_"><span class="hs-identifier hs-var hs-var">unClientM_</span></a></span><span>
+</span><span id="line-91"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Servant.Client_.html#modifyRequest"><span class="hs-pragma hs-type">modifyRequest</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- | Run a 'ClientM_' computation.</span><span>
+</span><span id="line-94"></span><span class="hs-comment">--</span><span>
+</span><span id="line-95"></span><span id="local-6989586621681501164"><span class="annot"><a href="Servant.Client_.html#runClientM_"><span class="hs-identifier hs-type">runClientM_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681501164"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientError</span></span><span> </span><span class="annot"><a href="#local-6989586621681501164"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-96"></span><span id="runClientM_"><span class="annot"><span class="annottext">runClientM_ :: ClientM_ a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+</span><a href="Servant.Client_.html#runClientM_"><span class="hs-identifier hs-var hs-var">runClientM_</span></a></span></span><span> </span><span id="local-6989586621681501163"><span class="annot"><span class="annottext">cm :: ClientM_ a
+</span><a href="#local-6989586621681501163"><span class="hs-identifier hs-var">cm</span></a></span></span><span> </span><span id="local-6989586621681501162"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681501162"><span class="hs-identifier hs-var">env</span></a></span></span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a))
+-&gt; ClientEnv -&gt; ClientM a -&gt; IO (Either ClientError a)
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+forall a. ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+</span><span class="hs-identifier hs-var">runClientM</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681501162"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">(ClientM a -&gt; IO (Either ClientError a))
+-&gt; (ReaderT Mods ClientM a -&gt; ClientM a)
+-&gt; ReaderT Mods ClientM a
+-&gt; IO (Either ClientError a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; Mods -&gt; ClientM a)
+-&gt; Mods -&gt; ReaderT Mods ClientM a -&gt; ClientM a
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">ReaderT Mods ClientM a -&gt; Mods -&gt; ClientM a
+forall r (m :: * -&gt; *) a. ReaderT r m a -&gt; r -&gt; m a
+</span><span class="hs-identifier hs-var hs-var">runReaderT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Request -&gt; IO Request) -&gt; (Response -&gt; IO Response) -&gt; Mods
+</span><a href="Servant.Client_.html#Mods"><span class="hs-identifier hs-var">Mods</span></a></span><span> </span><span class="annot"><span class="annottext">Request -&gt; IO Request
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">Response -&gt; IO Response
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ReaderT Mods ClientM a -&gt; IO (Either ClientError a))
+-&gt; ReaderT Mods ClientM a -&gt; IO (Either ClientError a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientM_ a -&gt; ReaderT Mods ClientM a
+forall a. ClientM_ a -&gt; ReaderT Mods ClientM a
+</span><a href="Servant.Client_.html#unClientM_"><span class="hs-identifier hs-var hs-var">unClientM_</span></a></span><span> </span><span class="annot"><span class="annottext">ClientM_ a
+</span><a href="#local-6989586621681501163"><span class="hs-identifier hs-var">cm</span></a></span><span>
+</span><span id="line-98"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Servant.Client_.html#runClientM_"><span class="hs-pragma hs-type">runClientM_</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- | Create API client functions</span><span>
+</span><span id="line-101"></span><span class="hs-comment">--</span><span>
+</span><span id="line-102"></span><span class="annot"><a href="Servant.Client_.html#client_"><span class="hs-identifier hs-type">client_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681501158"><span class="annot"><a href="#local-6989586621681501158"><span class="hs-identifier hs-type">api</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681501158"><span class="hs-identifier hs-type">api</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Client</span></span><span> </span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681501158"><span class="hs-identifier hs-type">api</span></a></span><span>
+</span><span id="line-103"></span><span id="client_"><span class="annot"><span class="annottext">client_ :: Client ClientM_ api
+</span><a href="Servant.Client_.html#client_"><span class="hs-identifier hs-var hs-var">client_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy api -&gt; Proxy ClientM_ -&gt; Client ClientM_ api
+forall (m :: * -&gt; *) api.
+HasClient m api =&gt;
+Proxy api -&gt; Proxy m -&gt; Client m api
+</span><span class="hs-identifier hs-var">clientIn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy api
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681501158"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy ClientM_
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Servant.Client_.html#ClientM_"><span class="hs-identifier hs-type">ClientM_</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Servant.Client_.html#client_"><span class="hs-pragma hs-type">client_</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-105"></span></pre></body></html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- Module: Chainweb.Pact.Utils</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- License: See LICENSE file</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Maintainer: Mark Nichols &lt;mark@kadena.io&gt;</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-8"></span><span class="hs-comment">--</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Pact service for Chainweb</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Pact.Utils</span><span>
+</span><span id="line-12"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * persistence</span></span><span>
+</span><span id="line-13"></span><span>      </span><span class="annot"><a href="Chainweb.Pact.Utils.html#toEnv%27"><span class="hs-identifier">toEnv'</span></a></span><span>
+</span><span id="line-14"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Utils.html#toEnvPersist%27"><span class="hs-identifier">toEnvPersist'</span></a></span><span>
+</span><span id="line-15"></span><span>      </span><span class="annot"><span class="hs-comment">-- * combinators</span></span><span>
+</span><span id="line-16"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Utils.html#aeson"><span class="hs-identifier">aeson</span></a></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="hs-comment">-- * time-to-live related items</span></span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Utils.html#maxTTL"><span class="hs-identifier">maxTTL</span></a></span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Utils.html#timingsCheck"><span class="hs-identifier">timingsCheck</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Utils.html#fromPactChainId"><span class="hs-identifier">fromPactChainId</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Interpreter</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">P</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Parse</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.ChainId</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">P</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.ChainMeta</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Command</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html"><span class="hs-identifier">Chainweb.Pact.Backend.Types</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Time.html"><span class="hs-identifier">Chainweb.Time</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html"><span class="hs-identifier">Chainweb.Transaction</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span id="local-6989586621681485966"><span class="annot"><a href="Chainweb.Pact.Utils.html#fromPactChainId"><span class="hs-identifier hs-type">fromPactChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681485966"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">P.ChainId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681485966"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span>
+</span><span id="line-41"></span><span id="fromPactChainId"><span class="annot"><span class="annottext">fromPactChainId :: ChainId -&gt; m ChainId
+</span><a href="Chainweb.Pact.Utils.html#fromPactChainId"><span class="hs-identifier hs-var hs-var">fromPactChainId</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">P.ChainId</span></span><span> </span><span id="local-6989586621681485964"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681485964"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m ChainId
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-identifier hs-var">chainIdFromText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681485964"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><a href="Chainweb.Pact.Utils.html#toEnv%27"><span class="hs-identifier hs-type">toEnv'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#EnvPersist%27"><span class="hs-identifier hs-type">EnvPersist'</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#Env%27"><span class="hs-identifier hs-type">Env'</span></a></span><span>
+</span><span id="line-44"></span><span id="toEnv%27"><span class="annot"><span class="annottext">toEnv' :: EnvPersist' -&gt; IO Env'
+</span><a href="Chainweb.Pact.Utils.html#toEnv%27"><span class="hs-identifier hs-var hs-var">toEnv'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#EnvPersist%27"><span class="hs-identifier hs-type">EnvPersist'</span></a></span><span> </span><span id="local-6989586621681485961"><span class="annot"><span class="annottext">ep' :: PactDbEnvPersist a
+</span><a href="#local-6989586621681485961"><span class="hs-identifier hs-var">ep'</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681485960"><span class="annot"><span class="annottext">thePactDb :: PactDb (DbEnv a)
+</span><a href="#local-6989586621681485960"><span class="hs-identifier hs-var hs-var">thePactDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PactDbEnvPersist a -&gt; PactDb (DbEnv a)
+forall p. PactDbEnvPersist p -&gt; PactDb (DbEnv p)
+</span><a href="Chainweb.Pact.Backend.Types.html#_pdepPactDb"><span class="hs-identifier hs-var hs-var">_pdepPactDb</span></a></span><span> </span><span class="annot"><span class="annottext">(PactDbEnvPersist a -&gt; PactDb (DbEnv a))
+-&gt; PactDbEnvPersist a -&gt; PactDb (DbEnv a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">PactDbEnvPersist a
+</span><a href="#local-6989586621681485961"><span class="hs-identifier hs-var">ep'</span></a></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681485957"><span class="annot"><span class="annottext">theDbEnv :: DbEnv a
+</span><a href="#local-6989586621681485957"><span class="hs-identifier hs-var hs-var">theDbEnv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PactDbEnvPersist a -&gt; DbEnv a
+forall p. PactDbEnvPersist p -&gt; DbEnv p
+</span><a href="Chainweb.Pact.Backend.Types.html#_pdepEnv"><span class="hs-identifier hs-var hs-var">_pdepEnv</span></a></span><span> </span><span class="annot"><span class="annottext">(PactDbEnvPersist a -&gt; DbEnv a) -&gt; PactDbEnvPersist a -&gt; DbEnv a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">PactDbEnvPersist a
+</span><a href="#local-6989586621681485961"><span class="hs-identifier hs-var">ep'</span></a></span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621681485955"><span class="annot"><span class="annottext">PactDbEnv (DbEnv a)
+</span><a href="#local-6989586621681485955"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PactDb (DbEnv a) -&gt; DbEnv a -&gt; IO (PactDbEnv (DbEnv a))
+forall e. PactDb e -&gt; e -&gt; IO (PactDbEnv e)
+</span><span class="hs-identifier hs-var">mkPactDbEnv</span></span><span> </span><span class="annot"><span class="annottext">PactDb (DbEnv a)
+</span><a href="#local-6989586621681485960"><span class="hs-identifier hs-var">thePactDb</span></a></span><span> </span><span class="annot"><span class="annottext">DbEnv a
+</span><a href="#local-6989586621681485957"><span class="hs-identifier hs-var">theDbEnv</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">Env' -&gt; IO Env'
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Env' -&gt; IO Env') -&gt; Env' -&gt; IO Env'
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">PactDbEnv (DbEnv a) -&gt; Env'
+forall a. PactDbEnv (DbEnv a) -&gt; Env'
+</span><a href="Chainweb.Pact.Backend.Types.html#Env%27"><span class="hs-identifier hs-var">Env'</span></a></span><span> </span><span class="annot"><span class="annottext">PactDbEnv (DbEnv a)
+</span><a href="#local-6989586621681485955"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><a href="Chainweb.Pact.Utils.html#toEnvPersist%27"><span class="hs-identifier hs-type">toEnvPersist'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#Env%27"><span class="hs-identifier hs-type">Env'</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#EnvPersist%27"><span class="hs-identifier hs-type">EnvPersist'</span></a></span><span>
+</span><span id="line-51"></span><span id="toEnvPersist%27"><span class="annot"><span class="annottext">toEnvPersist' :: Env' -&gt; IO EnvPersist'
+</span><a href="Chainweb.Pact.Utils.html#toEnvPersist%27"><span class="hs-identifier hs-var hs-var">toEnvPersist'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#Env%27"><span class="hs-identifier hs-type">Env'</span></a></span><span> </span><span id="local-6989586621681485952"><span class="annot"><span class="annottext">pactDbEnv :: PactDbEnv (DbEnv a)
+</span><a href="#local-6989586621681485952"><span class="hs-identifier hs-var">pactDbEnv</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681485951"><span class="annot"><span class="annottext">mVar :: MVar (DbEnv a)
+</span><a href="#local-6989586621681485951"><span class="hs-identifier hs-var hs-var">mVar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PactDbEnv (DbEnv a) -&gt; MVar (DbEnv a)
+forall e. PactDbEnv e -&gt; MVar e
+</span><span class="hs-identifier hs-var hs-var">pdPactDbVar</span></span><span> </span><span class="annot"><span class="annottext">(PactDbEnv (DbEnv a) -&gt; MVar (DbEnv a))
+-&gt; PactDbEnv (DbEnv a) -&gt; MVar (DbEnv a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">PactDbEnv (DbEnv a)
+</span><a href="#local-6989586621681485952"><span class="hs-identifier hs-var">pactDbEnv</span></a></span><span> </span><span class="hs-comment">-- :: MVar (P.DbEnv a)</span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681485949"><span class="annot"><span class="annottext">DbEnv a
+</span><a href="#local-6989586621681485949"><span class="hs-identifier hs-var">dbEnv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar (DbEnv a) -&gt; IO (DbEnv a)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">(MVar (DbEnv a) -&gt; IO (DbEnv a)) -&gt; MVar (DbEnv a) -&gt; IO (DbEnv a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">MVar (DbEnv a)
+</span><a href="#local-6989586621681485951"><span class="hs-identifier hs-var">mVar</span></a></span><span>           </span><span class="hs-comment">-- :: P.DbEnv a</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681485947"><span class="annot"><span class="annottext">pDbEnvPersist :: PactDbEnvPersist a
+</span><a href="#local-6989586621681485947"><span class="hs-identifier hs-var hs-var">pDbEnvPersist</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WPactDbEnvPersist :: forall p. PactDb (DbEnv p) -&gt; DbEnv p -&gt; PactDbEnvPersist p
+</span><a href="Chainweb.Pact.Backend.Types.html#%24WPactDbEnvPersist"><span class="hs-identifier hs-type hs-type">PactDbEnvPersist</span></a></span><span>
+</span><span id="line-55"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_pdepPactDb :: PactDb (DbEnv a)
+</span><a href="Chainweb.Pact.Backend.Types.html#_pdepPactDb"><span class="hs-identifier hs-var">_pdepPactDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PactDbEnv (DbEnv a) -&gt; PactDb (DbEnv a)
+forall e. PactDbEnv e -&gt; PactDb e
+</span><span class="hs-identifier hs-var hs-var">pdPactDb</span></span><span> </span><span class="annot"><span class="annottext">PactDbEnv (DbEnv a)
+</span><a href="#local-6989586621681485952"><span class="hs-identifier hs-var">pactDbEnv</span></a></span><span> </span><span class="hs-comment">-- :: P.PactDb (P.DbEnv a)</span><span>
+</span><span id="line-56"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_pdepEnv :: DbEnv a
+</span><a href="Chainweb.Pact.Backend.Types.html#_pdepEnv"><span class="hs-identifier hs-var">_pdepEnv</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DbEnv a
+</span><a href="#local-6989586621681485949"><span class="hs-identifier hs-var">dbEnv</span></a></span><span>
+</span><span id="line-57"></span><span>          </span><span class="hs-special">}</span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">EnvPersist' -&gt; IO EnvPersist'
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(EnvPersist' -&gt; IO EnvPersist') -&gt; EnvPersist' -&gt; IO EnvPersist'
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">PactDbEnvPersist a -&gt; EnvPersist'
+forall a. PactDbEnvPersist a -&gt; EnvPersist'
+</span><a href="Chainweb.Pact.Backend.Types.html#EnvPersist%27"><span class="hs-identifier hs-var">EnvPersist'</span></a></span><span> </span><span class="annot"><span class="annottext">PactDbEnvPersist a
+</span><a href="#local-6989586621681485947"><span class="hs-identifier hs-var">pDbEnvPersist</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | This is the recursion principle of an 'Aeson' 'Result' of type 'a'.</span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- Similar to 'either', 'maybe', or 'bool' combinators</span><span>
+</span><span id="line-62"></span><span class="hs-comment">--</span><span>
+</span><span id="line-63"></span><span id="local-6989586621681485942"><span id="local-6989586621681485943"><span class="annot"><a href="Chainweb.Pact.Utils.html#aeson"><span class="hs-identifier hs-type">aeson</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681485943"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681485942"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681485943"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Result</span></span><span> </span><span class="annot"><a href="#local-6989586621681485942"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681485943"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-64"></span><span id="aeson"><span class="annot"><span class="annottext">aeson :: (String -&gt; b) -&gt; (a -&gt; b) -&gt; Result a -&gt; b
+</span><a href="Chainweb.Pact.Utils.html#aeson"><span class="hs-identifier hs-var hs-var">aeson</span></a></span></span><span> </span><span id="local-6989586621681485941"><span class="annot"><span class="annottext">f :: String -&gt; b
+</span><a href="#local-6989586621681485941"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span> </span><span id="local-6989586621681485939"><span class="annot"><span class="annottext">a :: String
+</span><a href="#local-6989586621681485939"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; b
+</span><a href="#local-6989586621681485941"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681485939"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-65"></span><span class="annot"><a href="Chainweb.Pact.Utils.html#aeson"><span class="hs-identifier hs-var">aeson</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681485938"><span class="annot"><span class="annottext">g :: a -&gt; b
+</span><a href="#local-6989586621681485938"><span class="hs-identifier hs-var">g</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Success</span></span><span> </span><span id="local-6989586621681485936"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681485936"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621681485938"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681485936"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- | The maximum time-to-live (expressed in seconds)</span><span>
+</span><span id="line-68"></span><span class="annot"><a href="Chainweb.Pact.Utils.html#maxTTL"><span class="hs-identifier hs-type">maxTTL</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedInteger</span></span><span>
+</span><span id="line-69"></span><span id="maxTTL"><span class="annot"><span class="annottext">maxTTL :: ParsedInteger
+</span><a href="Chainweb.Pact.Utils.html#maxTTL"><span class="hs-identifier hs-var hs-var">maxTTL</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; ParsedInteger
+</span><span class="hs-identifier hs-var">ParsedInteger</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; ParsedInteger) -&gt; Integer -&gt; ParsedInteger
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="hs-number">24</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="hs-number">60</span></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="hs-number">60</span></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- This is probably going to be changed. Let us make it 2 days for now.</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- prop_tx_ttl_newBlock/validateBlock</span><span>
+</span><span id="line-73"></span><span class="annot"><a href="Chainweb.Pact.Utils.html#timingsCheck"><span class="hs-identifier hs-type">timingsCheck</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-type">BlockCreationTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedCode</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-74"></span><span id="timingsCheck"><span class="annot"><span class="annottext">timingsCheck :: BlockCreationTime
+-&gt; Command (Payload PublicMeta ParsedCode) -&gt; Bool
+</span><a href="Chainweb.Pact.Utils.html#timingsCheck"><span class="hs-identifier hs-var hs-var">timingsCheck</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-type">BlockCreationTime</span></a></span><span> </span><span id="local-6989586621681485932"><span class="annot"><span class="annottext">blockOriginationTime :: Time Micros
+</span><a href="#local-6989586621681485932"><span class="hs-identifier hs-var">blockOriginationTime</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681485931"><span class="annot"><span class="annottext">tx :: Command (Payload PublicMeta ParsedCode)
+</span><a href="#local-6989586621681485931"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">ParsedInteger
+</span><a href="#local-6989586621681485930"><span class="hs-identifier hs-var">ttl</span></a></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; ParsedInteger -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Time Micros
+</span><a href="#local-6989586621681485932"><span class="hs-identifier hs-var">blockOriginationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; Time Micros -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ParsedInteger -&gt; Time Micros
+</span><a href="#local-6989586621681485927"><span class="hs-identifier hs-var">toMicrosFromSeconds</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger
+</span><a href="#local-6989586621681485926"><span class="hs-identifier hs-var">txOriginationTime</span></a></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; ParsedInteger -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; Time Micros
+</span><a href="#local-6989586621681485927"><span class="hs-identifier hs-var">toMicrosFromSeconds</span></a></span><span> </span><span class="annot"><span class="annottext">ParsedInteger
+</span><a href="#local-6989586621681485926"><span class="hs-identifier hs-var">txOriginationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; Time Micros -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">Time Micros
+</span><a href="#local-6989586621681485932"><span class="hs-identifier hs-var">blockOriginationTime</span></a></span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; Time Micros
+</span><a href="#local-6989586621681485927"><span class="hs-identifier hs-var">toMicrosFromSeconds</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ParsedInteger
+</span><a href="#local-6989586621681485926"><span class="hs-identifier hs-var">txOriginationTime</span></a></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; ParsedInteger -&gt; ParsedInteger
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger
+</span><a href="#local-6989586621681485930"><span class="hs-identifier hs-var">ttl</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; Time Micros -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Time Micros
+</span><a href="#local-6989586621681485932"><span class="hs-identifier hs-var">blockOriginationTime</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><span class="hs-operator hs-var">&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger
+</span><a href="#local-6989586621681485930"><span class="hs-identifier hs-var">ttl</span></a></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; ParsedInteger -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger
+</span><a href="Chainweb.Pact.Utils.html#maxTTL"><span class="hs-identifier hs-var">maxTTL</span></a></span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TTLSeconds</span></span><span> </span><span id="local-6989586621681485930"><span class="annot"><span class="annottext">ttl :: ParsedInteger
+</span><a href="#local-6989586621681485930"><span class="hs-identifier hs-var">ttl</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta ParsedCode) -&gt; TTLSeconds
+forall c. Command (Payload PublicMeta c) -&gt; TTLSeconds
+</span><a href="Chainweb.Transaction.html#timeToLiveOf"><span class="hs-identifier hs-var">timeToLiveOf</span></a></span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta ParsedCode)
+</span><a href="#local-6989586621681485931"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681485927"><span class="annot"><span class="annottext">toMicrosFromSeconds :: ParsedInteger -&gt; Time Micros
+</span><a href="#local-6989586621681485927"><span class="hs-identifier hs-var hs-var">toMicrosFromSeconds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TimeSpan Micros -&gt; Time Micros
+forall a. TimeSpan a -&gt; Time a
+</span><a href="Chainweb.Time.html#Time"><span class="hs-identifier hs-var">Time</span></a></span><span> </span><span class="annot"><span class="annottext">(TimeSpan Micros -&gt; Time Micros)
+-&gt; (ParsedInteger -&gt; TimeSpan Micros)
+-&gt; ParsedInteger
+-&gt; Time Micros
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Micros -&gt; TimeSpan Micros
+forall a. a -&gt; TimeSpan a
+</span><a href="Chainweb.Time.html#TimeSpan"><span class="hs-identifier hs-var">TimeSpan</span></a></span><span> </span><span class="annot"><span class="annottext">(Micros -&gt; TimeSpan Micros)
+-&gt; (ParsedInteger -&gt; Micros) -&gt; ParsedInteger -&gt; TimeSpan Micros
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int64 -&gt; Micros
+</span><a href="Chainweb.Time.html#Micros"><span class="hs-identifier hs-var">Micros</span></a></span><span> </span><span class="annot"><span class="annottext">(Int64 -&gt; Micros)
+-&gt; (ParsedInteger -&gt; Int64) -&gt; ParsedInteger -&gt; Micros
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; Int64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(ParsedInteger -&gt; Int64)
+-&gt; (ParsedInteger -&gt; ParsedInteger) -&gt; ParsedInteger -&gt; Int64
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">1000000</span></span><span> </span><span class="annot"><span class="annottext">ParsedInteger -&gt; ParsedInteger -&gt; ParsedInteger
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxCreationTime</span></span><span> </span><span id="local-6989586621681485926"><span class="annot"><span class="annottext">txOriginationTime :: ParsedInteger
+</span><a href="#local-6989586621681485926"><span class="hs-identifier hs-var">txOriginationTime</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta ParsedCode) -&gt; TxCreationTime
+forall c. Command (Payload PublicMeta c) -&gt; TxCreationTime
+</span><a href="Chainweb.Transaction.html#creationTimeOf"><span class="hs-identifier hs-var">creationTimeOf</span></a></span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta ParsedCode)
+</span><a href="#local-6989586621681485931"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-85"></span></pre></body></html>

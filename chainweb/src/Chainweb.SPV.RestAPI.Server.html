@@ -1,0 +1,362 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE AllowAmbiguousTypes #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Module: Chainweb.SPV.RestAPI.Server</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.SPV.RestAPI.Server</span><span>
+</span><span id="line-20"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionProofHandler"><span class="hs-identifier">spvGetTransactionProofHandler</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionOutputProofHandler"><span class="hs-identifier">spvGetTransactionOutputProofHandler</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvServer"><span class="hs-identifier">spvServer</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvApp"><span class="hs-identifier">spvApp</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvApiLayout"><span class="hs-identifier">spvApiLayout</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServer"><span class="hs-identifier">someSpvServer</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServers"><span class="hs-identifier">someSpvServers</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.Algorithms</span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.IO</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html"><span class="hs-identifier">Chainweb.RestAPI.Utils</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.SPV.html"><span class="hs-identifier">Chainweb.SPV</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.SPV.CreateProof.html"><span class="hs-identifier">Chainweb.SPV.CreateProof</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.html"><span class="hs-identifier">Chainweb.SPV.RestAPI</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Singletons.html"><span class="hs-identifier">Data.Singletons</span></a></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- SPV Transaction Proof Handler</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span id="local-6989586621681504498"><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionProofHandler"><span class="hs-identifier hs-type">spvGetTransactionProofHandler</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504498"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504498"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-62"></span><span>        </span><span class="hs-comment">-- ^ the target chain of the proof. This is the chain for which</span><span>
+</span><span id="line-63"></span><span>        </span><span class="hs-comment">-- inclusion is proved.</span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-65"></span><span>        </span><span class="hs-comment">-- ^ the source chain of the proof. This is the chain where the proof</span><span>
+</span><span id="line-66"></span><span>        </span><span class="hs-comment">-- subject, the transaction for which inclusion is proven, is located.</span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-comment">-- ^ the block height of the proof subject, the transaction for which</span><span>
+</span><span id="line-69"></span><span>        </span><span class="hs-comment">-- inclusion is proven.</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-71"></span><span>        </span><span class="hs-comment">-- ^ the index of the proof subject, the transaction for which inclusion</span><span>
+</span><span id="line-72"></span><span>        </span><span class="hs-comment">-- is proven.</span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-74"></span><span id="spvGetTransactionProofHandler"><span class="annot"><span class="annottext">spvGetTransactionProofHandler :: CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Natural
+-&gt; Handler (TransactionProof SHA512t_256)
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionProofHandler"><span class="hs-identifier hs-var hs-var">spvGetTransactionProofHandler</span></a></span></span><span> </span><span id="local-6989586621681504435"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681504435"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681504434"><span class="annot"><span class="annottext">tcid :: ChainId
+</span><a href="#local-6989586621681504434"><span class="hs-identifier hs-var">tcid</span></a></span></span><span> </span><span id="local-6989586621681504433"><span class="annot"><span class="annottext">scid :: ChainId
+</span><a href="#local-6989586621681504433"><span class="hs-identifier hs-var">scid</span></a></span></span><span> </span><span id="local-6989586621681504432"><span class="annot"><span class="annottext">bh :: BlockHeight
+</span><a href="#local-6989586621681504432"><span class="hs-identifier hs-var">bh</span></a></span></span><span> </span><span id="local-6989586621681504431"><span class="annot"><span class="annottext">i :: Natural
+</span><a href="#local-6989586621681504431"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">IO (TransactionProof SHA512t_256)
+-&gt; Handler (TransactionProof SHA512t_256)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (TransactionProof SHA512t_256)
+ -&gt; Handler (TransactionProof SHA512t_256))
+-&gt; IO (TransactionProof SHA512t_256)
+-&gt; Handler (TransactionProof SHA512t_256)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Int
+-&gt; IO (TransactionProof SHA512t_256)
+forall (cas :: * -&gt; *).
+(HasCallStack, PayloadCas cas) =&gt;
+CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Int
+-&gt; IO (TransactionProof SHA512t_256)
+</span><a href="Chainweb.SPV.CreateProof.html#createTransactionProof"><span class="hs-identifier hs-var">createTransactionProof</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504435"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504434"><span class="hs-identifier hs-var">tcid</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504433"><span class="hs-identifier hs-var">scid</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeight
+</span><a href="#local-6989586621681504432"><span class="hs-identifier hs-var">bh</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681504431"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-comment">-- FIXME: add proper error handling</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- SPV Transaction Output Proof Handler</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span id="local-6989586621681504492"><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionOutputProofHandler"><span class="hs-identifier hs-type">spvGetTransactionOutputProofHandler</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504492"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504492"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-85"></span><span>        </span><span class="hs-comment">-- ^ the target chain of the proof. This is the chain for which inclusion</span><span>
+</span><span id="line-86"></span><span>        </span><span class="hs-comment">-- is proved.</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-88"></span><span>        </span><span class="hs-comment">-- ^ the source chain of the proof. This is the chain where the proof</span><span>
+</span><span id="line-89"></span><span>        </span><span class="hs-comment">-- subject, the transaction  output for which inclusion is proven, is</span><span>
+</span><span id="line-90"></span><span>        </span><span class="hs-comment">-- located.</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span>
+</span><span id="line-92"></span><span>        </span><span class="hs-comment">-- ^ the block height of the proof subject, the transaction output for</span><span>
+</span><span id="line-93"></span><span>        </span><span class="hs-comment">-- which inclusion is proven.</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-95"></span><span>        </span><span class="hs-comment">-- ^ the index of the proof subject, the transaction output for which</span><span>
+</span><span id="line-96"></span><span>        </span><span class="hs-comment">-- inclusion is proven.</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Handler</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-98"></span><span id="spvGetTransactionOutputProofHandler"><span class="annot"><span class="annottext">spvGetTransactionOutputProofHandler :: CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Natural
+-&gt; Handler (TransactionOutputProof SHA512t_256)
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionOutputProofHandler"><span class="hs-identifier hs-var hs-var">spvGetTransactionOutputProofHandler</span></a></span></span><span> </span><span id="local-6989586621681504427"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681504427"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681504426"><span class="annot"><span class="annottext">tcid :: ChainId
+</span><a href="#local-6989586621681504426"><span class="hs-identifier hs-var">tcid</span></a></span></span><span> </span><span id="local-6989586621681504425"><span class="annot"><span class="annottext">scid :: ChainId
+</span><a href="#local-6989586621681504425"><span class="hs-identifier hs-var">scid</span></a></span></span><span> </span><span id="local-6989586621681504424"><span class="annot"><span class="annottext">bh :: BlockHeight
+</span><a href="#local-6989586621681504424"><span class="hs-identifier hs-var">bh</span></a></span></span><span> </span><span id="local-6989586621681504423"><span class="annot"><span class="annottext">i :: Natural
+</span><a href="#local-6989586621681504423"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><span class="annottext">IO (TransactionOutputProof SHA512t_256)
+-&gt; Handler (TransactionOutputProof SHA512t_256)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (TransactionOutputProof SHA512t_256)
+ -&gt; Handler (TransactionOutputProof SHA512t_256))
+-&gt; IO (TransactionOutputProof SHA512t_256)
+-&gt; Handler (TransactionOutputProof SHA512t_256)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Int
+-&gt; IO (TransactionOutputProof SHA512t_256)
+forall (cas :: * -&gt; *).
+(HasCallStack, PayloadCas cas) =&gt;
+CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Int
+-&gt; IO (TransactionOutputProof SHA512t_256)
+</span><a href="Chainweb.SPV.CreateProof.html#createTransactionOutputProof"><span class="hs-identifier hs-var">createTransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504427"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504426"><span class="hs-identifier hs-var">tcid</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504425"><span class="hs-identifier hs-var">scid</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeight
+</span><a href="#local-6989586621681504424"><span class="hs-identifier hs-var">bh</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681504423"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-comment">-- FIXME: add proper error handling</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- SPV API Server</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvServer"><span class="hs-identifier hs-type">spvServer</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681504474"><span class="annot"><a href="#local-6989586621681504474"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span id="local-6989586621681504471"><span class="annot"><a href="#local-6989586621681504471"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681504473"><span class="annot"><a href="#local-6989586621681504473"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504474"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504473"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504474"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504471"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Server</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.RestAPI.html#SpvApi"><span class="hs-identifier hs-type">SpvApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504471"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504473"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span id="spvServer"><span class="annot"><span class="annottext">spvServer :: CutDbT cas v -&gt; Server (SpvApi v c)
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvServer"><span class="hs-identifier hs-var hs-var">spvServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span id="local-6989586621681504420"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681504420"><span class="hs-identifier hs-var">db</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Natural
+-&gt; Handler (TransactionProof SHA512t_256)
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Natural
+-&gt; Handler (TransactionProof SHA512t_256)
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionProofHandler"><span class="hs-identifier hs-var">spvGetTransactionProofHandler</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504420"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">Demote ChainIdT
+ChainId
+</span><a href="#local-6989586621681504419"><span class="hs-identifier hs-var">tcid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="annottext">(ChainId
+ -&gt; BlockHeight
+ -&gt; Natural
+ -&gt; Handler (TransactionProof SHA512t_256))
+-&gt; (ChainId
+    -&gt; BlockHeight
+    -&gt; Natural
+    -&gt; Handler (TransactionOutputProof SHA512t_256))
+-&gt; (ChainId
+    -&gt; BlockHeight
+    -&gt; Natural
+    -&gt; Handler (TransactionProof SHA512t_256))
+   :&lt;|&gt; (ChainId
+         -&gt; BlockHeight
+         -&gt; Natural
+         -&gt; Handler (TransactionOutputProof SHA512t_256))
+forall a b. a -&gt; b -&gt; a :&lt;|&gt; b
+</span><span class="hs-operator hs-var">:&lt;|&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Natural
+-&gt; Handler (TransactionOutputProof SHA512t_256)
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+CutDb cas
+-&gt; ChainId
+-&gt; ChainId
+-&gt; BlockHeight
+-&gt; Natural
+-&gt; Handler (TransactionOutputProof SHA512t_256)
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvGetTransactionOutputProofHandler"><span class="hs-identifier hs-var">spvGetTransactionOutputProofHandler</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504420"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">Demote ChainIdT
+ChainId
+</span><a href="#local-6989586621681504419"><span class="hs-identifier hs-var">tcid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-115"></span><span>    </span><span id="local-6989586621681504419"><span class="annot"><span class="annottext">tcid :: Demote ChainIdT
+</span><a href="#local-6989586621681504419"><span class="hs-identifier hs-var hs-var">tcid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing c -&gt; Demote ChainIdT
+forall k (a :: k). SingKind k =&gt; Sing a -&gt; Demote k
+</span><a href="Data.Singletons.html#fromSing"><span class="hs-identifier hs-var">fromSing</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Sing c
+forall k (a :: k). SingI a =&gt; Sing a
+</span><a href="Data.Singletons.html#sing"><span class="hs-identifier hs-var">sing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504473"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- Application for a single Chain</span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvApp"><span class="hs-identifier hs-type">spvApp</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681504415"><span class="annot"><a href="#local-6989586621681504415"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span id="local-6989586621681504414"><span class="annot"><a href="#local-6989586621681504414"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span id="local-6989586621681504413"><span class="annot"><a href="#local-6989586621681504413"><span class="hs-identifier hs-type">c</span></a></span></span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504415"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504414"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504413"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504415"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504414"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Application</span></span><span>
+</span><span id="line-127"></span><span id="spvApp"><span class="annot"><span class="annottext">spvApp :: CutDbT cas v -&gt; Application
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvApp"><span class="hs-identifier hs-var hs-var">spvApp</span></a></span></span><span> </span><span id="local-6989586621681504411"><span class="annot"><span class="annottext">db :: CutDbT cas v
+</span><a href="#local-6989586621681504411"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (SpvApi v c) -&gt; Server (SpvApi v c) -&gt; Application
+forall api.
+HasServer api '[] =&gt;
+Proxy api -&gt; Server api -&gt; Application
+</span><span class="hs-identifier hs-var">serve</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (SpvApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.RestAPI.html#SpvApi"><span class="hs-identifier hs-type">SpvApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504414"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504413"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDbT cas v -&gt; Server (SpvApi v c)
+forall (cas :: * -&gt; *) (v :: ChainwebVersionT) (c :: ChainIdT).
+(PayloadCas cas, KnownChainIdSymbol c) =&gt;
+CutDbT cas v -&gt; Server (SpvApi v c)
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvServer"><span class="hs-identifier hs-var">spvServer</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681504415"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681504414"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681504413"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="annottext">CutDbT cas v
+</span><a href="#local-6989586621681504411"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#spvApiLayout"><span class="hs-identifier hs-type">spvApiLayout</span></a></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681504408"><span class="annot"><a href="#local-6989586621681504408"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span id="local-6989586621681504407"><span class="annot"><a href="#local-6989586621681504407"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span id="local-6989586621681504406"><span class="annot"><a href="#local-6989586621681504406"><span class="hs-identifier hs-type">c</span></a></span></span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504407"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504406"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504408"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504407"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span id="spvApiLayout"><span class="annot"><span class="annottext">spvApiLayout :: CutDbT cas v -&gt; IO ()
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvApiLayout"><span class="hs-identifier hs-var hs-var">spvApiLayout</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ()
+</span><span class="hs-identifier hs-var">T.putStrLn</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (SpvApi v c) -&gt; Text
+forall api. HasServer api '[] =&gt; Proxy api -&gt; Text
+</span><span class="hs-identifier hs-var">layout</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (SpvApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.RestAPI.html#SpvApi"><span class="hs-identifier hs-type">SpvApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504407"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504406"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServer"><span class="hs-identifier hs-type">someSpvServer</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681504450"><span class="annot"><a href="#local-6989586621681504450"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span id="local-6989586621681504449"><span class="annot"><a href="#local-6989586621681504449"><span class="hs-identifier hs-type">c</span></a></span></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504450"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504449"><span class="hs-identifier hs-type">c</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#SomeCutDb"><span class="hs-identifier hs-type">SomeCutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504450"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span><span>
+</span><span id="line-143"></span><span id="someSpvServer"><span class="annot"><span class="annottext">someSpvServer :: SomeCutDb cas -&gt; SomeServer
+</span><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServer"><span class="hs-identifier hs-var hs-var">someSpvServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.html#SomeCutDb"><span class="hs-identifier hs-type">SomeCutDb</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681504402"><span id="local-6989586621681504401"><span class="annot"><span class="annottext">CutDbT cas v
+</span><a href="#local-6989586621681504401"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#CutDbT"><span class="hs-identifier hs-type">CutDbT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504450"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504402"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (SpvApi v c) -&gt; Server (SpvApi v c) -&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (SpvApi v c)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.RestAPI.html#SpvApi"><span class="hs-identifier hs-type">SpvApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504402"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504449"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutDbT cas v -&gt; Server (SpvApi v c)
+forall (cas :: * -&gt; *) (v :: ChainwebVersionT) (c :: ChainIdT).
+(PayloadCas cas, KnownChainIdSymbol c) =&gt;
+CutDbT cas v -&gt; Server (SpvApi v c)
+</span><a href="Chainweb.SPV.RestAPI.Server.html#spvServer"><span class="hs-identifier hs-var">spvServer</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681504450"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681504402"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681504449"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="annottext">CutDbT cas v
+</span><a href="#local-6989586621681504401"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- Multichain Server</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span id="local-6989586621681504399"><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServers"><span class="hs-identifier hs-type">someSpvServers</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504399"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504399"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span>
+</span><span id="line-154"></span><span id="someSpvServers"><span class="annot"><span class="annottext">someSpvServers :: ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+</span><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServers"><span class="hs-identifier hs-var hs-var">someSpvServers</span></a></span></span><span> </span><span id="local-6989586621681504398"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681504398"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681504397"><span class="annot"><span class="annottext">db :: CutDb cas
+</span><a href="#local-6989586621681504397"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[SomeServer] -&gt; SomeServer
+forall a. Monoid a =&gt; [a] -&gt; a
+</span><span class="hs-identifier hs-var">mconcat</span></span><span> </span><span class="annot"><span class="annottext">([SomeServer] -&gt; SomeServer) -&gt; [SomeServer] -&gt; SomeServer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">((ChainId -&gt; SomeServer) -&gt; [ChainId] -&gt; [SomeServer])
+-&gt; [ChainId] -&gt; (ChainId -&gt; SomeServer) -&gt; [SomeServer]
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; SomeServer) -&gt; [ChainId] -&gt; [SomeServer]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">[ChainId]
+</span><a href="#local-6989586621681504395"><span class="hs-identifier hs-var">cids</span></a></span><span> </span><span class="annot"><span class="annottext">((ChainId -&gt; SomeServer) -&gt; [SomeServer])
+-&gt; (ChainId -&gt; SomeServer) -&gt; [SomeServer]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681504393"><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-type">SChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504393"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-155"></span><span>    </span><span class="annot"><span class="annottext">SomeCutDb cas -&gt; SomeServer
+forall (cas :: * -&gt; *) (c :: ChainIdT).
+(PayloadCas cas, KnownChainIdSymbol c) =&gt;
+SomeCutDb cas -&gt; SomeServer
+</span><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServer"><span class="hs-identifier hs-var">someSpvServer</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681504393"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; CutDb cas -&gt; SomeCutDb cas
+forall (cas :: * -&gt; *).
+ChainwebVersion -&gt; CutDb cas -&gt; SomeCutDb cas
+</span><a href="Chainweb.CutDB.html#someCutDbVal"><span class="hs-identifier hs-var">someCutDbVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681504398"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504397"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-157"></span><span>    </span><span id="local-6989586621681504395"><span class="annot"><span class="annottext">cids :: [ChainId]
+</span><a href="#local-6989586621681504395"><span class="hs-identifier hs-var hs-var">cids</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashSet ChainId -&gt; [ChainId]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">(HashSet ChainId -&gt; [ChainId]) -&gt; HashSet ChainId -&gt; [ChainId]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutDb cas -&gt; HashSet ChainId
+forall v. HasChainwebVersion v =&gt; v -&gt; HashSet ChainId
+</span><a href="Chainweb.Version.html#chainIds"><span class="hs-identifier hs-var">chainIds</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504397"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span></pre></body></html>

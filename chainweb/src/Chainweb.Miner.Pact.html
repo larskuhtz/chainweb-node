@@ -1,0 +1,904 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Module: Chainweb.Miner.Pact</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Maintainer: Emily Pillmore &lt;emily@kadena.io&gt;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- The definition of the Pact miner and the Pact miner reward.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Miner.Pact</span><span>
+</span><span id="line-19"></span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Data</span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier">MinerId</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier">MinerKeys</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier">Miner</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerRewards"><span class="hs-identifier">MinerRewards</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Combinators</span></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#toMinerData"><span class="hs-identifier">toMinerData</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#fromMinerData"><span class="hs-identifier">fromMinerData</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#readRewards"><span class="hs-identifier">readRewards</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#rawMinerRewards"><span class="hs-identifier">rawMinerRewards</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Optics</span></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerId"><span class="hs-identifier">minerId</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerKeys"><span class="hs-identifier">minerKeys</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerRewardHeights"><span class="hs-identifier">minerRewardHeights</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerRewards"><span class="hs-identifier">minerRewards</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Defaults</span></span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#noMiner"><span class="hs-identifier">noMiner</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#defaultMiner"><span class="hs-identifier">defaultMiner</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-comment">-- * CLI Utils</span></span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#pMiner"><span class="hs-identifier">pMiner</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NFData</span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadThrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">decode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Csv</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">CSV</span></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Decimal</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">roundTo</span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Default</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Default</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.FileEmbed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">embedFile</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HashMap</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.List</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">sort</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String.Conv</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toS</span></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Options.Applicative</span></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier">BlockHeight</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Graph.html"><span class="hs-identifier">Chainweb.Graph</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Graph.html#HasChainGraph"><span class="hs-identifier">HasChainGraph</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Graph.html#order"><span class="hs-identifier">order</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.html#MinerData"><span class="hs-identifier">MinerData</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Parse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ParsedDecimal</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Names</span></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Term</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">KeySet</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PublicKey</span></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- Miner data</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | `MinerId` is a thin wrapper around `Text` to differentiate it from user</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- addresses.</span><span>
+</span><span id="line-80"></span><span id="local-6989586621681482290"><span id="local-6989586621681482291"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="MinerId"><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-var">MinerId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MinerId"><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-var">MinerId</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482285"><span id="local-6989586621681482287"><span class="annot"><span class="annottext">MinerId -&gt; MinerId -&gt; Bool
+(MinerId -&gt; MinerId -&gt; Bool)
+-&gt; (MinerId -&gt; MinerId -&gt; Bool) -&gt; Eq MinerId
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: MinerId -&gt; MinerId -&gt; Bool
+$c/= :: MinerId -&gt; MinerId -&gt; Bool
+== :: MinerId -&gt; MinerId -&gt; Bool
+$c== :: MinerId -&gt; MinerId -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482269"><span id="local-6989586621681482271"><span id="local-6989586621681482273"><span id="local-6989586621681482275"><span id="local-6989586621681482277"><span id="local-6989586621681482279"><span id="local-6989586621681482281"><span class="annot"><span class="annottext">Eq MinerId
+Eq MinerId =&gt;
+(MinerId -&gt; MinerId -&gt; Ordering)
+-&gt; (MinerId -&gt; MinerId -&gt; Bool)
+-&gt; (MinerId -&gt; MinerId -&gt; Bool)
+-&gt; (MinerId -&gt; MinerId -&gt; Bool)
+-&gt; (MinerId -&gt; MinerId -&gt; Bool)
+-&gt; (MinerId -&gt; MinerId -&gt; MinerId)
+-&gt; (MinerId -&gt; MinerId -&gt; MinerId)
+-&gt; Ord MinerId
+MinerId -&gt; MinerId -&gt; Bool
+MinerId -&gt; MinerId -&gt; Ordering
+MinerId -&gt; MinerId -&gt; MinerId
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: MinerId -&gt; MinerId -&gt; MinerId
+$cmin :: MinerId -&gt; MinerId -&gt; MinerId
+max :: MinerId -&gt; MinerId -&gt; MinerId
+$cmax :: MinerId -&gt; MinerId -&gt; MinerId
+&gt;= :: MinerId -&gt; MinerId -&gt; Bool
+$c&gt;= :: MinerId -&gt; MinerId -&gt; Bool
+&gt; :: MinerId -&gt; MinerId -&gt; Bool
+$c&gt; :: MinerId -&gt; MinerId -&gt; Bool
+&lt;= :: MinerId -&gt; MinerId -&gt; Bool
+$c&lt;= :: MinerId -&gt; MinerId -&gt; Bool
+&lt; :: MinerId -&gt; MinerId -&gt; Bool
+$c&lt; :: MinerId -&gt; MinerId -&gt; Bool
+compare :: MinerId -&gt; MinerId -&gt; Ordering
+$ccompare :: MinerId -&gt; MinerId -&gt; Ordering
+$cp1Ord :: Eq MinerId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. MinerId -&gt; Rep MinerId x)
+-&gt; (forall x. Rep MinerId x -&gt; MinerId) -&gt; Generic MinerId
+forall x. Rep MinerId x -&gt; MinerId
+forall x. MinerId -&gt; Rep MinerId x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep MinerId x -&gt; MinerId
+$cfrom :: forall x. MinerId -&gt; Rep MinerId x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482259"><span id="local-6989586621681482261"><span id="local-6989586621681482263"><span class="annot"><span class="annottext">Int -&gt; MinerId -&gt; ShowS
+[MinerId] -&gt; ShowS
+MinerId -&gt; String
+(Int -&gt; MinerId -&gt; ShowS)
+-&gt; (MinerId -&gt; String) -&gt; ([MinerId] -&gt; ShowS) -&gt; Show MinerId
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [MinerId] -&gt; ShowS
+$cshowList :: [MinerId] -&gt; ShowS
+show :: MinerId -&gt; String
+$cshow :: MinerId -&gt; String
+showsPrec :: Int -&gt; MinerId -&gt; ShowS
+$cshowsPrec :: Int -&gt; MinerId -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482250"><span id="local-6989586621681482252"><span id="local-6989586621681482254"><span id="local-6989586621681482256"><span class="annot"><span class="annottext">[MinerId] -&gt; Encoding
+[MinerId] -&gt; Value
+MinerId -&gt; Encoding
+MinerId -&gt; Value
+(MinerId -&gt; Value)
+-&gt; (MinerId -&gt; Encoding)
+-&gt; ([MinerId] -&gt; Value)
+-&gt; ([MinerId] -&gt; Encoding)
+-&gt; ToJSON MinerId
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [MinerId] -&gt; Encoding
+$ctoEncodingList :: [MinerId] -&gt; Encoding
+toJSONList :: [MinerId] -&gt; Value
+$ctoJSONList :: [MinerId] -&gt; Value
+toEncoding :: MinerId -&gt; Encoding
+$ctoEncoding :: MinerId -&gt; Encoding
+toJSON :: MinerId -&gt; Value
+$ctoJSON :: MinerId -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482245"><span id="local-6989586621681482247"><span class="annot"><span class="annottext">Value -&gt; Parser [MinerId]
+Value -&gt; Parser MinerId
+(Value -&gt; Parser MinerId)
+-&gt; (Value -&gt; Parser [MinerId]) -&gt; FromJSON MinerId
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [MinerId]
+$cparseJSONList :: Value -&gt; Parser [MinerId]
+parseJSON :: Value -&gt; Parser MinerId
+$cparseJSON :: Value -&gt; Parser MinerId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482242"><span class="annot"><span class="annottext">String -&gt; MinerId
+(String -&gt; MinerId) -&gt; IsString MinerId
+forall a. (String -&gt; a) -&gt; IsString a
+fromString :: String -&gt; MinerId
+$cfromString :: String -&gt; MinerId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">IsString</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482239"><span class="annot"><span class="annottext">MinerId -&gt; ()
+(MinerId -&gt; ()) -&gt; NFData MinerId
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: MinerId -&gt; ()
+$crnf :: MinerId -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- | `MinerKeys` are a thin wrapper around a Pact `KeySet` to differentiate it</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- from user keysets.</span><span>
+</span><span id="line-86"></span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span id="local-6989586621681482236"><span id="local-6989586621681482237"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="MinerKeys"><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-var">MinerKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MinerKeys"><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-var">MinerKeys</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">KeySet</span></span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482231"><span id="local-6989586621681482233"><span class="annot"><span class="annottext">MinerKeys -&gt; MinerKeys -&gt; Bool
+(MinerKeys -&gt; MinerKeys -&gt; Bool)
+-&gt; (MinerKeys -&gt; MinerKeys -&gt; Bool) -&gt; Eq MinerKeys
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: MinerKeys -&gt; MinerKeys -&gt; Bool
+$c/= :: MinerKeys -&gt; MinerKeys -&gt; Bool
+== :: MinerKeys -&gt; MinerKeys -&gt; Bool
+$c== :: MinerKeys -&gt; MinerKeys -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482216"><span id="local-6989586621681482218"><span id="local-6989586621681482220"><span id="local-6989586621681482222"><span id="local-6989586621681482224"><span id="local-6989586621681482226"><span id="local-6989586621681482228"><span class="annot"><span class="annottext">Eq MinerKeys
+Eq MinerKeys =&gt;
+(MinerKeys -&gt; MinerKeys -&gt; Ordering)
+-&gt; (MinerKeys -&gt; MinerKeys -&gt; Bool)
+-&gt; (MinerKeys -&gt; MinerKeys -&gt; Bool)
+-&gt; (MinerKeys -&gt; MinerKeys -&gt; Bool)
+-&gt; (MinerKeys -&gt; MinerKeys -&gt; Bool)
+-&gt; (MinerKeys -&gt; MinerKeys -&gt; MinerKeys)
+-&gt; (MinerKeys -&gt; MinerKeys -&gt; MinerKeys)
+-&gt; Ord MinerKeys
+MinerKeys -&gt; MinerKeys -&gt; Bool
+MinerKeys -&gt; MinerKeys -&gt; Ordering
+MinerKeys -&gt; MinerKeys -&gt; MinerKeys
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: MinerKeys -&gt; MinerKeys -&gt; MinerKeys
+$cmin :: MinerKeys -&gt; MinerKeys -&gt; MinerKeys
+max :: MinerKeys -&gt; MinerKeys -&gt; MinerKeys
+$cmax :: MinerKeys -&gt; MinerKeys -&gt; MinerKeys
+&gt;= :: MinerKeys -&gt; MinerKeys -&gt; Bool
+$c&gt;= :: MinerKeys -&gt; MinerKeys -&gt; Bool
+&gt; :: MinerKeys -&gt; MinerKeys -&gt; Bool
+$c&gt; :: MinerKeys -&gt; MinerKeys -&gt; Bool
+&lt;= :: MinerKeys -&gt; MinerKeys -&gt; Bool
+$c&lt;= :: MinerKeys -&gt; MinerKeys -&gt; Bool
+&lt; :: MinerKeys -&gt; MinerKeys -&gt; Bool
+$c&lt; :: MinerKeys -&gt; MinerKeys -&gt; Bool
+compare :: MinerKeys -&gt; MinerKeys -&gt; Ordering
+$ccompare :: MinerKeys -&gt; MinerKeys -&gt; Ordering
+$cp1Ord :: Eq MinerKeys
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. MinerKeys -&gt; Rep MinerKeys x)
+-&gt; (forall x. Rep MinerKeys x -&gt; MinerKeys) -&gt; Generic MinerKeys
+forall x. Rep MinerKeys x -&gt; MinerKeys
+forall x. MinerKeys -&gt; Rep MinerKeys x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep MinerKeys x -&gt; MinerKeys
+$cfrom :: forall x. MinerKeys -&gt; Rep MinerKeys x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482208"><span id="local-6989586621681482210"><span id="local-6989586621681482212"><span class="annot"><span class="annottext">Int -&gt; MinerKeys -&gt; ShowS
+[MinerKeys] -&gt; ShowS
+MinerKeys -&gt; String
+(Int -&gt; MinerKeys -&gt; ShowS)
+-&gt; (MinerKeys -&gt; String)
+-&gt; ([MinerKeys] -&gt; ShowS)
+-&gt; Show MinerKeys
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [MinerKeys] -&gt; ShowS
+$cshowList :: [MinerKeys] -&gt; ShowS
+show :: MinerKeys -&gt; String
+$cshow :: MinerKeys -&gt; String
+showsPrec :: Int -&gt; MinerKeys -&gt; ShowS
+$cshowsPrec :: Int -&gt; MinerKeys -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482200"><span id="local-6989586621681482202"><span id="local-6989586621681482204"><span id="local-6989586621681482206"><span class="annot"><span class="annottext">[MinerKeys] -&gt; Encoding
+[MinerKeys] -&gt; Value
+MinerKeys -&gt; Encoding
+MinerKeys -&gt; Value
+(MinerKeys -&gt; Value)
+-&gt; (MinerKeys -&gt; Encoding)
+-&gt; ([MinerKeys] -&gt; Value)
+-&gt; ([MinerKeys] -&gt; Encoding)
+-&gt; ToJSON MinerKeys
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [MinerKeys] -&gt; Encoding
+$ctoEncodingList :: [MinerKeys] -&gt; Encoding
+toJSONList :: [MinerKeys] -&gt; Value
+$ctoJSONList :: [MinerKeys] -&gt; Value
+toEncoding :: MinerKeys -&gt; Encoding
+$ctoEncoding :: MinerKeys -&gt; Encoding
+toJSON :: MinerKeys -&gt; Value
+$ctoJSON :: MinerKeys -&gt; Value
+</span><a href="#local-6989586621681482200"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482196"><span id="local-6989586621681482198"><span class="annot"><span class="annottext">Value -&gt; Parser [MinerKeys]
+Value -&gt; Parser MinerKeys
+(Value -&gt; Parser MinerKeys)
+-&gt; (Value -&gt; Parser [MinerKeys]) -&gt; FromJSON MinerKeys
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [MinerKeys]
+$cparseJSONList :: Value -&gt; Parser [MinerKeys]
+parseJSON :: Value -&gt; Parser MinerKeys
+$cparseJSON :: Value -&gt; Parser MinerKeys
+</span><a href="#local-6989586621681482196"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482194"><span class="annot"><span class="annottext">MinerKeys -&gt; ()
+(MinerKeys -&gt; ()) -&gt; NFData MinerKeys
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: MinerKeys -&gt; ()
+$crnf :: MinerKeys -&gt; ()
+</span><a href="#local-6989586621681482194"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- | Miner info data consists of a miner id (text), and its keyset (a pact</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- type).</span><span>
+</span><span id="line-93"></span><span class="hs-comment">--</span><span>
+</span><span id="line-94"></span><span id="local-6989586621681482192"><span id="local-6989586621681482193"></span></span><span class="hs-keyword">data</span><span> </span><span id="Miner"><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Miner"><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-type">MinerId</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-type">MinerKeys</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482187"><span id="local-6989586621681482189"><span class="annot"><span class="annottext">Miner -&gt; Miner -&gt; Bool
+(Miner -&gt; Miner -&gt; Bool) -&gt; (Miner -&gt; Miner -&gt; Bool) -&gt; Eq Miner
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Miner -&gt; Miner -&gt; Bool
+$c/= :: Miner -&gt; Miner -&gt; Bool
+== :: Miner -&gt; Miner -&gt; Bool
+$c== :: Miner -&gt; Miner -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482172"><span id="local-6989586621681482174"><span id="local-6989586621681482176"><span id="local-6989586621681482178"><span id="local-6989586621681482180"><span id="local-6989586621681482182"><span id="local-6989586621681482184"><span class="annot"><span class="annottext">Eq Miner
+Eq Miner =&gt;
+(Miner -&gt; Miner -&gt; Ordering)
+-&gt; (Miner -&gt; Miner -&gt; Bool)
+-&gt; (Miner -&gt; Miner -&gt; Bool)
+-&gt; (Miner -&gt; Miner -&gt; Bool)
+-&gt; (Miner -&gt; Miner -&gt; Bool)
+-&gt; (Miner -&gt; Miner -&gt; Miner)
+-&gt; (Miner -&gt; Miner -&gt; Miner)
+-&gt; Ord Miner
+Miner -&gt; Miner -&gt; Bool
+Miner -&gt; Miner -&gt; Ordering
+Miner -&gt; Miner -&gt; Miner
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Miner -&gt; Miner -&gt; Miner
+$cmin :: Miner -&gt; Miner -&gt; Miner
+max :: Miner -&gt; Miner -&gt; Miner
+$cmax :: Miner -&gt; Miner -&gt; Miner
+&gt;= :: Miner -&gt; Miner -&gt; Bool
+$c&gt;= :: Miner -&gt; Miner -&gt; Bool
+&gt; :: Miner -&gt; Miner -&gt; Bool
+$c&gt; :: Miner -&gt; Miner -&gt; Bool
+&lt;= :: Miner -&gt; Miner -&gt; Bool
+$c&lt;= :: Miner -&gt; Miner -&gt; Bool
+&lt; :: Miner -&gt; Miner -&gt; Bool
+$c&lt; :: Miner -&gt; Miner -&gt; Bool
+compare :: Miner -&gt; Miner -&gt; Ordering
+$ccompare :: Miner -&gt; Miner -&gt; Ordering
+$cp1Ord :: Eq Miner
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482166"><span id="local-6989586621681482168"><span id="local-6989586621681482170"><span class="annot"><span class="annottext">Int -&gt; Miner -&gt; ShowS
+[Miner] -&gt; ShowS
+Miner -&gt; String
+(Int -&gt; Miner -&gt; ShowS)
+-&gt; (Miner -&gt; String) -&gt; ([Miner] -&gt; ShowS) -&gt; Show Miner
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Miner] -&gt; ShowS
+$cshowList :: [Miner] -&gt; ShowS
+show :: Miner -&gt; String
+$cshow :: Miner -&gt; String
+showsPrec :: Int -&gt; Miner -&gt; ShowS
+$cshowsPrec :: Int -&gt; Miner -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Miner -&gt; Rep Miner x)
+-&gt; (forall x. Rep Miner x -&gt; Miner) -&gt; Generic Miner
+forall x. Rep Miner x -&gt; Miner
+forall x. Miner -&gt; Rep Miner x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep Miner x -&gt; Miner
+$cfrom :: forall x. Miner -&gt; Rep Miner x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482162"><span class="annot"><span class="annottext">Miner -&gt; ()
+(Miner -&gt; ()) -&gt; NFData Miner
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: Miner -&gt; ()
+$crnf :: Miner -&gt; ()
+</span><a href="#local-6989586621681482162"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- NOTE: These JSON instances are used (among other things) to embed Miner data</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- into the Genesis Payloads. If these change, the payloads become unreadable!</span><span>
+</span><span id="line-100"></span><span class="hs-comment">--</span><span>
+</span><span id="line-101"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681482155"><span id="local-6989586621681482157"><span id="local-6989586621681482159"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-102"></span><span>    </span><span id="local-6989586621681482154"><span class="annot"><span class="annottext">toJSON :: Miner -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-type">MinerId</span></a></span><span> </span><span id="local-6989586621681482152"><span class="annot"><span class="annottext">m :: Text
+</span><a href="#local-6989586621681482152"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-type">MinerKeys</span></a></span><span> </span><span id="local-6989586621681482151"><span class="annot"><span class="annottext">ks :: KeySet
+</span><a href="#local-6989586621681482151"><span class="hs-identifier hs-var">ks</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-103"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;account&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681482152"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-104"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;public-keys&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [PublicKey] -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">KeySet -&gt; [PublicKey]
+</span><span class="hs-identifier hs-var hs-var">_ksKeys</span></span><span> </span><span class="annot"><span class="annottext">KeySet
+</span><a href="#local-6989586621681482151"><span class="hs-identifier hs-var">ks</span></a></span><span>
+</span><span id="line-105"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;predicate&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Name -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">KeySet -&gt; Name
+</span><span class="hs-identifier hs-var hs-var">_ksPredFun</span></span><span> </span><span class="annot"><span class="annottext">KeySet
+</span><a href="#local-6989586621681482151"><span class="hs-identifier hs-var">ks</span></a></span><span>
+</span><span id="line-106"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681482144"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-109"></span><span>    </span><span id="local-6989586621681482143"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser Miner
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Object -&gt; Parser Miner) -&gt; Value -&gt; Parser Miner
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Miner&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser Miner) -&gt; Value -&gt; Parser Miner)
+-&gt; (Object -&gt; Parser Miner) -&gt; Value -&gt; Parser Miner
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681482140"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681482140"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MinerId -&gt; MinerKeys -&gt; Miner
+</span><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span><span>
+</span><span id="line-110"></span><span>        </span><span class="annot"><span class="annottext">(MinerId -&gt; MinerKeys -&gt; Miner)
+-&gt; Parser MinerId -&gt; Parser (MinerKeys -&gt; Miner)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; MinerId
+</span><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-var">MinerId</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; MinerId) -&gt; Parser Text -&gt; Parser MinerId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681482140"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Text
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;account&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>        </span><span class="annot"><span class="annottext">Parser (MinerKeys -&gt; Miner) -&gt; Parser MinerKeys -&gt; Parser Miner
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KeySet -&gt; MinerKeys
+</span><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-var">MinerKeys</span></a></span><span> </span><span class="annot"><span class="annottext">(KeySet -&gt; MinerKeys) -&gt; Parser KeySet -&gt; Parser MinerKeys
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[PublicKey] -&gt; Name -&gt; KeySet
+</span><span class="hs-identifier hs-var">KeySet</span></span><span> </span><span class="annot"><span class="annottext">([PublicKey] -&gt; Name -&gt; KeySet)
+-&gt; Parser [PublicKey] -&gt; Parser (Name -&gt; KeySet)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681482140"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser [PublicKey]
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;public-keys&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (Name -&gt; KeySet) -&gt; Parser Name -&gt; Parser KeySet
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681482140"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Name
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;predicate&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- | A lens into the miner id of a miner.</span><span>
+</span><span id="line-114"></span><span class="hs-comment">--</span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerId"><span class="hs-identifier hs-type">minerId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lens'</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-type">MinerId</span></a></span><span>
+</span><span id="line-116"></span><span id="minerId"><span class="annot"><span class="annottext">minerId :: (MinerId -&gt; f MinerId) -&gt; Miner -&gt; f Miner
+</span><a href="Chainweb.Miner.Pact.html#minerId"><span class="hs-identifier hs-var hs-var">minerId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Miner -&gt; MinerId)
+-&gt; (Miner -&gt; MinerId -&gt; Miner) -&gt; Lens Miner Miner MinerId MinerId
+forall s a b t. (s -&gt; a) -&gt; (s -&gt; b -&gt; t) -&gt; Lens s t a b
+</span><span class="hs-identifier hs-var">lens</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span id="local-6989586621681482134"><span class="annot"><span class="annottext">i :: MinerId
+</span><a href="#local-6989586621681482134"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MinerId
+</span><a href="#local-6989586621681482134"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681482133"><span class="annot"><span class="annottext">k :: MinerKeys
+</span><a href="#local-6989586621681482133"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681482132"><span class="annot"><span class="annottext">b :: MinerId
+</span><a href="#local-6989586621681482132"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MinerId -&gt; MinerKeys -&gt; Miner
+</span><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span><span> </span><span class="annot"><span class="annottext">MinerId
+</span><a href="#local-6989586621681482132"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">MinerKeys
+</span><a href="#local-6989586621681482133"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerId"><span class="hs-pragma hs-type">minerId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- | A lens into the miner keys of a miner.</span><span>
+</span><span id="line-120"></span><span class="hs-comment">--</span><span>
+</span><span id="line-121"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerKeys"><span class="hs-identifier hs-type">minerKeys</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lens'</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-type">MinerKeys</span></a></span><span>
+</span><span id="line-122"></span><span id="minerKeys"><span class="annot"><span class="annottext">minerKeys :: (MinerKeys -&gt; f MinerKeys) -&gt; Miner -&gt; f Miner
+</span><a href="Chainweb.Miner.Pact.html#minerKeys"><span class="hs-identifier hs-var hs-var">minerKeys</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Miner -&gt; MinerKeys)
+-&gt; (Miner -&gt; MinerKeys -&gt; Miner)
+-&gt; Lens Miner Miner MinerKeys MinerKeys
+forall s a b t. (s -&gt; a) -&gt; (s -&gt; b -&gt; t) -&gt; Lens s t a b
+</span><span class="hs-identifier hs-var">lens</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681482131"><span class="annot"><span class="annottext">k :: MinerKeys
+</span><a href="#local-6989586621681482131"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MinerKeys
+</span><a href="#local-6989586621681482131"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span id="local-6989586621681482130"><span class="annot"><span class="annottext">i :: MinerId
+</span><a href="#local-6989586621681482130"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span id="local-6989586621681482129"><span class="annot"><span class="annottext">b :: MinerKeys
+</span><a href="#local-6989586621681482129"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MinerId -&gt; MinerKeys -&gt; Miner
+</span><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span><span> </span><span class="annot"><span class="annottext">MinerId
+</span><a href="#local-6989586621681482130"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">MinerKeys
+</span><a href="#local-6989586621681482129"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerKeys"><span class="hs-pragma hs-type">minerKeys</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- | Keyset taken from cp examples in Pact</span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- The private key here was taken from `examples/cp` from the Pact repository</span><span>
+</span><span id="line-127"></span><span class="hs-comment">--</span><span>
+</span><span id="line-128"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#defaultMiner"><span class="hs-identifier hs-type">defaultMiner</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span>
+</span><span id="line-129"></span><span id="defaultMiner"><span class="annot"><span class="annottext">defaultMiner :: Miner
+</span><a href="Chainweb.Miner.Pact.html#defaultMiner"><span class="hs-identifier hs-var hs-var">defaultMiner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MinerId -&gt; MinerKeys -&gt; Miner
+</span><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; MinerId
+</span><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-var">MinerId</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;miner&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>    </span><span class="annot"><span class="annottext">(MinerKeys -&gt; Miner) -&gt; MinerKeys -&gt; Miner
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">KeySet -&gt; MinerKeys
+</span><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-var">MinerKeys</span></a></span><span>
+</span><span id="line-131"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">[PublicKey] -&gt; Name -&gt; KeySet
+</span><span class="hs-identifier hs-var">KeySet</span></span><span>
+</span><span id="line-132"></span><span>        </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;f880a433d6e2a13a32b6169030f56245efdd8c1b8a5027e9ce98a88e886bef27&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-133"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BareName -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">(BareName -&gt; Name) -&gt; BareName -&gt; Name
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Info -&gt; BareName
+</span><span class="hs-identifier hs-var">BareName</span></span><span> </span><span class="annot"><span class="hs-string">&quot;keys-all&quot;</span></span><span> </span><span class="annot"><span class="annottext">Info
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>      </span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#defaultMiner"><span class="hs-pragma hs-type">defaultMiner</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- | A trivial Miner.</span><span>
+</span><span id="line-138"></span><span class="hs-comment">--</span><span>
+</span><span id="line-139"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#noMiner"><span class="hs-identifier hs-type">noMiner</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span>
+</span><span id="line-140"></span><span id="noMiner"><span class="annot"><span class="annottext">noMiner :: Miner
+</span><a href="Chainweb.Miner.Pact.html#noMiner"><span class="hs-identifier hs-var hs-var">noMiner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MinerId -&gt; MinerKeys -&gt; Miner
+</span><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; MinerId
+</span><a href="Chainweb.Miner.Pact.html#MinerId"><span class="hs-identifier hs-var">MinerId</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;NoMiner&quot;</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KeySet -&gt; MinerKeys
+</span><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-var">MinerKeys</span></a></span><span> </span><span class="annot"><span class="annottext">(KeySet -&gt; MinerKeys) -&gt; KeySet -&gt; MinerKeys
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[PublicKey] -&gt; Name -&gt; KeySet
+</span><span class="hs-identifier hs-var">KeySet</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BareName -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">(BareName -&gt; Name) -&gt; BareName -&gt; Name
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Info -&gt; BareName
+</span><span class="hs-identifier hs-var">BareName</span></span><span> </span><span class="annot"><span class="hs-string">&quot;&lt;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Info
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#noMiner"><span class="hs-pragma hs-type">noMiner</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- | Convert from Pact `Miner` to Chainweb `MinerData`.</span><span>
+</span><span id="line-144"></span><span class="hs-comment">--</span><span>
+</span><span id="line-145"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#toMinerData"><span class="hs-identifier hs-type">toMinerData</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#MinerData"><span class="hs-identifier hs-type">MinerData</span></a></span><span>
+</span><span id="line-146"></span><span id="toMinerData"><span class="annot"><span class="annottext">toMinerData :: Miner -&gt; MinerData
+</span><a href="Chainweb.Miner.Pact.html#toMinerData"><span class="hs-identifier hs-var hs-var">toMinerData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; MinerData
+</span><a href="Chainweb.Payload.html#MinerData"><span class="hs-identifier hs-var">MinerData</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; MinerData)
+-&gt; (Miner -&gt; ByteString) -&gt; Miner -&gt; MinerData
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Miner -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><a href="Chainweb.Utils.html#encodeToByteString"><span class="hs-identifier hs-var">encodeToByteString</span></a></span><span>
+</span><span id="line-147"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#toMinerData"><span class="hs-pragma hs-type">toMinerData</span></a></span><span>  </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- | Convert from Chainweb `MinerData` to Pact Miner.</span><span>
+</span><span id="line-150"></span><span class="hs-comment">--</span><span>
+</span><span id="line-151"></span><span id="local-6989586621681482122"><span class="annot"><a href="Chainweb.Miner.Pact.html#fromMinerData"><span class="hs-identifier hs-type">fromMinerData</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681482122"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#MinerData"><span class="hs-identifier hs-type">MinerData</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681482122"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span></span><span>
+</span><span id="line-152"></span><span id="fromMinerData"><span class="annot"><span class="annottext">fromMinerData :: MinerData -&gt; m Miner
+</span><a href="Chainweb.Miner.Pact.html#fromMinerData"><span class="hs-identifier hs-var hs-var">fromMinerData</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; m Miner
+forall (m :: * -&gt; *) a.
+(MonadThrow m, FromJSON a) =&gt;
+ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#decodeStrictOrThrow%27"><span class="hs-identifier hs-var">decodeStrictOrThrow'</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; m Miner)
+-&gt; (MinerData -&gt; ByteString) -&gt; MinerData -&gt; m Miner
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MinerData -&gt; ByteString
+</span><a href="Chainweb.Payload.html#_minerData"><span class="hs-identifier hs-var hs-var">_minerData</span></a></span><span>
+</span><span id="line-153"></span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#fromMinerData"><span class="hs-pragma hs-type">fromMinerData</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span id="local-6989586621681482118"><span id="local-6989586621681482119"></span></span><span class="hs-keyword">data</span><span> </span><span id="MinerRewards"><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerRewards"><span class="hs-identifier hs-var">MinerRewards</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MinerRewards"><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerRewards"><span class="hs-identifier hs-var">MinerRewards</span></a></span></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_minerRewards"><span class="annot"><span class="annottext">MinerRewards -&gt; HashMap BlockHeight ParsedDecimal
+</span><a href="Chainweb.Miner.Pact.html#_minerRewards"><span class="hs-identifier hs-var hs-var">_minerRewards</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedDecimal</span></span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>      </span><span class="hs-comment">-- ^ The map of blockheight thresholds to miner rewards</span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_minerRewardHeights"><span class="annot"><span class="annottext">MinerRewards -&gt; Vector BlockHeight
+</span><a href="Chainweb.Miner.Pact.html#_minerRewardHeights"><span class="hs-identifier hs-var hs-var">_minerRewardHeights</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>      </span><span class="hs-comment">-- ^ A (sorted) vector of blockheights (head is most recent)</span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482111"><span id="local-6989586621681482113"><span class="annot"><span class="annottext">MinerRewards -&gt; MinerRewards -&gt; Bool
+(MinerRewards -&gt; MinerRewards -&gt; Bool)
+-&gt; (MinerRewards -&gt; MinerRewards -&gt; Bool) -&gt; Eq MinerRewards
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: MinerRewards -&gt; MinerRewards -&gt; Bool
+$c/= :: MinerRewards -&gt; MinerRewards -&gt; Bool
+== :: MinerRewards -&gt; MinerRewards -&gt; Bool
+$c== :: MinerRewards -&gt; MinerRewards -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482096"><span id="local-6989586621681482098"><span id="local-6989586621681482100"><span id="local-6989586621681482102"><span id="local-6989586621681482104"><span id="local-6989586621681482106"><span id="local-6989586621681482108"><span class="annot"><span class="annottext">Eq MinerRewards
+Eq MinerRewards =&gt;
+(MinerRewards -&gt; MinerRewards -&gt; Ordering)
+-&gt; (MinerRewards -&gt; MinerRewards -&gt; Bool)
+-&gt; (MinerRewards -&gt; MinerRewards -&gt; Bool)
+-&gt; (MinerRewards -&gt; MinerRewards -&gt; Bool)
+-&gt; (MinerRewards -&gt; MinerRewards -&gt; Bool)
+-&gt; (MinerRewards -&gt; MinerRewards -&gt; MinerRewards)
+-&gt; (MinerRewards -&gt; MinerRewards -&gt; MinerRewards)
+-&gt; Ord MinerRewards
+MinerRewards -&gt; MinerRewards -&gt; Bool
+MinerRewards -&gt; MinerRewards -&gt; Ordering
+MinerRewards -&gt; MinerRewards -&gt; MinerRewards
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: MinerRewards -&gt; MinerRewards -&gt; MinerRewards
+$cmin :: MinerRewards -&gt; MinerRewards -&gt; MinerRewards
+max :: MinerRewards -&gt; MinerRewards -&gt; MinerRewards
+$cmax :: MinerRewards -&gt; MinerRewards -&gt; MinerRewards
+&gt;= :: MinerRewards -&gt; MinerRewards -&gt; Bool
+$c&gt;= :: MinerRewards -&gt; MinerRewards -&gt; Bool
+&gt; :: MinerRewards -&gt; MinerRewards -&gt; Bool
+$c&gt; :: MinerRewards -&gt; MinerRewards -&gt; Bool
+&lt;= :: MinerRewards -&gt; MinerRewards -&gt; Bool
+$c&lt;= :: MinerRewards -&gt; MinerRewards -&gt; Bool
+&lt; :: MinerRewards -&gt; MinerRewards -&gt; Bool
+$c&lt; :: MinerRewards -&gt; MinerRewards -&gt; Bool
+compare :: MinerRewards -&gt; MinerRewards -&gt; Ordering
+$ccompare :: MinerRewards -&gt; MinerRewards -&gt; Ordering
+$cp1Ord :: Eq MinerRewards
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482090"><span id="local-6989586621681482092"><span id="local-6989586621681482094"><span class="annot"><span class="annottext">Int -&gt; MinerRewards -&gt; ShowS
+[MinerRewards] -&gt; ShowS
+MinerRewards -&gt; String
+(Int -&gt; MinerRewards -&gt; ShowS)
+-&gt; (MinerRewards -&gt; String)
+-&gt; ([MinerRewards] -&gt; ShowS)
+-&gt; Show MinerRewards
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [MinerRewards] -&gt; ShowS
+$cshowList :: [MinerRewards] -&gt; ShowS
+show :: MinerRewards -&gt; String
+$cshow :: MinerRewards -&gt; String
+showsPrec :: Int -&gt; MinerRewards -&gt; ShowS
+$cshowsPrec :: Int -&gt; MinerRewards -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. MinerRewards -&gt; Rep MinerRewards x)
+-&gt; (forall x. Rep MinerRewards x -&gt; MinerRewards)
+-&gt; Generic MinerRewards
+forall x. Rep MinerRewards x -&gt; MinerRewards
+forall x. MinerRewards -&gt; Rep MinerRewards x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep MinerRewards x -&gt; MinerRewards
+$cfrom :: forall x. MinerRewards -&gt; Rep MinerRewards x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- | A getter into the map of heights to rewards</span><span>
+</span><span id="line-163"></span><span class="hs-comment">--</span><span>
+</span><span id="line-164"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerRewards"><span class="hs-identifier hs-type">minerRewards</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Getter</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerRewards"><span class="hs-identifier hs-type">MinerRewards</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedDecimal</span></span><span class="hs-special">)</span><span>
+</span><span id="line-165"></span><span id="minerRewards"><span class="annot"><span class="annottext">minerRewards :: (HashMap BlockHeight ParsedDecimal
+ -&gt; f (HashMap BlockHeight ParsedDecimal))
+-&gt; MinerRewards -&gt; f MinerRewards
+</span><a href="Chainweb.Miner.Pact.html#minerRewards"><span class="hs-identifier hs-var hs-var">minerRewards</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(MinerRewards -&gt; HashMap BlockHeight ParsedDecimal)
+-&gt; (HashMap BlockHeight ParsedDecimal
+    -&gt; f (HashMap BlockHeight ParsedDecimal))
+-&gt; MinerRewards
+-&gt; f MinerRewards
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="annot"><span class="annottext">MinerRewards -&gt; HashMap BlockHeight ParsedDecimal
+</span><a href="Chainweb.Miner.Pact.html#_minerRewards"><span class="hs-identifier hs-var hs-var">_minerRewards</span></a></span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- | A lens into the sorted vector of significant block heights pegged to a reward</span><span>
+</span><span id="line-168"></span><span class="hs-comment">--</span><span>
+</span><span id="line-169"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#minerRewardHeights"><span class="hs-identifier hs-type">minerRewardHeights</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lens'</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerRewards"><span class="hs-identifier hs-type">MinerRewards</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-170"></span><span id="minerRewardHeights"><span class="annot"><span class="annottext">minerRewardHeights :: (Vector BlockHeight -&gt; f (Vector BlockHeight))
+-&gt; MinerRewards -&gt; f MinerRewards
+</span><a href="Chainweb.Miner.Pact.html#minerRewardHeights"><span class="hs-identifier hs-var hs-var">minerRewardHeights</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(MinerRewards -&gt; Vector BlockHeight)
+-&gt; (MinerRewards -&gt; Vector BlockHeight -&gt; MinerRewards)
+-&gt; Lens
+     MinerRewards MinerRewards (Vector BlockHeight) (Vector BlockHeight)
+forall s a b t. (s -&gt; a) -&gt; (s -&gt; b -&gt; t) -&gt; Lens s t a b
+</span><span class="hs-identifier hs-var">lens</span></span><span> </span><span class="annot"><span class="annottext">MinerRewards -&gt; Vector BlockHeight
+</span><a href="Chainweb.Miner.Pact.html#_minerRewardHeights"><span class="hs-identifier hs-var hs-var">_minerRewardHeights</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681482086"><span class="annot"><span class="annottext">t :: MinerRewards
+</span><a href="#local-6989586621681482086"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621681482085"><span class="annot"><span class="annottext">b :: Vector BlockHeight
+</span><a href="#local-6989586621681482085"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MinerRewards
+</span><a href="#local-6989586621681482086"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_minerRewardHeights :: Vector BlockHeight
+</span><a href="Chainweb.Miner.Pact.html#_minerRewardHeights"><span class="hs-identifier hs-var">_minerRewardHeights</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector BlockHeight
+</span><a href="#local-6989586621681482085"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- | Rewards table mapping 3-month periods to their rewards</span><span>
+</span><span id="line-173"></span><span class="hs-comment">-- according to the calculated exponential decay over 120 year period</span><span>
+</span><span id="line-174"></span><span class="hs-comment">--</span><span>
+</span><span id="line-175"></span><span id="local-6989586621681482084"><span class="annot"><a href="Chainweb.Miner.Pact.html#readRewards"><span class="hs-identifier hs-type">readRewards</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Graph.html#HasChainGraph"><span class="hs-identifier hs-type">HasChainGraph</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681482084"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681482084"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#MinerRewards"><span class="hs-identifier hs-type">MinerRewards</span></a></span></span><span>
+</span><span id="line-176"></span><span id="readRewards"><span class="annot"><span class="annottext">readRewards :: v -&gt; MinerRewards
+</span><a href="Chainweb.Miner.Pact.html#readRewards"><span class="hs-identifier hs-var hs-var">readRewards</span></a></span></span><span> </span><span id="local-6989586621681482083"><span class="annot"><span class="annottext">v :: v
+</span><a href="#local-6989586621681482083"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-177"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HasHeader -&gt; ByteString -&gt; Either String (Vector (Word64, Double))
+forall a.
+FromRecord a =&gt;
+HasHeader -&gt; ByteString -&gt; Either String (Vector a)
+</span><span class="hs-identifier hs-var">CSV.decode</span></span><span> </span><span class="annot"><span class="annottext">HasHeader
+</span><span class="hs-identifier hs-var">CSV.NoHeader</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="Chainweb.Miner.Pact.html#rawMinerRewards"><span class="hs-identifier hs-var">rawMinerRewards</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-178"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681482080"><span class="annot"><span class="annottext">e :: String
+</span><a href="#local-6989586621681482080"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; MinerRewards
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span>
+</span><span id="line-179"></span><span>        </span><span class="annot"><span class="annottext">(String -&gt; MinerRewards) -&gt; String -&gt; MinerRewards
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;cannot construct miner reward map: &quot;</span></span><span>
+</span><span id="line-180"></span><span>        </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ShowS
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681482080"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-181"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681482077"><span class="annot"><span class="annottext">vs :: Vector (Word64, Double)
+</span><a href="#local-6989586621681482077"><span class="hs-identifier hs-var">vs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-182"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681482076"><span class="annot"><span class="annottext">rs :: HashMap BlockHeight ParsedDecimal
+</span><a href="#local-6989586621681482076"><span class="hs-identifier hs-var hs-var">rs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(BlockHeight, ParsedDecimal)] -&gt; HashMap BlockHeight ParsedDecimal
+forall k v. (Eq k, Hashable k) =&gt; [(k, v)] -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(BlockHeight, ParsedDecimal)]
+ -&gt; HashMap BlockHeight ParsedDecimal)
+-&gt; (Vector (Word64, Double) -&gt; [(BlockHeight, ParsedDecimal)])
+-&gt; Vector (Word64, Double)
+-&gt; HashMap BlockHeight ParsedDecimal
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Vector (BlockHeight, ParsedDecimal)
+-&gt; [(BlockHeight, ParsedDecimal)]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">(Vector (BlockHeight, ParsedDecimal)
+ -&gt; [(BlockHeight, ParsedDecimal)])
+-&gt; (Vector (Word64, Double) -&gt; Vector (BlockHeight, ParsedDecimal))
+-&gt; Vector (Word64, Double)
+-&gt; [(BlockHeight, ParsedDecimal)]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((Word64, Double) -&gt; (BlockHeight, ParsedDecimal))
+-&gt; Vector (Word64, Double) -&gt; Vector (BlockHeight, ParsedDecimal)
+forall a b. (a -&gt; b) -&gt; Vector a -&gt; Vector b
+</span><span class="hs-identifier hs-var">V.map</span></span><span> </span><span class="annot"><span class="annottext">(Word64, Double) -&gt; (BlockHeight, ParsedDecimal)
+</span><a href="#local-6989586621681482072"><span class="hs-identifier hs-var">formatRow</span></a></span><span> </span><span class="annot"><span class="annottext">(Vector (Word64, Double) -&gt; HashMap BlockHeight ParsedDecimal)
+-&gt; Vector (Word64, Double) -&gt; HashMap BlockHeight ParsedDecimal
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Vector (Word64, Double)
+</span><a href="#local-6989586621681482077"><span class="hs-identifier hs-var">vs</span></a></span><span>
+</span><span id="line-183"></span><span>        </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">HashMap BlockHeight ParsedDecimal
+-&gt; Vector BlockHeight -&gt; MinerRewards
+</span><a href="Chainweb.Miner.Pact.html#MinerRewards"><span class="hs-identifier hs-var">MinerRewards</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap BlockHeight ParsedDecimal
+</span><a href="#local-6989586621681482076"><span class="hs-identifier hs-var">rs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[BlockHeight] -&gt; Vector BlockHeight
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">([BlockHeight] -&gt; Vector BlockHeight)
+-&gt; ([BlockHeight] -&gt; [BlockHeight])
+-&gt; [BlockHeight]
+-&gt; Vector BlockHeight
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[BlockHeight] -&gt; [BlockHeight]
+forall a. Ord a =&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">sort</span></span><span> </span><span class="annot"><span class="annottext">([BlockHeight] -&gt; Vector BlockHeight)
+-&gt; [BlockHeight] -&gt; Vector BlockHeight
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">HashMap BlockHeight ParsedDecimal -&gt; [BlockHeight]
+forall k v. HashMap k v -&gt; [k]
+</span><span class="hs-identifier hs-var">HM.keys</span></span><span> </span><span class="annot"><span class="annottext">HashMap BlockHeight ParsedDecimal
+</span><a href="#local-6989586621681482076"><span class="hs-identifier hs-var">rs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-184"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-185"></span><span>    </span><span class="annot"><a href="#local-6989586621681482072"><span class="hs-identifier hs-type">formatRow</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Double</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedDecimal</span></span><span class="hs-special">)</span><span>
+</span><span id="line-186"></span><span>    </span><span id="local-6989586621681482072"><span class="annot"><span class="annottext">formatRow :: (Word64, Double) -&gt; (BlockHeight, ParsedDecimal)
+</span><a href="#local-6989586621681482072"><span class="hs-identifier hs-var hs-var">formatRow</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">!</span><span id="local-6989586621681482068"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482068"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span class="hs-glyph">!</span><span id="local-6989586621681482067"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621681482067"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-187"></span><span>      </span><span class="hs-keyword">let</span><span>
+</span><span id="line-188"></span><span>        </span><span class="hs-glyph">!</span><span id="local-6989586621681482066"><span class="annot"><span class="annottext">n :: DecimalRaw Integer
+</span><a href="#local-6989586621681482066"><span class="hs-identifier hs-var hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">v
+</span><a href="#local-6989586621681482083"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">v
+-&gt; Getting (DecimalRaw Integer) v (DecimalRaw Integer)
+-&gt; DecimalRaw Integer
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(ChainGraph -&gt; Const (DecimalRaw Integer) ChainGraph)
+-&gt; v -&gt; Const (DecimalRaw Integer) v
+forall a. HasChainGraph a =&gt; Getter a ChainGraph
+</span><a href="Chainweb.Graph.html#chainGraph"><span class="hs-identifier hs-var">chainGraph</span></a></span><span> </span><span class="annot"><span class="annottext">((ChainGraph -&gt; Const (DecimalRaw Integer) ChainGraph)
+ -&gt; v -&gt; Const (DecimalRaw Integer) v)
+-&gt; ((DecimalRaw Integer
+     -&gt; Const (DecimalRaw Integer) (DecimalRaw Integer))
+    -&gt; ChainGraph -&gt; Const (DecimalRaw Integer) ChainGraph)
+-&gt; Getting (DecimalRaw Integer) v (DecimalRaw Integer)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ChainGraph -&gt; DecimalRaw Integer)
+-&gt; (DecimalRaw Integer
+    -&gt; Const (DecimalRaw Integer) (DecimalRaw Integer))
+-&gt; ChainGraph
+-&gt; Const (DecimalRaw Integer) ChainGraph
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; DecimalRaw Integer
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; DecimalRaw Integer)
+-&gt; (ChainGraph -&gt; Natural) -&gt; ChainGraph -&gt; DecimalRaw Integer
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainGraph -&gt; Natural
+</span><a href="Chainweb.Graph.html#order"><span class="hs-identifier hs-var">order</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-189"></span><span>        </span><span class="hs-glyph">!</span><span id="local-6989586621681482062"><span class="annot"><span class="annottext">m :: DecimalRaw Integer
+</span><a href="#local-6989586621681482062"><span class="hs-identifier hs-var hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Rational -&gt; DecimalRaw Integer
+forall a. Fractional a =&gt; Rational -&gt; a
+</span><span class="hs-identifier hs-var">fromRational</span></span><span> </span><span class="annot"><span class="annottext">(Rational -&gt; DecimalRaw Integer) -&gt; Rational -&gt; DecimalRaw Integer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Rational
+forall a. Real a =&gt; a -&gt; Rational
+</span><span class="hs-identifier hs-var">toRational</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621681482067"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-190"></span><span>      </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64 -&gt; BlockHeight
+</span><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-var">BlockHeight</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; BlockHeight) -&gt; Word64 -&gt; BlockHeight
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482068"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">DecimalRaw Integer -&gt; ParsedDecimal
+</span><span class="hs-identifier hs-var">ParsedDecimal</span></span><span> </span><span class="annot"><span class="annottext">(DecimalRaw Integer -&gt; ParsedDecimal)
+-&gt; DecimalRaw Integer -&gt; ParsedDecimal
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; DecimalRaw Integer -&gt; DecimalRaw Integer
+forall i. Integral i =&gt; Word8 -&gt; DecimalRaw i -&gt; DecimalRaw i
+</span><span class="hs-identifier hs-var">roundTo</span></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DecimalRaw Integer
+</span><a href="#local-6989586621681482062"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">DecimalRaw Integer -&gt; DecimalRaw Integer -&gt; DecimalRaw Integer
+forall a. Fractional a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">/</span></span><span> </span><span class="annot"><span class="annottext">DecimalRaw Integer
+</span><a href="#local-6989586621681482066"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-191"></span><span>
+</span><span id="line-192"></span><span class="hs-comment">-- | Read in the reward csv via TH for deployment purposes.</span><span>
+</span><span id="line-193"></span><span class="hs-comment">--</span><span>
+</span><span id="line-194"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#rawMinerRewards"><span class="hs-identifier hs-type">rawMinerRewards</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-195"></span><span id="rawMinerRewards"><span class="annot"><span class="annottext">rawMinerRewards :: ByteString
+</span><a href="Chainweb.Miner.Pact.html#rawMinerRewards"><span class="hs-identifier hs-var hs-var">rawMinerRewards</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">$(</span><span class="hs-identifier">embedFile</span><span> </span><span class="hs-string">&quot;rewards/miner_rewards.csv&quot;</span><span class="hs-special">)</span><span>
+</span><span id="line-196"></span><span class="hs-pragma">{-# NOINLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#rawMinerRewards"><span class="hs-pragma hs-type">rawMinerRewards</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-197"></span><span>
+</span><span id="line-198"></span><span class="hs-comment">--------------------------------------------------------------------------------</span><span>
+</span><span id="line-199"></span><span class="hs-comment">-- CLI Utils</span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#pMiner"><span class="hs-identifier hs-type">pMiner</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span>
+</span><span id="line-202"></span><span id="pMiner"><span class="annot"><span class="annottext">pMiner :: Parser Miner
+</span><a href="Chainweb.Miner.Pact.html#pMiner"><span class="hs-identifier hs-var hs-var">pMiner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MinerId -&gt; MinerKeys -&gt; Miner
+</span><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-var">Miner</span></a></span><span>
+</span><span id="line-203"></span><span>    </span><span class="annot"><span class="annottext">(MinerId -&gt; MinerKeys -&gt; Miner)
+-&gt; Parser MinerId -&gt; Parser (MinerKeys -&gt; Miner)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields MinerId -&gt; Parser MinerId
+forall s. IsString s =&gt; Mod OptionFields s -&gt; Parser s
+</span><span class="hs-identifier hs-var">strOption</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields MinerId
+forall (f :: * -&gt; *) a. HasName f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="hs-string">&quot;miner-account&quot;</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields MinerId
+-&gt; Mod OptionFields MinerId -&gt; Mod OptionFields MinerId
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields MinerId
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Coin Contract account name of Miner&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-204"></span><span>    </span><span class="annot"><span class="annottext">Parser (MinerKeys -&gt; Miner) -&gt; Parser MinerKeys -&gt; Parser Miner
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KeySet -&gt; MinerKeys
+</span><a href="Chainweb.Miner.Pact.html#MinerKeys"><span class="hs-identifier hs-var">MinerKeys</span></a></span><span> </span><span class="annot"><span class="annottext">(KeySet -&gt; MinerKeys) -&gt; Parser KeySet -&gt; Parser MinerKeys
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Parser KeySet
+</span><a href="#local-6989586621681482053"><span class="hs-identifier hs-var">pks</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-205"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-206"></span><span>    </span><span class="annot"><a href="#local-6989586621681482053"><span class="hs-identifier hs-type">pks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">KeySet</span></span><span>
+</span><span id="line-207"></span><span>    </span><span id="local-6989586621681482053"><span class="annot"><span class="annottext">pks :: Parser KeySet
+</span><a href="#local-6989586621681482053"><span class="hs-identifier hs-var hs-var">pks</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[PublicKey] -&gt; Name -&gt; KeySet
+</span><span class="hs-identifier hs-var">KeySet</span></span><span> </span><span class="annot"><span class="annottext">([PublicKey] -&gt; Name -&gt; KeySet)
+-&gt; Parser [PublicKey] -&gt; Parser (Name -&gt; KeySet)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Parser PublicKey -&gt; Parser [PublicKey]
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f [a]
+</span><span class="hs-identifier hs-var">many</span></span><span> </span><span class="annot"><span class="annottext">Parser PublicKey
+</span><a href="Chainweb.Miner.Pact.html#pKey"><span class="hs-identifier hs-var">pKey</span></a></span><span> </span><span class="annot"><span class="annottext">Parser (Name -&gt; KeySet) -&gt; Parser Name -&gt; Parser KeySet
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Parser Name
+</span><a href="Chainweb.Miner.Pact.html#pPred"><span class="hs-identifier hs-var">pPred</span></a></span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#pKey"><span class="hs-identifier hs-type">pKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicKey</span></span><span>
+</span><span id="line-210"></span><span id="pKey"><span class="annot"><span class="annottext">pKey :: Parser PublicKey
+</span><a href="Chainweb.Miner.Pact.html#pKey"><span class="hs-identifier hs-var hs-var">pKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mod OptionFields PublicKey -&gt; Parser PublicKey
+forall s. IsString s =&gt; Mod OptionFields s -&gt; Parser s
+</span><span class="hs-identifier hs-var">strOption</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields PublicKey
+forall (f :: * -&gt; *) a. HasName f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="hs-string">&quot;miner-key&quot;</span></span><span>
+</span><span id="line-211"></span><span>    </span><span class="annot"><span class="annottext">Mod OptionFields PublicKey
+-&gt; Mod OptionFields PublicKey -&gt; Mod OptionFields PublicKey
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields PublicKey
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Public key of the account to send rewards (can pass multiple times)&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-212"></span><span>
+</span><span id="line-213"></span><span class="annot"><a href="Chainweb.Miner.Pact.html#pPred"><span class="hs-identifier hs-type">pPred</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span>
+</span><span id="line-214"></span><span id="pPred"><span class="annot"><span class="annottext">pPred :: Parser Name
+</span><a href="Chainweb.Miner.Pact.html#pPred"><span class="hs-identifier hs-var hs-var">pPred</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681482049"><span class="annot"><span class="annottext">s :: Text
+</span><a href="#local-6989586621681482049"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">BareName -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">(BareName -&gt; Name) -&gt; BareName -&gt; Name
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Info -&gt; BareName
+</span><span class="hs-identifier hs-var">BareName</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681482049"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Info
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Name) -&gt; Parser Text -&gt; Parser Name
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span>
+</span><span id="line-215"></span><span>    </span><span class="annot"><span class="annottext">Mod OptionFields Text -&gt; Parser Text
+forall s. IsString s =&gt; Mod OptionFields s -&gt; Parser s
+</span><span class="hs-identifier hs-var">strOption</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Text
+forall (f :: * -&gt; *) a. HasName f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="hs-string">&quot;miner-pred&quot;</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields Text
+-&gt; Mod OptionFields Text -&gt; Mod OptionFields Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Mod OptionFields Text
+forall (f :: * -&gt; *) a. HasValue f =&gt; a -&gt; Mod f a
+</span><span class="hs-identifier hs-var">value</span></span><span> </span><span class="annot"><span class="hs-string">&quot;keys-all&quot;</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields Text
+-&gt; Mod OptionFields Text -&gt; Mod OptionFields Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Text
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Keyset predicate&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span></pre></body></html>

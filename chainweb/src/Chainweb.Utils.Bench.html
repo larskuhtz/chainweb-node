@@ -1,0 +1,36 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Utils.Bench</span><span>
+</span><span id="line-2"></span><span>  </span><span class="hs-special">(</span><span>
+</span><span id="line-3"></span><span>    </span><span class="annot"><a href="Chainweb.Utils.Bench.html#NoopNFData"><span class="hs-identifier">NoopNFData</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-4"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- | Newtype to provide a noop NFData instance.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Intended for use in criterion's 'envWithCleanup'</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- which wants environment values to be NFData.</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">newtype</span><span> </span><span id="NoopNFData"><span class="annot"><a href="Chainweb.Utils.Bench.html#NoopNFData"><span class="hs-identifier hs-var">NoopNFData</span></a></span></span><span> </span><span id="local-6989586621681470990"><span class="annot"><a href="#local-6989586621681470990"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NoopNFData"><span class="annot"><a href="Chainweb.Utils.Bench.html#NoopNFData"><span class="hs-identifier hs-var">NoopNFData</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621681470990"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681470983"><span id="local-6989586621681470985"><span id="local-6989586621681470987"><span class="annot"><span class="annottext">Int -&gt; NoopNFData a -&gt; ShowS
+[NoopNFData a] -&gt; ShowS
+NoopNFData a -&gt; String
+(Int -&gt; NoopNFData a -&gt; ShowS)
+-&gt; (NoopNFData a -&gt; String)
+-&gt; ([NoopNFData a] -&gt; ShowS)
+-&gt; Show (NoopNFData a)
+forall a. Show a =&gt; Int -&gt; NoopNFData a -&gt; ShowS
+forall a. Show a =&gt; [NoopNFData a] -&gt; ShowS
+forall a. Show a =&gt; NoopNFData a -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [NoopNFData a] -&gt; ShowS
+$cshowList :: forall a. Show a =&gt; [NoopNFData a] -&gt; ShowS
+show :: NoopNFData a -&gt; String
+$cshow :: forall a. Show a =&gt; NoopNFData a -&gt; String
+showsPrec :: Int -&gt; NoopNFData a -&gt; ShowS
+$cshowsPrec :: forall a. Show a =&gt; Int -&gt; NoopNFData a -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span id="local-6989586621681470981"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NFData</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Bench.html#NoopNFData"><span class="hs-identifier hs-type">NoopNFData</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470981"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-16"></span><span>  </span><span id="local-6989586621681470978"><span class="annot"><span class="annottext">rnf :: NoopNFData a -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">rnf</span></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-17"></span></pre></body></html>

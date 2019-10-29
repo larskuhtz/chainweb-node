@@ -1,0 +1,46 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE CPP #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveDataTypeable #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Module: BackCompat.Test.QuickCheck</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">BackCompat.Test.QuickCheck</span><span>
+</span><span id="line-17"></span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier">SortedList</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span class="hs-cpp">
+
+#if !MIN_VERSION_QuickCheck(2,12,2)
+</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.List</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="hs-identifier">Data.Typeable</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- https://github.com/nick8325/quickcheck/blob/master/Test/QuickCheck/Modifiers.hs</span><span>
+</span><span id="line-29"></span><span class="hs-comment">--</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">newtype</span><span> </span><span class="hs-identifier">SortedList</span><span> </span><span class="hs-identifier">a</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Sorted</span><span> </span><span class="hs-special">{</span><span class="hs-identifier">getSorted</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-identifier">a</span><span class="hs-special">]</span><span class="hs-special">}</span><span>
+</span><span id="line-32"></span><span> </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Eq</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Ord</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Show</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Read</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Typeable</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">instance</span><span> </span><span class="hs-identifier">Functor</span><span> </span><span class="hs-identifier">SortedList</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-identifier">fmap</span><span> </span><span class="hs-identifier">f</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Sorted</span><span> </span><span class="hs-identifier">x</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">Sorted</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">map</span><span> </span><span class="hs-identifier">f</span><span> </span><span class="hs-identifier">x</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">instance</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Arbitrary</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Ord</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-identifier">Arbitrary</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">SortedList</span><span> </span><span class="hs-identifier">a</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-identifier">arbitrary</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-identifier">fmap</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Sorted</span><span> </span><span class="hs-operator">.</span><span> </span><span class="hs-identifier">sort</span><span class="hs-special">)</span><span> </span><span class="hs-identifier">arbitrary</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-identifier">shrink</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">Sorted</span><span> </span><span class="hs-identifier">xs</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-identifier">Sorted</span><span> </span><span class="hs-identifier">xs'</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="hs-identifier">xs'</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-identifier">map</span><span> </span><span class="hs-identifier">sort</span><span> </span><span class="hs-special">(</span><span class="hs-identifier">shrink</span><span> </span><span class="hs-identifier">xs</span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">]</span><span class="hs-cpp">
+
+#endif
+</span></pre></body></html>

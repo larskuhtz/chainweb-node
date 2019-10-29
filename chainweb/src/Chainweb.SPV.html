@@ -1,0 +1,595 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Module: Chainweb.SPV</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.SPV</span><span>
+</span><span id="line-19"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#SpvException"><span class="hs-identifier">SpvException</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier">TransactionProof</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#proofChainId"><span class="hs-identifier">proofChainId</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier">TransactionOutputProof</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.SPV.html#outputProofChainId"><span class="hs-identifier">outputProofChainId</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Getter</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">to</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.Algorithms</span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Types</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Aeson</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.MerkleLog</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- Exceptions</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">data</span><span> </span><span id="SpvException"><span class="annot"><a href="Chainweb.SPV.html#SpvException"><span class="hs-identifier hs-var">SpvException</span></a></span></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span id="SpvExceptionTargetNotReachable"><span class="annot"><a href="Chainweb.SPV.html#SpvExceptionTargetNotReachable"><span class="hs-identifier hs-var">SpvExceptionTargetNotReachable</span></a></span></span><span>
+</span><span id="line-51"></span><span>        </span><span class="hs-special">{</span><span> </span><span id="_spvExceptionMsg"><span class="annot"><span class="annottext">SpvException -&gt; Text
+</span><a href="Chainweb.SPV.html#_spvExceptionMsg"><span class="hs-identifier hs-var hs-var">_spvExceptionMsg</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-52"></span><span>        </span><span class="hs-special">,</span><span> </span><span id="_spvExceptionSourceChainId"><span class="annot"><span class="annottext">SpvException -&gt; ChainId
+</span><a href="Chainweb.SPV.html#_spvExceptionSourceChainId"><span class="hs-identifier hs-var hs-var">_spvExceptionSourceChainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-53"></span><span>        </span><span class="hs-special">,</span><span> </span><span id="_spvExceptionSourceHeight"><span class="annot"><span class="annottext">SpvException -&gt; BlockHeight
+</span><a href="Chainweb.SPV.html#_spvExceptionSourceHeight"><span class="hs-identifier hs-var hs-var">_spvExceptionSourceHeight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span>
+</span><span id="line-54"></span><span>        </span><span class="hs-special">,</span><span> </span><span id="_spvExceptionTargetChainId"><span class="annot"><span class="annottext">SpvException -&gt; ChainId
+</span><a href="Chainweb.SPV.html#_spvExceptionTargetChainId"><span class="hs-identifier hs-var hs-var">_spvExceptionTargetChainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-55"></span><span>        </span><span class="hs-special">,</span><span> </span><span id="_spvExceptionTargetHeight"><span class="annot"><span class="annottext">SpvException -&gt; BlockHeight
+</span><a href="Chainweb.SPV.html#_spvExceptionTargetHeight"><span class="hs-identifier hs-var hs-var">_spvExceptionTargetHeight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span>
+</span><span id="line-56"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span id="SpvExceptionInconsistentPayloadData"><span class="annot"><a href="Chainweb.SPV.html#SpvExceptionInconsistentPayloadData"><span class="hs-identifier hs-var">SpvExceptionInconsistentPayloadData</span></a></span></span><span>
+</span><span id="line-58"></span><span>        </span><span class="hs-special">{</span><span> </span><span id="_spvExceptionMsg"><span class="annot"><a href="Chainweb.SPV.html#_spvExceptionMsg"><span class="hs-identifier hs-var">_spvExceptionMsg</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-59"></span><span>        </span><span class="hs-special">,</span><span> </span><span id="_spvExceptionMsgPayloadHash"><span class="annot"><span class="annottext">SpvException -&gt; BlockPayloadHash
+</span><a href="Chainweb.SPV.html#_spvExceptionMsgPayloadHash"><span class="hs-identifier hs-var hs-var">_spvExceptionMsgPayloadHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span>
+</span><span id="line-60"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span id="SpvExceptionVerificationFailed"><span class="annot"><a href="Chainweb.SPV.html#SpvExceptionVerificationFailed"><span class="hs-identifier hs-var">SpvExceptionVerificationFailed</span></a></span></span><span>
+</span><span id="line-62"></span><span>        </span><span class="hs-special">{</span><span> </span><span id="_spvExceptionMsg"><span class="annot"><a href="Chainweb.SPV.html#_spvExceptionMsg"><span class="hs-identifier hs-var">_spvExceptionMsg</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-63"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681481910"><span id="local-6989586621681481912"><span id="local-6989586621681481914"><span class="annot"><span class="annottext">Int -&gt; SpvException -&gt; ShowS
+[SpvException] -&gt; ShowS
+SpvException -&gt; String
+(Int -&gt; SpvException -&gt; ShowS)
+-&gt; (SpvException -&gt; String)
+-&gt; ([SpvException] -&gt; ShowS)
+-&gt; Show SpvException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [SpvException] -&gt; ShowS
+$cshowList :: [SpvException] -&gt; ShowS
+show :: SpvException -&gt; String
+$cshow :: SpvException -&gt; String
+showsPrec :: Int -&gt; SpvException -&gt; ShowS
+$cshowsPrec :: Int -&gt; SpvException -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681481901"><span id="local-6989586621681481903"><span id="local-6989586621681481905"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Chainweb.SPV.html#SpvException"><span class="hs-identifier hs-type">SpvException</span></a></span></span></span></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- JSON encoding utils</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="annot"><a href="Chainweb.SPV.html#proofToJson"><span class="hs-identifier hs-type">proofToJson</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MerkleProof</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
+</span><span id="line-72"></span><span id="proofToJson"><span class="annot"><span class="annottext">proofToJson :: ChainId -&gt; MerkleProof SHA512t_256 -&gt; Value
+</span><a href="Chainweb.SPV.html#proofToJson"><span class="hs-identifier hs-var hs-var">proofToJson</span></a></span></span><span> </span><span id="local-6989586621681481898"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681481898"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681481897"><span class="annot"><span class="annottext">p :: MerkleProof SHA512t_256
+</span><a href="#local-6989586621681481897"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;chain&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ChainId -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681481898"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;object&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">MerkleProofObject SHA512t_256 -&gt; Text
+forall a. MerkleProofObject a -&gt; Text
+</span><a href="#local-6989586621681481894"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MerkleProof SHA512t_256 -&gt; MerkleProofObject SHA512t_256
+forall a. MerkleProof a -&gt; MerkleProofObject a
+</span><span class="hs-identifier hs-var hs-var">_merkleProofObject</span></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+</span><a href="#local-6989586621681481897"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;subject&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MerkleNodeType SHA512t_256 ByteString -&gt; Value
+forall a. MerkleNodeType a ByteString -&gt; Value
+</span><a href="#local-6989586621681481892"><span class="hs-identifier hs-var">subj</span></a></span><span> </span><span class="annot"><span class="annottext">(MerkleNodeType SHA512t_256 ByteString -&gt; Value)
+-&gt; (MerkleProof SHA512t_256
+    -&gt; MerkleNodeType SHA512t_256 ByteString)
+-&gt; MerkleProof SHA512t_256
+-&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MerkleProofSubject SHA512t_256
+-&gt; MerkleNodeType SHA512t_256 ByteString
+forall a. MerkleProofSubject a -&gt; MerkleNodeType a ByteString
+</span><span class="hs-identifier hs-var hs-var">_getMerkleProofSubject</span></span><span> </span><span class="annot"><span class="annottext">(MerkleProofSubject SHA512t_256
+ -&gt; MerkleNodeType SHA512t_256 ByteString)
+-&gt; (MerkleProof SHA512t_256 -&gt; MerkleProofSubject SHA512t_256)
+-&gt; MerkleProof SHA512t_256
+-&gt; MerkleNodeType SHA512t_256 ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256 -&gt; MerkleProofSubject SHA512t_256
+forall a. MerkleProof a -&gt; MerkleProofSubject a
+</span><span class="hs-identifier hs-var hs-var">_merkleProofSubject</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+</span><a href="#local-6989586621681481897"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;algorithm&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;SHA512t_256&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621681481894"><span class="annot"><span class="annottext">obj :: MerkleProofObject a -&gt; Text
+</span><a href="#local-6989586621681481894"><span class="hs-identifier hs-var hs-var">obj</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="Chainweb.Utils.html#encodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">encodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text)
+-&gt; (MerkleProofObject a -&gt; ByteString)
+-&gt; MerkleProofObject a
+-&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MerkleProofObject a -&gt; ByteString
+forall b a. ByteArray b =&gt; MerkleProofObject a -&gt; b
+</span><span class="hs-identifier hs-var">encodeMerkleProofObject</span></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span>    </span><span id="local-6989586621681481892"><span class="annot"><span class="annottext">subj :: MerkleNodeType a ByteString -&gt; Value
+</span><a href="#local-6989586621681481892"><span class="hs-identifier hs-var hs-var">subj</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TreeNode</span></span><span> </span><span id="local-6989586621681481885"><span class="annot"><span class="annottext">h :: MerkleRoot a
+</span><a href="#local-6989586621681481885"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-82"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;tree&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="Chainweb.Utils.html#encodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">encodeB64UrlNoPaddingText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MerkleRoot a -&gt; ByteString
+forall b a. ByteArray b =&gt; MerkleRoot a -&gt; b
+</span><span class="hs-identifier hs-var">encodeMerkleRoot</span></span><span> </span><span class="annot"><span class="annottext">MerkleRoot a
+</span><a href="#local-6989586621681481885"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><a href="#local-6989586621681481892"><span class="hs-identifier hs-var">subj</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">InputNode</span></span><span> </span><span id="local-6989586621681481882"><span class="annot"><span class="annottext">bytes :: ByteString
+</span><a href="#local-6989586621681481882"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-85"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;input&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="Chainweb.Utils.html#encodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">encodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681481882"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-86"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span id="local-6989586621681481946"><span class="annot"><a href="Chainweb.SPV.html#parseProof"><span class="hs-identifier hs-type">parseProof</span></a></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MerkleProof</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681481946"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Aeson.Parser</span></span><span> </span><span class="annot"><a href="#local-6989586621681481946"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-93"></span><span id="parseProof"><span class="annot"><span class="annottext">parseProof :: String
+-&gt; (ChainId -&gt; MerkleProof SHA512t_256 -&gt; a) -&gt; Value -&gt; Parser a
+</span><a href="Chainweb.SPV.html#parseProof"><span class="hs-identifier hs-var hs-var">parseProof</span></a></span></span><span> </span><span id="local-6989586621681481880"><span class="annot"><span class="annottext">label :: String
+</span><a href="#local-6989586621681481880"><span class="hs-keyword hs-var">label</span></a></span></span><span> </span><span id="local-6989586621681481879"><span class="annot"><span class="annottext">mkProof :: ChainId -&gt; MerkleProof SHA512t_256 -&gt; a
+</span><a href="#local-6989586621681481879"><span class="hs-identifier hs-var">mkProof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681481880"><span class="hs-keyword hs-var">label</span></a></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser a) -&gt; Value -&gt; Parser a)
+-&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681481877"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681481877"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; MerkleProof SHA512t_256 -&gt; a
+</span><a href="#local-6989586621681481879"><span class="hs-identifier hs-var">mkProof</span></a></span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><span class="annottext">(ChainId -&gt; MerkleProof SHA512t_256 -&gt; a)
+-&gt; Parser ChainId -&gt; Parser (MerkleProof SHA512t_256 -&gt; a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681481877"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser ChainId
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;chain&quot;</span></span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">Parser (MerkleProof SHA512t_256 -&gt; a)
+-&gt; Parser (MerkleProof SHA512t_256) -&gt; Parser a
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Parser (MerkleProof SHA512t_256)
+</span><a href="#local-6989586621681481874"><span class="hs-identifier hs-var">parse</span></a></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681481877"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="annottext">Parser a -&gt; Parser () -&gt; Parser a
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;*</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Parser ()
+forall (f :: * -&gt; *) a.
+(Eq a, MonadFail f, Show a) =&gt;
+a -&gt; a -&gt; f ()
+</span><a href="#local-6989586621681481872"><span class="hs-identifier hs-var">assertJSON</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;SHA512t_256&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser ()) -&gt; Parser Text -&gt; Parser ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681481877"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Text
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;algorithm&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-98"></span><span>    </span><span id="local-6989586621681481874"><span class="annot"><span class="annottext">parse :: Object -&gt; Parser (MerkleProof SHA512t_256)
+</span><a href="#local-6989586621681481874"><span class="hs-identifier hs-var hs-var">parse</span></a></span></span><span> </span><span id="local-6989586621681481870"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681481870"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleProofSubject SHA512t_256
+-&gt; MerkleProofObject SHA512t_256 -&gt; MerkleProof SHA512t_256
+forall a.
+MerkleProofSubject a -&gt; MerkleProofObject a -&gt; MerkleProof a
+</span><span class="hs-identifier hs-var">MerkleProof</span></span><span>
+</span><span id="line-99"></span><span>        </span><span class="annot"><span class="annottext">(MerkleProofSubject SHA512t_256
+ -&gt; MerkleProofObject SHA512t_256 -&gt; MerkleProof SHA512t_256)
+-&gt; Parser (MerkleProofSubject SHA512t_256)
+-&gt; Parser
+     (MerkleProofObject SHA512t_256 -&gt; MerkleProof SHA512t_256)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Parser (MerkleProofSubject SHA512t_256)
+</span><a href="#local-6989586621681481868"><span class="hs-identifier hs-var">parseSubject</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser (MerkleProofSubject SHA512t_256))
+-&gt; Parser Value -&gt; Parser (MerkleProofSubject SHA512t_256)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681481870"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Value
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;subject&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>        </span><span class="annot"><span class="annottext">Parser (MerkleProofObject SHA512t_256 -&gt; MerkleProof SHA512t_256)
+-&gt; Parser (MerkleProofObject SHA512t_256)
+-&gt; Parser (MerkleProof SHA512t_256)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Parser (MerkleProofObject SHA512t_256)
+</span><a href="#local-6989586621681481867"><span class="hs-identifier hs-var">parseObject</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser (MerkleProofObject SHA512t_256))
+-&gt; Parser Value -&gt; Parser (MerkleProofObject SHA512t_256)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681481870"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Value
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;object&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span>    </span><span id="local-6989586621681481868"><span class="annot"><span class="annottext">parseSubject :: Value -&gt; Parser (MerkleProofSubject SHA512t_256)
+</span><a href="#local-6989586621681481868"><span class="hs-identifier hs-var hs-var">parseSubject</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser (MerkleProofSubject SHA512t_256))
+-&gt; Value
+-&gt; Parser (MerkleProofSubject SHA512t_256)
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;ProofSubject&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser (MerkleProofSubject SHA512t_256))
+ -&gt; Value -&gt; Parser (MerkleProofSubject SHA512t_256))
+-&gt; (Object -&gt; Parser (MerkleProofSubject SHA512t_256))
+-&gt; Value
+-&gt; Parser (MerkleProofSubject SHA512t_256)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681481866"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681481866"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MerkleNodeType SHA512t_256 ByteString
+-&gt; MerkleProofSubject SHA512t_256
+forall a. MerkleNodeType a ByteString -&gt; MerkleProofSubject a
+</span><span class="hs-identifier hs-var">MerkleProofSubject</span></span><span>
+</span><span id="line-103"></span><span>        </span><span class="annot"><span class="annottext">(MerkleNodeType SHA512t_256 ByteString
+ -&gt; MerkleProofSubject SHA512t_256)
+-&gt; Parser (MerkleNodeType SHA512t_256 ByteString)
+-&gt; Parser (MerkleProofSubject SHA512t_256)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681481866"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Value
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;tree&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser Value
+-&gt; (Value -&gt; Parser (MerkleNodeType SHA512t_256 ByteString))
+-&gt; Parser (MerkleNodeType SHA512t_256 ByteString)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser (MerkleNodeType SHA512t_256 ByteString)
+forall b. Value -&gt; Parser (MerkleNodeType SHA512t_256 b)
+</span><a href="#local-6989586621681481864"><span class="hs-identifier hs-var">parseTreeNode</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Parser (MerkleNodeType SHA512t_256 ByteString)
+-&gt; Parser (MerkleNodeType SHA512t_256 ByteString)
+-&gt; Parser (MerkleNodeType SHA512t_256 ByteString)
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">&lt;|&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681481866"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Value
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;input&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser Value
+-&gt; (Value -&gt; Parser (MerkleNodeType SHA512t_256 ByteString))
+-&gt; Parser (MerkleNodeType SHA512t_256 ByteString)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser (MerkleNodeType SHA512t_256 ByteString)
+forall a. Value -&gt; Parser (MerkleNodeType a ByteString)
+</span><a href="#local-6989586621681481862"><span class="hs-identifier hs-var">parseInputNode</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621681481864"><span class="annot"><span class="annottext">parseTreeNode :: Value -&gt; Parser (MerkleNodeType SHA512t_256 b)
+</span><a href="#local-6989586621681481864"><span class="hs-identifier hs-var hs-var">parseTreeNode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Text -&gt; Parser (MerkleNodeType SHA512t_256 b))
+-&gt; Value
+-&gt; Parser (MerkleNodeType SHA512t_256 b)
+forall a. String -&gt; (Text -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withText</span></span><span> </span><span class="annot"><span class="hs-string">&quot;TreeNode&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; Parser (MerkleNodeType SHA512t_256 b))
+ -&gt; Value -&gt; Parser (MerkleNodeType SHA512t_256 b))
+-&gt; (Text -&gt; Parser (MerkleNodeType SHA512t_256 b))
+-&gt; Value
+-&gt; Parser (MerkleNodeType SHA512t_256 b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681481860"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681481860"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MerkleRoot SHA512t_256 -&gt; MerkleNodeType SHA512t_256 b
+forall a b. MerkleRoot a -&gt; MerkleNodeType a b
+</span><span class="hs-identifier hs-var">TreeNode</span></span><span>
+</span><span id="line-106"></span><span>        </span><span class="annot"><span class="annottext">(MerkleRoot SHA512t_256 -&gt; MerkleNodeType SHA512t_256 b)
+-&gt; Parser (MerkleRoot SHA512t_256)
+-&gt; Parser (MerkleNodeType SHA512t_256 b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either SomeException (MerkleRoot SHA512t_256))
+-&gt; Text -&gt; Parser (MerkleRoot SHA512t_256)
+forall (m :: * -&gt; *) a.
+MonadFail m =&gt;
+(ByteString -&gt; Either SomeException a) -&gt; Text -&gt; m a
+</span><a href="#local-6989586621681481859"><span class="hs-identifier hs-var">parseBinary</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either SomeException (MerkleRoot SHA512t_256)
+forall (m :: * -&gt; *) a b.
+(MonadThrow m, HashAlgorithm a, ByteArrayAccess b) =&gt;
+b -&gt; m (MerkleRoot a)
+</span><span class="hs-identifier hs-var">decodeMerkleRoot</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681481860"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span>    </span><span id="local-6989586621681481862"><span class="annot"><span class="annottext">parseInputNode :: Value -&gt; Parser (MerkleNodeType a ByteString)
+</span><a href="#local-6989586621681481862"><span class="hs-identifier hs-var hs-var">parseInputNode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Text -&gt; Parser (MerkleNodeType a ByteString))
+-&gt; Value
+-&gt; Parser (MerkleNodeType a ByteString)
+forall a. String -&gt; (Text -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withText</span></span><span> </span><span class="annot"><span class="hs-string">&quot;InputNode&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; Parser (MerkleNodeType a ByteString))
+ -&gt; Value -&gt; Parser (MerkleNodeType a ByteString))
+-&gt; (Text -&gt; Parser (MerkleNodeType a ByteString))
+-&gt; Value
+-&gt; Parser (MerkleNodeType a ByteString)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681481857"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681481857"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; MerkleNodeType a ByteString
+forall a b. b -&gt; MerkleNodeType a b
+</span><span class="hs-identifier hs-var">InputNode</span></span><span>
+</span><span id="line-109"></span><span>        </span><span class="annot"><span class="annottext">(ByteString -&gt; MerkleNodeType a ByteString)
+-&gt; Parser ByteString -&gt; Parser (MerkleNodeType a ByteString)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either SomeException ByteString)
+-&gt; Text -&gt; Parser ByteString
+forall (m :: * -&gt; *) a.
+MonadFail m =&gt;
+(ByteString -&gt; Either SomeException a) -&gt; Text -&gt; m a
+</span><a href="#local-6989586621681481859"><span class="hs-identifier hs-var">parseBinary</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either SomeException ByteString
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681481857"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span>    </span><span id="local-6989586621681481867"><span class="annot"><span class="annottext">parseObject :: Value -&gt; Parser (MerkleProofObject SHA512t_256)
+</span><a href="#local-6989586621681481867"><span class="hs-identifier hs-var hs-var">parseObject</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Text -&gt; Parser (MerkleProofObject SHA512t_256))
+-&gt; Value
+-&gt; Parser (MerkleProofObject SHA512t_256)
+forall a. String -&gt; (Text -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withText</span></span><span> </span><span class="annot"><span class="hs-string">&quot;ProofObject&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; Parser (MerkleProofObject SHA512t_256))
+ -&gt; Value -&gt; Parser (MerkleProofObject SHA512t_256))
+-&gt; (Text -&gt; Parser (MerkleProofObject SHA512t_256))
+-&gt; Value
+-&gt; Parser (MerkleProofObject SHA512t_256)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681481856"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681481856"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-112"></span><span>        </span><span class="annot"><span class="annottext">(ByteString
+ -&gt; Either SomeException (MerkleProofObject SHA512t_256))
+-&gt; Text -&gt; Parser (MerkleProofObject SHA512t_256)
+forall (m :: * -&gt; *) a.
+MonadFail m =&gt;
+(ByteString -&gt; Either SomeException a) -&gt; Text -&gt; m a
+</span><a href="#local-6989586621681481859"><span class="hs-identifier hs-var">parseBinary</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either SomeException (MerkleProofObject SHA512t_256)
+forall a b (m :: * -&gt; *).
+(MonadThrow m, HashAlgorithm a, ByteArrayAccess b) =&gt;
+b -&gt; m (MerkleProofObject a)
+</span><span class="hs-identifier hs-var">decodeMerkleProofObject</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681481856"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span>    </span><span id="local-6989586621681481872"><span class="annot"><span class="annottext">assertJSON :: a -&gt; a -&gt; f ()
+</span><a href="#local-6989586621681481872"><span class="hs-identifier hs-var hs-var">assertJSON</span></a></span></span><span> </span><span id="local-6989586621681481854"><span class="annot"><span class="annottext">e :: a
+</span><a href="#local-6989586621681481854"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span id="local-6989586621681481853"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681481853"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; f () -&gt; f ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681481854"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681481853"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>        </span><span class="annot"><span class="annottext">(f () -&gt; f ()) -&gt; f () -&gt; f ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; f ()
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; f ()) -&gt; String -&gt; f ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;expected &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681481854"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;, got &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681481853"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span>    </span><span id="local-6989586621681481859"><span class="annot"><span class="annottext">parseBinary :: (ByteString -&gt; Either SomeException a) -&gt; Text -&gt; m a
+</span><a href="#local-6989586621681481859"><span class="hs-identifier hs-var hs-var">parseBinary</span></a></span></span><span> </span><span id="local-6989586621681481850"><span class="annot"><span class="annottext">p :: ByteString -&gt; Either SomeException a
+</span><a href="#local-6989586621681481850"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621681481849"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681481849"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(SomeException -&gt; m a)
+-&gt; (a -&gt; m a) -&gt; Either SomeException a -&gt; m a
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; m a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m a)
+-&gt; (SomeException -&gt; String) -&gt; SomeException -&gt; m a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; m a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either SomeException a -&gt; m a) -&gt; Either SomeException a -&gt; m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-118"></span><span>        </span><span class="annot"><span class="annottext">ByteString -&gt; Either SomeException a
+</span><a href="#local-6989586621681481850"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either SomeException a)
+-&gt; Either SomeException ByteString -&gt; Either SomeException a
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either SomeException ByteString
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ByteString
+</span><a href="Chainweb.Utils.html#decodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">decodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681481849"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- Transaction Proofs</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | Witness that a transaction is included in the head of a chain in a</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- chainweb.</span><span>
+</span><span id="line-125"></span><span class="hs-comment">--</span><span>
+</span><span id="line-126"></span><span class="hs-keyword">data</span><span> </span><span id="TransactionProof"><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-var">TransactionProof</span></a></span></span><span> </span><span id="local-6989586621681481945"><span class="annot"><a href="#local-6989586621681481945"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TransactionProof"><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-var">TransactionProof</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MerkleProof</span></span><span> </span><span class="annot"><a href="#local-6989586621681481945"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681481839"><span id="local-6989586621681481841"><span id="local-6989586621681481843"><span class="annot"><span class="annottext">Int -&gt; TransactionProof a -&gt; ShowS
+[TransactionProof a] -&gt; ShowS
+TransactionProof a -&gt; String
+(Int -&gt; TransactionProof a -&gt; ShowS)
+-&gt; (TransactionProof a -&gt; String)
+-&gt; ([TransactionProof a] -&gt; ShowS)
+-&gt; Show (TransactionProof a)
+forall a. Int -&gt; TransactionProof a -&gt; ShowS
+forall a. [TransactionProof a] -&gt; ShowS
+forall a. TransactionProof a -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TransactionProof a] -&gt; ShowS
+$cshowList :: forall a. [TransactionProof a] -&gt; ShowS
+show :: TransactionProof a -&gt; String
+$cshow :: forall a. TransactionProof a -&gt; String
+showsPrec :: Int -&gt; TransactionProof a -&gt; ShowS
+$cshowsPrec :: forall a. Int -&gt; TransactionProof a -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681481835"><span id="local-6989586621681481837"><span class="annot"><span class="annottext">TransactionProof a -&gt; TransactionProof a -&gt; Bool
+(TransactionProof a -&gt; TransactionProof a -&gt; Bool)
+-&gt; (TransactionProof a -&gt; TransactionProof a -&gt; Bool)
+-&gt; Eq (TransactionProof a)
+forall a. TransactionProof a -&gt; TransactionProof a -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TransactionProof a -&gt; TransactionProof a -&gt; Bool
+$c/= :: forall a. TransactionProof a -&gt; TransactionProof a -&gt; Bool
+== :: TransactionProof a -&gt; TransactionProof a -&gt; Bool
+$c== :: forall a. TransactionProof a -&gt; TransactionProof a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681481827"><span id="local-6989586621681481829"><span id="local-6989586621681481831"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-130"></span><span>    </span><span id="local-6989586621681481825"><span class="annot"><span class="annottext">toJSON :: TransactionProof SHA512t_256 -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span id="local-6989586621681481823"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681481823"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681481822"><span class="annot"><span class="annottext">p :: MerkleProof SHA512t_256
+</span><a href="#local-6989586621681481822"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; MerkleProof SHA512t_256 -&gt; Value
+</span><a href="Chainweb.SPV.html#proofToJson"><span class="hs-identifier hs-var">proofToJson</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681481823"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+</span><a href="#local-6989586621681481822"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681481819"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-133"></span><span>    </span><span id="local-6989586621681481817"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (TransactionProof SHA512t_256)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (ChainId
+    -&gt; MerkleProof SHA512t_256 -&gt; TransactionProof SHA512t_256)
+-&gt; Value
+-&gt; Parser (TransactionProof SHA512t_256)
+forall a.
+String
+-&gt; (ChainId -&gt; MerkleProof SHA512t_256 -&gt; a) -&gt; Value -&gt; Parser a
+</span><a href="Chainweb.SPV.html#parseProof"><span class="hs-identifier hs-var">parseProof</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;TransactionProof&quot;</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; MerkleProof SHA512t_256 -&gt; TransactionProof SHA512t_256
+forall a. ChainId -&gt; MerkleProof a -&gt; TransactionProof a
+</span><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-var">TransactionProof</span></a></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- | Getter into the chain id of a 'TransactionProof'</span><span>
+</span><span id="line-136"></span><span class="hs-comment">--</span><span>
+</span><span id="line-137"></span><span id="local-6989586621681481815"><span class="annot"><a href="Chainweb.SPV.html#proofChainId"><span class="hs-identifier hs-type">proofChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Getter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481815"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span>
+</span><span id="line-138"></span><span id="proofChainId"><span class="annot"><span class="annottext">proofChainId :: (ChainId -&gt; f ChainId)
+-&gt; TransactionProof a -&gt; f (TransactionProof a)
+</span><a href="Chainweb.SPV.html#proofChainId"><span class="hs-identifier hs-var hs-var">proofChainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TransactionProof a -&gt; ChainId)
+-&gt; (ChainId -&gt; f ChainId)
+-&gt; TransactionProof a
+-&gt; f (TransactionProof a)
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionProof"><span class="hs-identifier hs-type">TransactionProof</span></a></span><span> </span><span id="local-6989586621681481814"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681481814"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681481814"><span class="hs-identifier hs-var">cid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-139"></span><span>
+</span><span id="line-140"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-141"></span><span class="hs-comment">-- Output Proofs</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- | Witness that a transaction output is included in the head of a chain in a</span><span>
+</span><span id="line-144"></span><span class="hs-comment">-- chainweb.</span><span>
+</span><span id="line-145"></span><span class="hs-comment">--</span><span>
+</span><span id="line-146"></span><span class="hs-keyword">data</span><span> </span><span id="TransactionOutputProof"><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-var">TransactionOutputProof</span></a></span></span><span> </span><span id="local-6989586621681481932"><span class="annot"><a href="#local-6989586621681481932"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TransactionOutputProof"><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-var">TransactionOutputProof</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MerkleProof</span></span><span> </span><span class="annot"><a href="#local-6989586621681481932"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681481807"><span id="local-6989586621681481809"><span id="local-6989586621681481811"><span class="annot"><span class="annottext">Int -&gt; TransactionOutputProof a -&gt; ShowS
+[TransactionOutputProof a] -&gt; ShowS
+TransactionOutputProof a -&gt; String
+(Int -&gt; TransactionOutputProof a -&gt; ShowS)
+-&gt; (TransactionOutputProof a -&gt; String)
+-&gt; ([TransactionOutputProof a] -&gt; ShowS)
+-&gt; Show (TransactionOutputProof a)
+forall a. Int -&gt; TransactionOutputProof a -&gt; ShowS
+forall a. [TransactionOutputProof a] -&gt; ShowS
+forall a. TransactionOutputProof a -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TransactionOutputProof a] -&gt; ShowS
+$cshowList :: forall a. [TransactionOutputProof a] -&gt; ShowS
+show :: TransactionOutputProof a -&gt; String
+$cshow :: forall a. TransactionOutputProof a -&gt; String
+showsPrec :: Int -&gt; TransactionOutputProof a -&gt; ShowS
+$cshowsPrec :: forall a. Int -&gt; TransactionOutputProof a -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681481803"><span id="local-6989586621681481805"><span class="annot"><span class="annottext">TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool
+(TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool)
+-&gt; (TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool)
+-&gt; Eq (TransactionOutputProof a)
+forall a.
+TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool
+$c/= :: forall a.
+TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool
+== :: TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool
+$c== :: forall a.
+TransactionOutputProof a -&gt; TransactionOutputProof a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681481796"><span id="local-6989586621681481798"><span id="local-6989586621681481800"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-150"></span><span>    </span><span id="local-6989586621681481795"><span class="annot"><span class="annottext">toJSON :: TransactionOutputProof SHA512t_256 -&gt; Value
+</span><a href="#local-6989586621681481795"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span id="local-6989586621681481794"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681481794"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681481793"><span class="annot"><span class="annottext">p :: MerkleProof SHA512t_256
+</span><a href="#local-6989586621681481793"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; MerkleProof SHA512t_256 -&gt; Value
+</span><a href="Chainweb.SPV.html#proofToJson"><span class="hs-identifier hs-var">proofToJson</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681481794"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">MerkleProof SHA512t_256
+</span><a href="#local-6989586621681481793"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681481790"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-153"></span><span>    </span><span id="local-6989586621681481789"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (TransactionOutputProof SHA512t_256)
+</span><a href="#local-6989586621681481789"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (ChainId
+    -&gt; MerkleProof SHA512t_256 -&gt; TransactionOutputProof SHA512t_256)
+-&gt; Value
+-&gt; Parser (TransactionOutputProof SHA512t_256)
+forall a.
+String
+-&gt; (ChainId -&gt; MerkleProof SHA512t_256 -&gt; a) -&gt; Value -&gt; Parser a
+</span><a href="Chainweb.SPV.html#parseProof"><span class="hs-identifier hs-var">parseProof</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;TransactionOutputProof&quot;</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+-&gt; MerkleProof SHA512t_256 -&gt; TransactionOutputProof SHA512t_256
+forall a. ChainId -&gt; MerkleProof a -&gt; TransactionOutputProof a
+</span><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-var">TransactionOutputProof</span></a></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- | Getter into the chain id of a 'TransactionOutputProof'</span><span>
+</span><span id="line-156"></span><span class="hs-comment">--</span><span>
+</span><span id="line-157"></span><span id="local-6989586621681481788"><span class="annot"><a href="Chainweb.SPV.html#outputProofChainId"><span class="hs-identifier hs-type">outputProofChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Getter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481788"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span>
+</span><span id="line-158"></span><span id="outputProofChainId"><span class="annot"><span class="annottext">outputProofChainId :: (ChainId -&gt; f ChainId)
+-&gt; TransactionOutputProof a -&gt; f (TransactionOutputProof a)
+</span><a href="Chainweb.SPV.html#outputProofChainId"><span class="hs-identifier hs-var hs-var">outputProofChainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TransactionOutputProof a -&gt; ChainId)
+-&gt; (ChainId -&gt; f ChainId)
+-&gt; TransactionOutputProof a
+-&gt; f (TransactionOutputProof a)
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span id="local-6989586621681481787"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681481787"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681481787"><span class="hs-identifier hs-var">cid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span></pre></body></html>

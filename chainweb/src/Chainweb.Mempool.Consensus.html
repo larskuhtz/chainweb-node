@@ -1,0 +1,597 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Mempool.Consensus</span><span>
+</span><span id="line-13"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#chainwebTxsFromPWO"><span class="hs-identifier">chainwebTxsFromPWO</span></a></span><span>
+</span><span id="line-14"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolConsensus"><span class="hs-identifier">MempoolConsensus</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#mkMempoolConsensus"><span class="hs-identifier">mkMempoolConsensus</span></a></span><span>
+</span><span id="line-16"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#processFork"><span class="hs-identifier">processFork</span></a></span><span>
+</span><span id="line-17"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#processFork%27"><span class="hs-identifier">processFork'</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#ReintroducedTxsLog"><span class="hs-identifier">ReintroducedTxsLog</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Either</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toList</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashSet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HashSet</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashSet</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HS</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Vector</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.html"><span class="hs-identifier">Chainweb.BlockHeaderDB</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html"><span class="hs-identifier">Chainweb.Mempool.Mempool</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html"><span class="hs-identifier">Chainweb.Transaction</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html"><span class="hs-identifier">Chainweb.TreeDB</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.LogMessage.html#JsonLog"><span class="hs-identifier">JsonLog</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier">LogFunction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">data</span><span> </span><span id="MempoolConsensus"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolConsensus"><span class="hs-identifier hs-var">MempoolConsensus</span></a></span></span><span> </span><span id="local-6989586621681492819"><span class="annot"><a href="#local-6989586621681492819"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MempoolConsensus"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolConsensus"><span class="hs-identifier hs-var">MempoolConsensus</span></a></span></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="mpcMempool"><span class="annot"><span class="annottext">MempoolConsensus t -&gt; MempoolBackend t
+</span><a href="Chainweb.Mempool.Consensus.html#mpcMempool"><span class="hs-identifier hs-var hs-var">mpcMempool</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492819"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="mpcLastNewBlockParent"><span class="annot"><span class="annottext">MempoolConsensus t -&gt; IORef (Maybe BlockHeader)
+</span><a href="Chainweb.Mempool.Consensus.html#mpcLastNewBlockParent"><span class="hs-identifier hs-var hs-var">mpcLastNewBlockParent</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="mpcProcessFork"><span class="annot"><span class="annottext">MempoolConsensus t
+-&gt; LogFunction
+-&gt; BlockHeader
+-&gt; IO (Vector ChainwebTransaction, Vector ChainwebTransaction)
+</span><a href="Chainweb.Mempool.Consensus.html#mpcProcessFork"><span class="hs-identifier hs-var hs-var">mpcProcessFork</span></a></span></span><span>
+</span><span id="line-58"></span><span>          </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-59"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-60"></span><span>          </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-type">ChainwebTransaction</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-type">ChainwebTransaction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span id="local-6989586621681492740"><span id="local-6989586621681492741"></span></span><span class="hs-keyword">data</span><span> </span><span id="ReintroducedTxsLog"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#ReintroducedTxsLog"><span class="hs-identifier hs-var">ReintroducedTxsLog</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ReintroducedTxsLog"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#ReintroducedTxsLog"><span class="hs-identifier hs-var">ReintroducedTxsLog</span></a></span></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="oldForkHeader"><span class="annot"><span class="annottext">ReintroducedTxsLog -&gt; ObjectEncoded BlockHeader
+</span><a href="Chainweb.Mempool.Consensus.html#oldForkHeader"><span class="hs-identifier hs-var hs-var">oldForkHeader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#ObjectEncoded"><span class="hs-identifier hs-type">ObjectEncoded</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="newForkHeader"><span class="annot"><span class="annottext">ReintroducedTxsLog -&gt; ObjectEncoded BlockHeader
+</span><a href="Chainweb.Mempool.Consensus.html#newForkHeader"><span class="hs-identifier hs-var hs-var">newForkHeader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#ObjectEncoded"><span class="hs-identifier hs-type">ObjectEncoded</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="numReintroduced"><span class="annot"><span class="annottext">ReintroducedTxsLog -&gt; Int
+</span><a href="Chainweb.Mempool.Consensus.html#numReintroduced"><span class="hs-identifier hs-var hs-var">numReintroduced</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681492732"><span id="local-6989586621681492734"><span class="annot"><span class="annottext">ReintroducedTxsLog -&gt; ReintroducedTxsLog -&gt; Bool
+(ReintroducedTxsLog -&gt; ReintroducedTxsLog -&gt; Bool)
+-&gt; (ReintroducedTxsLog -&gt; ReintroducedTxsLog -&gt; Bool)
+-&gt; Eq ReintroducedTxsLog
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: ReintroducedTxsLog -&gt; ReintroducedTxsLog -&gt; Bool
+$c/= :: ReintroducedTxsLog -&gt; ReintroducedTxsLog -&gt; Bool
+== :: ReintroducedTxsLog -&gt; ReintroducedTxsLog -&gt; Bool
+$c== :: ReintroducedTxsLog -&gt; ReintroducedTxsLog -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681492725"><span id="local-6989586621681492727"><span id="local-6989586621681492729"><span class="annot"><span class="annottext">Int -&gt; ReintroducedTxsLog -&gt; ShowS
+[ReintroducedTxsLog] -&gt; ShowS
+ReintroducedTxsLog -&gt; String
+(Int -&gt; ReintroducedTxsLog -&gt; ShowS)
+-&gt; (ReintroducedTxsLog -&gt; String)
+-&gt; ([ReintroducedTxsLog] -&gt; ShowS)
+-&gt; Show ReintroducedTxsLog
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [ReintroducedTxsLog] -&gt; ShowS
+$cshowList :: [ReintroducedTxsLog] -&gt; ShowS
+show :: ReintroducedTxsLog -&gt; String
+$cshow :: ReintroducedTxsLog -&gt; String
+showsPrec :: Int -&gt; ReintroducedTxsLog -&gt; ShowS
+$cshowsPrec :: Int -&gt; ReintroducedTxsLog -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. ReintroducedTxsLog -&gt; Rep ReintroducedTxsLog x)
+-&gt; (forall x. Rep ReintroducedTxsLog x -&gt; ReintroducedTxsLog)
+-&gt; Generic ReintroducedTxsLog
+forall x. Rep ReintroducedTxsLog x -&gt; ReintroducedTxsLog
+forall x. ReintroducedTxsLog -&gt; Rep ReintroducedTxsLog x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep ReintroducedTxsLog x -&gt; ReintroducedTxsLog
+$cfrom :: forall x. ReintroducedTxsLog -&gt; Rep ReintroducedTxsLog x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681492713"><span id="local-6989586621681492715"><span id="local-6989586621681492717"><span id="local-6989586621681492719"><span class="annot"><span class="annottext">[ReintroducedTxsLog] -&gt; Encoding
+[ReintroducedTxsLog] -&gt; Value
+ReintroducedTxsLog -&gt; Encoding
+ReintroducedTxsLog -&gt; Value
+(ReintroducedTxsLog -&gt; Value)
+-&gt; (ReintroducedTxsLog -&gt; Encoding)
+-&gt; ([ReintroducedTxsLog] -&gt; Value)
+-&gt; ([ReintroducedTxsLog] -&gt; Encoding)
+-&gt; ToJSON ReintroducedTxsLog
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [ReintroducedTxsLog] -&gt; Encoding
+$ctoEncodingList :: [ReintroducedTxsLog] -&gt; Encoding
+toJSONList :: [ReintroducedTxsLog] -&gt; Value
+$ctoJSONList :: [ReintroducedTxsLog] -&gt; Value
+toEncoding :: ReintroducedTxsLog -&gt; Encoding
+$ctoEncoding :: ReintroducedTxsLog -&gt; Encoding
+toJSON :: ReintroducedTxsLog -&gt; Value
+$ctoJSON :: ReintroducedTxsLog -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681492710"><span class="annot"><span class="annottext">ReintroducedTxsLog -&gt; ()
+(ReintroducedTxsLog -&gt; ()) -&gt; NFData ReintroducedTxsLog
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: ReintroducedTxsLog -&gt; ()
+$crnf :: ReintroducedTxsLog -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">newtype</span><span> </span><span id="MempoolException"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolException"><span class="hs-identifier hs-var">MempoolException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MempoolConsensusException"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolConsensusException"><span class="hs-identifier hs-var">MempoolConsensusException</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681492703"><span id="local-6989586621681492706"><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolException"><span class="hs-identifier hs-type">MempoolException</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>    </span><span id="local-6989586621681492702"><span class="annot"><span class="annottext">show :: MempoolException -&gt; String
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolConsensusException"><span class="hs-identifier hs-type">MempoolConsensusException</span></a></span><span> </span><span id="local-6989586621681492700"><span class="annot"><span class="annottext">s :: String
+</span><a href="#local-6989586621681492700"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-74"></span><span>        </span><span class="annot"><span class="hs-string">&quot;Error with mempool's consensus processing: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681492700"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681492692"><span id="local-6989586621681492694"><span id="local-6989586621681492696"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolException"><span class="hs-identifier hs-type">MempoolException</span></a></span></span></span></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-79"></span><span id="local-6989586621681492689"><span id="local-6989586621681492690"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#mkMempoolConsensus"><span class="hs-identifier hs-type">mkMempoolConsensus</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492690"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492689"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492690"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#MempoolConsensus"><span class="hs-identifier hs-type">MempoolConsensus</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492689"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-85"></span><span id="mkMempoolConsensus"><span class="annot"><span class="annottext">mkMempoolConsensus :: MempoolBackend t
+-&gt; BlockHeaderDb
+-&gt; Maybe (PayloadDb cas)
+-&gt; IO (MempoolConsensus t)
+</span><a href="Chainweb.Mempool.Consensus.html#mkMempoolConsensus"><span class="hs-identifier hs-var hs-var">mkMempoolConsensus</span></a></span></span><span> </span><span id="local-6989586621681492688"><span class="annot"><span class="annottext">mempool :: MempoolBackend t
+</span><a href="#local-6989586621681492688"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span id="local-6989586621681492687"><span class="annot"><span class="annottext">blockHeaderDb :: BlockHeaderDb
+</span><a href="#local-6989586621681492687"><span class="hs-identifier hs-var">blockHeaderDb</span></a></span></span><span> </span><span id="local-6989586621681492686"><span class="annot"><span class="annottext">payloadStore :: Maybe (PayloadDb cas)
+</span><a href="#local-6989586621681492686"><span class="hs-identifier hs-var">payloadStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-86"></span><span>    </span><span id="local-6989586621681492685"><span class="annot"><span class="annottext">IORef (Maybe BlockHeader)
+</span><a href="#local-6989586621681492685"><span class="hs-identifier hs-var">lastParentRef</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe BlockHeader -&gt; IO (IORef (Maybe BlockHeader))
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="annottext">Maybe BlockHeader
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span>    </span><span class="annot"><span class="annottext">MempoolConsensus t -&gt; IO (MempoolConsensus t)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">$WMempoolConsensus :: forall t.
+MempoolBackend t
+-&gt; IORef (Maybe BlockHeader)
+-&gt; (LogFunction
+    -&gt; BlockHeader
+    -&gt; IO (Vector ChainwebTransaction, Vector ChainwebTransaction))
+-&gt; MempoolConsensus t
+</span><a href="Chainweb.Mempool.Consensus.html#%24WMempoolConsensus"><span class="hs-identifier hs-type hs-type">MempoolConsensus</span></a></span><span>
+</span><span id="line-89"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">mpcMempool :: MempoolBackend t
+</span><a href="Chainweb.Mempool.Consensus.html#mpcMempool"><span class="hs-identifier hs-var">mpcMempool</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MempoolBackend t
+</span><a href="#local-6989586621681492688"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-90"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mpcLastNewBlockParent :: IORef (Maybe BlockHeader)
+</span><a href="Chainweb.Mempool.Consensus.html#mpcLastNewBlockParent"><span class="hs-identifier hs-var">mpcLastNewBlockParent</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef (Maybe BlockHeader)
+</span><a href="#local-6989586621681492685"><span class="hs-identifier hs-var">lastParentRef</span></a></span><span>
+</span><span id="line-91"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mpcProcessFork :: LogFunction
+-&gt; BlockHeader
+-&gt; IO (Vector ChainwebTransaction, Vector ChainwebTransaction)
+</span><a href="Chainweb.Mempool.Consensus.html#mpcProcessFork"><span class="hs-identifier hs-var">mpcProcessFork</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+-&gt; Maybe (PayloadDb cas)
+-&gt; IORef (Maybe BlockHeader)
+-&gt; LogFunction
+-&gt; BlockHeader
+-&gt; IO (Vector ChainwebTransaction, Vector ChainwebTransaction)
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+BlockHeaderDb
+-&gt; Maybe (PayloadDb cas)
+-&gt; IORef (Maybe BlockHeader)
+-&gt; LogFunction
+-&gt; BlockHeader
+-&gt; IO (Vector ChainwebTransaction, Vector ChainwebTransaction)
+</span><a href="Chainweb.Mempool.Consensus.html#processFork"><span class="hs-identifier hs-var">processFork</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681492687"><span class="hs-identifier hs-var">blockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (PayloadDb cas)
+</span><a href="#local-6989586621681492686"><span class="hs-identifier hs-var">payloadStore</span></a></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe BlockHeader)
+</span><a href="#local-6989586621681492685"><span class="hs-identifier hs-var">lastParentRef</span></a></span><span>
+</span><span id="line-92"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-96"></span><span id="local-6989586621681492818"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#processFork"><span class="hs-identifier hs-type">processFork</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492818"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492818"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-type">ChainwebTransaction</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-type">ChainwebTransaction</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-104"></span><span id="processFork"><span class="annot"><span class="annottext">processFork :: BlockHeaderDb
+-&gt; Maybe (PayloadDb cas)
+-&gt; IORef (Maybe BlockHeader)
+-&gt; LogFunction
+-&gt; BlockHeader
+-&gt; IO (Vector ChainwebTransaction, Vector ChainwebTransaction)
+</span><a href="Chainweb.Mempool.Consensus.html#processFork"><span class="hs-identifier hs-var hs-var">processFork</span></a></span></span><span> </span><span id="local-6989586621681492682"><span class="annot"><span class="annottext">blockHeaderDb :: BlockHeaderDb
+</span><a href="#local-6989586621681492682"><span class="hs-identifier hs-var">blockHeaderDb</span></a></span></span><span> </span><span id="local-6989586621681492681"><span class="annot"><span class="annottext">payloadStore :: Maybe (PayloadDb cas)
+</span><a href="#local-6989586621681492681"><span class="hs-identifier hs-var">payloadStore</span></a></span></span><span> </span><span id="local-6989586621681492680"><span class="annot"><span class="annottext">lastHeaderRef :: IORef (Maybe BlockHeader)
+</span><a href="#local-6989586621681492680"><span class="hs-identifier hs-var">lastHeaderRef</span></a></span></span><span> </span><span id="local-6989586621681492679"><span class="annot"><span class="annottext">logFun :: LogFunction
+</span><a href="#local-6989586621681492679"><span class="hs-identifier hs-var">logFun</span></a></span></span><span> </span><span id="local-6989586621681492678"><span class="annot"><span class="annottext">newHeader :: BlockHeader
+</span><a href="#local-6989586621681492678"><span class="hs-identifier hs-var">newHeader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621681492677"><span class="annot"><span class="annottext">Maybe BlockHeader
+</span><a href="#local-6989586621681492677"><span class="hs-identifier hs-var">lastHeader</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef (Maybe BlockHeader) -&gt; IO (Maybe BlockHeader)
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Maybe BlockHeader)
+</span><a href="#local-6989586621681492680"><span class="hs-identifier hs-var">lastHeaderRef</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681492675"><span class="annot"><span class="annottext">a :: Vector (HashableTrans PayloadWithText)
+</span><a href="#local-6989586621681492675"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681492674"><span class="annot"><span class="annottext">b :: Vector (HashableTrans PayloadWithText)
+</span><a href="#local-6989586621681492674"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">LogFunction
+-&gt; BlockHeaderDb
+-&gt; BlockHeader
+-&gt; Maybe BlockHeader
+-&gt; (BlockHeader -&gt; IO (HashSet (HashableTrans PayloadWithText)))
+-&gt; IO
+     (Vector (HashableTrans PayloadWithText),
+      Vector (HashableTrans PayloadWithText))
+forall x.
+(Eq x, Hashable x) =&gt;
+LogFunction
+-&gt; BlockHeaderDb
+-&gt; BlockHeader
+-&gt; Maybe BlockHeader
+-&gt; (BlockHeader -&gt; IO (HashSet x))
+-&gt; IO (Vector x, Vector x)
+</span><a href="Chainweb.Mempool.Consensus.html#processFork%27"><span class="hs-identifier hs-var">processFork'</span></a></span><span> </span><span class="annot"><span class="annottext">LogFunction
+</span><a href="#local-6989586621681492679"><span class="hs-identifier hs-var">logFun</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681492682"><span class="hs-identifier hs-var">blockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681492678"><span class="hs-identifier hs-var">newHeader</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe BlockHeader
+</span><a href="#local-6989586621681492677"><span class="hs-identifier hs-var">lastHeader</span></a></span><span>
+</span><span id="line-107"></span><span>                           </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (PayloadDb cas)
+-&gt; BlockHeader -&gt; IO (HashSet (HashableTrans PayloadWithText))
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+Maybe (PayloadDb cas)
+-&gt; BlockHeader -&gt; IO (HashSet (HashableTrans PayloadWithText))
+</span><a href="Chainweb.Mempool.Consensus.html#payloadLookup"><span class="hs-identifier hs-var">payloadLookup</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (PayloadDb cas)
+</span><a href="#local-6989586621681492681"><span class="hs-identifier hs-var">payloadStore</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><span class="annottext">(Vector ChainwebTransaction, Vector ChainwebTransaction)
+-&gt; IO (Vector ChainwebTransaction, Vector ChainwebTransaction)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(HashableTrans PayloadWithText -&gt; ChainwebTransaction)
+-&gt; Vector (HashableTrans PayloadWithText)
+-&gt; Vector ChainwebTransaction
+forall a b. (a -&gt; b) -&gt; Vector a -&gt; Vector b
+</span><span class="hs-identifier hs-var">V.map</span></span><span> </span><span class="annot"><span class="annottext">HashableTrans PayloadWithText -&gt; ChainwebTransaction
+forall a. HashableTrans a -&gt; Command a
+</span><a href="Chainweb.Transaction.html#unHashable"><span class="hs-identifier hs-var hs-var">unHashable</span></a></span><span> </span><span class="annot"><span class="annottext">Vector (HashableTrans PayloadWithText)
+</span><a href="#local-6989586621681492675"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(HashableTrans PayloadWithText -&gt; ChainwebTransaction)
+-&gt; Vector (HashableTrans PayloadWithText)
+-&gt; Vector ChainwebTransaction
+forall a b. (a -&gt; b) -&gt; Vector a -&gt; Vector b
+</span><span class="hs-identifier hs-var">V.map</span></span><span> </span><span class="annot"><span class="annottext">HashableTrans PayloadWithText -&gt; ChainwebTransaction
+forall a. HashableTrans a -&gt; Command a
+</span><a href="Chainweb.Transaction.html#unHashable"><span class="hs-identifier hs-var hs-var">unHashable</span></a></span><span> </span><span class="annot"><span class="annottext">Vector (HashableTrans PayloadWithText)
+</span><a href="#local-6989586621681492674"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- called directly from some unit tests...</span><span>
+</span><span id="line-112"></span><span id="local-6989586621681492811"><span class="annot"><a href="Chainweb.Mempool.Consensus.html#processFork%27"><span class="hs-identifier hs-type">processFork'</span></a></span><span>
+</span><span id="line-113"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681492811"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="#local-6989586621681492811"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HashSet</span></span><span> </span><span class="annot"><a href="#local-6989586621681492811"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V.Vector</span></span><span> </span><span class="annot"><a href="#local-6989586621681492811"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">V.Vector</span></span><span> </span><span class="annot"><a href="#local-6989586621681492811"><span class="hs-identifier hs-type">x</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-120"></span><span id="processFork%27"><span class="annot"><span class="annottext">processFork' :: LogFunction
+-&gt; BlockHeaderDb
+-&gt; BlockHeader
+-&gt; Maybe BlockHeader
+-&gt; (BlockHeader -&gt; IO (HashSet x))
+-&gt; IO (Vector x, Vector x)
+</span><a href="Chainweb.Mempool.Consensus.html#processFork%27"><span class="hs-identifier hs-var hs-var">processFork'</span></a></span></span><span> </span><span id="local-6989586621681492670"><span class="annot"><span class="annottext">logFun :: LogFunction
+</span><a href="#local-6989586621681492670"><span class="hs-identifier hs-var">logFun</span></a></span></span><span> </span><span id="local-6989586621681492669"><span class="annot"><span class="annottext">db :: BlockHeaderDb
+</span><a href="#local-6989586621681492669"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681492668"><span class="annot"><span class="annottext">newHeader :: BlockHeader
+</span><a href="#local-6989586621681492668"><span class="hs-identifier hs-var">newHeader</span></a></span></span><span> </span><span id="local-6989586621681492667"><span class="annot"><span class="annottext">lastHeaderM :: Maybe BlockHeader
+</span><a href="#local-6989586621681492667"><span class="hs-identifier hs-var">lastHeaderM</span></a></span></span><span> </span><span id="local-6989586621681492666"><span class="annot"><span class="annottext">plLookup :: BlockHeader -&gt; IO (HashSet x)
+</span><a href="#local-6989586621681492666"><span class="hs-identifier hs-var">plLookup</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="annottext">IO (Vector x, Vector x)
+-&gt; (BlockHeader -&gt; IO (Vector x, Vector x))
+-&gt; Maybe BlockHeader
+-&gt; IO (Vector x, Vector x)
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Vector x, Vector x) -&gt; IO (Vector x, Vector x)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector x
+forall a. Vector a
+</span><span class="hs-identifier hs-var">V.empty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Vector x
+forall a. Vector a
+</span><span class="hs-identifier hs-var">V.empty</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; IO (Vector x, Vector x)
+</span><a href="#local-6989586621681492663"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe BlockHeader
+</span><a href="#local-6989586621681492667"><span class="hs-identifier hs-var">lastHeaderM</span></a></span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-123"></span><span>    </span><span id="local-6989586621681492663"><span class="annot"><span class="annottext">go :: BlockHeader -&gt; IO (Vector x, Vector x)
+</span><a href="#local-6989586621681492663"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621681492662"><span class="annot"><span class="annottext">lastHeader :: BlockHeader
+</span><a href="#local-6989586621681492662"><span class="hs-identifier hs-var">lastHeader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-124"></span><span>        </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681492661"><span class="annot"><span class="annottext">oldBlocks :: Vector BlockHeader
+</span><a href="#local-6989586621681492661"><span class="hs-identifier hs-var">oldBlocks</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681492660"><span class="annot"><span class="annottext">newBlocks :: Vector BlockHeader
+</span><a href="#local-6989586621681492660"><span class="hs-identifier hs-var">newBlocks</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+-&gt; DbEntry BlockHeaderDb
+-&gt; DbEntry BlockHeaderDb
+-&gt; IO
+     (DbEntry BlockHeaderDb, Vector (DbEntry BlockHeaderDb),
+      Vector (DbEntry BlockHeaderDb))
+forall db.
+TreeDb db =&gt;
+db
+-&gt; DbEntry db
+-&gt; DbEntry db
+-&gt; IO (DbEntry db, Vector (DbEntry db), Vector (DbEntry db))
+</span><a href="Chainweb.TreeDB.html#collectForkBlocks"><span class="hs-identifier hs-var">collectForkBlocks</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681492669"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">DbEntry BlockHeaderDb
+BlockHeader
+</span><a href="#local-6989586621681492662"><span class="hs-identifier hs-var">lastHeader</span></a></span><span> </span><span class="annot"><span class="annottext">DbEntry BlockHeaderDb
+BlockHeader
+</span><a href="#local-6989586621681492668"><span class="hs-identifier hs-var">newHeader</span></a></span><span>
+</span><span id="line-125"></span><span>        </span><span id="local-6989586621681492658"><span class="annot"><span class="annottext">HashSet x
+</span><a href="#local-6989586621681492658"><span class="hs-identifier hs-var">oldTrans</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(HashSet x -&gt; BlockHeader -&gt; IO (HashSet x))
+-&gt; HashSet x -&gt; Vector BlockHeader -&gt; IO (HashSet x)
+forall (t :: * -&gt; *) (m :: * -&gt; *) b a.
+(Foldable t, Monad m) =&gt;
+(b -&gt; a -&gt; m b) -&gt; b -&gt; t a -&gt; m b
+</span><span class="hs-identifier hs-var">foldM</span></span><span> </span><span class="annot"><span class="annottext">HashSet x -&gt; BlockHeader -&gt; IO (HashSet x)
+</span><a href="#local-6989586621681492656"><span class="hs-identifier hs-var">toSet</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet x
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">Vector BlockHeader
+</span><a href="#local-6989586621681492661"><span class="hs-identifier hs-var">oldBlocks</span></a></span><span>
+</span><span id="line-126"></span><span>        </span><span id="local-6989586621681492655"><span class="annot"><span class="annottext">HashSet x
+</span><a href="#local-6989586621681492655"><span class="hs-identifier hs-var">newTrans</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(HashSet x -&gt; BlockHeader -&gt; IO (HashSet x))
+-&gt; HashSet x -&gt; Vector BlockHeader -&gt; IO (HashSet x)
+forall (t :: * -&gt; *) (m :: * -&gt; *) b a.
+(Foldable t, Monad m) =&gt;
+(b -&gt; a -&gt; m b) -&gt; b -&gt; t a -&gt; m b
+</span><span class="hs-identifier hs-var">foldM</span></span><span> </span><span class="annot"><span class="annottext">HashSet x -&gt; BlockHeader -&gt; IO (HashSet x)
+</span><a href="#local-6989586621681492656"><span class="hs-identifier hs-var">toSet</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet x
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">Vector BlockHeader
+</span><a href="#local-6989586621681492660"><span class="hs-identifier hs-var">newBlocks</span></a></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span>        </span><span class="hs-comment">-- before re-introducing the transactions from the losing fork (aka</span><span>
+</span><span id="line-129"></span><span>        </span><span class="hs-comment">-- oldBlocks), filter out any transactions that have been included in</span><span>
+</span><span id="line-130"></span><span>        </span><span class="hs-comment">-- the winning fork (aka newBlocks):</span><span>
+</span><span id="line-131"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681492654"><span class="annot"><span class="annottext">results :: Vector x
+</span><a href="#local-6989586621681492654"><span class="hs-identifier hs-var hs-var">results</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[x] -&gt; Vector x
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">([x] -&gt; Vector x) -&gt; [x] -&gt; Vector x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HashSet x -&gt; [x]
+forall a. HashSet a -&gt; [a]
+</span><span class="hs-identifier hs-var">HS.toList</span></span><span>
+</span><span id="line-132"></span><span>                                  </span><span class="annot"><span class="annottext">(HashSet x -&gt; [x]) -&gt; HashSet x -&gt; [x]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HashSet x
+</span><a href="#local-6989586621681492658"><span class="hs-identifier hs-var">oldTrans</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet x -&gt; HashSet x -&gt; HashSet x
+forall a. (Eq a, Hashable a) =&gt; HashSet a -&gt; HashSet a -&gt; HashSet a
+</span><span class="hs-operator hs-var">`HS.difference`</span></span><span> </span><span class="annot"><span class="annottext">HashSet x
+</span><a href="#local-6989586621681492655"><span class="hs-identifier hs-var">newTrans</span></a></span><span>
+</span><span id="line-133"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681492650"><span class="annot"><span class="annottext">deletes :: Vector x
+</span><a href="#local-6989586621681492650"><span class="hs-identifier hs-var hs-var">deletes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[x] -&gt; Vector x
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">([x] -&gt; Vector x) -&gt; [x] -&gt; Vector x
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HashSet x -&gt; [x]
+forall a. HashSet a -&gt; [a]
+</span><span class="hs-identifier hs-var">HS.toList</span></span><span> </span><span class="annot"><span class="annottext">HashSet x
+</span><a href="#local-6989586621681492655"><span class="hs-identifier hs-var">newTrans</span></a></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector x -&gt; Bool
+forall a. Vector a -&gt; Bool
+</span><span class="hs-identifier hs-var">V.null</span></span><span> </span><span class="annot"><span class="annottext">Vector x
+</span><a href="#local-6989586621681492654"><span class="hs-identifier hs-var">results</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-136"></span><span>            </span><span class="hs-comment">-- create data for the dashboard showing number or reintroduced</span><span>
+</span><span id="line-137"></span><span>            </span><span class="hs-comment">-- transactions:</span><span>
+</span><span id="line-138"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681492647"><span class="annot"><span class="annottext">reIntro :: ReintroducedTxsLog
+</span><a href="#local-6989586621681492647"><span class="hs-identifier hs-var hs-var">reIntro</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReintroducedTxsLog :: ObjectEncoded BlockHeader
+-&gt; ObjectEncoded BlockHeader -&gt; Int -&gt; ReintroducedTxsLog
+</span><a href="Chainweb.Mempool.Consensus.html#ReintroducedTxsLog"><span class="hs-identifier hs-type hs-type">ReintroducedTxsLog</span></a></span><span>
+</span><span id="line-139"></span><span>                               </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">oldForkHeader :: ObjectEncoded BlockHeader
+</span><a href="Chainweb.Mempool.Consensus.html#oldForkHeader"><span class="hs-identifier hs-var">oldForkHeader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; ObjectEncoded BlockHeader
+forall a. a -&gt; ObjectEncoded a
+</span><a href="Chainweb.BlockHeader.html#ObjectEncoded"><span class="hs-identifier hs-var">ObjectEncoded</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681492662"><span class="hs-identifier hs-var">lastHeader</span></a></span><span>
+</span><span id="line-140"></span><span>                               </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">newForkHeader :: ObjectEncoded BlockHeader
+</span><a href="Chainweb.Mempool.Consensus.html#newForkHeader"><span class="hs-identifier hs-var">newForkHeader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; ObjectEncoded BlockHeader
+forall a. a -&gt; ObjectEncoded a
+</span><a href="Chainweb.BlockHeader.html#ObjectEncoded"><span class="hs-identifier hs-var">ObjectEncoded</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681492668"><span class="hs-identifier hs-var">newHeader</span></a></span><span>
+</span><span id="line-141"></span><span>                               </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">numReintroduced :: Int
+</span><a href="Chainweb.Mempool.Consensus.html#numReintroduced"><span class="hs-identifier hs-var">numReintroduced</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector x -&gt; Int
+forall a. Vector a -&gt; Int
+</span><span class="hs-identifier hs-var">V.length</span></span><span> </span><span class="annot"><span class="annottext">Vector x
+</span><a href="#local-6989586621681492654"><span class="hs-identifier hs-var">results</span></a></span><span>
+</span><span id="line-142"></span><span>                               </span><span class="hs-special">}</span><span>
+</span><span id="line-143"></span><span>            </span><span class="annot"><span class="annottext">LogLevel -&gt; JsonLog ReintroducedTxsLog -&gt; IO ()
+LogFunction
+</span><a href="#local-6989586621681492670"><span class="hs-identifier hs-var">logFun</span></a></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Data.LogMessage.html#JsonLog"><span class="hs-identifier hs-type">JsonLog</span></a></span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#ReintroducedTxsLog"><span class="hs-identifier hs-type">ReintroducedTxsLog</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">(JsonLog ReintroducedTxsLog -&gt; IO ())
+-&gt; JsonLog ReintroducedTxsLog -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ReintroducedTxsLog -&gt; JsonLog ReintroducedTxsLog
+forall a. a -&gt; JsonLog a
+</span><a href="Data.LogMessage.html#JsonLog"><span class="hs-identifier hs-var">JsonLog</span></a></span><span> </span><span class="annot"><span class="annottext">ReintroducedTxsLog
+</span><a href="#local-6989586621681492647"><span class="hs-identifier hs-var">reIntro</span></a></span><span>
+</span><span id="line-144"></span><span>        </span><span class="annot"><span class="annottext">(Vector x, Vector x) -&gt; IO (Vector x, Vector x)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector x
+</span><a href="#local-6989586621681492654"><span class="hs-identifier hs-var">results</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Vector x
+</span><a href="#local-6989586621681492650"><span class="hs-identifier hs-var">deletes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-146"></span><span>        </span><span id="local-6989586621681492656"><span class="annot"><span class="annottext">toSet :: HashSet x -&gt; BlockHeader -&gt; IO (HashSet x)
+</span><a href="#local-6989586621681492656"><span class="hs-identifier hs-var hs-var">toSet</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681492641"><span class="annot"><span class="annottext">HashSet x
+</span><a href="#local-6989586621681492641"><span class="hs-identifier hs-var">trans</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681492640"><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681492640"><span class="hs-identifier hs-var">header</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashSet x -&gt; HashSet x -&gt; HashSet x
+forall a. (Eq a, Hashable a) =&gt; HashSet a -&gt; HashSet a -&gt; HashSet a
+</span><span class="hs-identifier hs-var">HS.union</span></span><span> </span><span class="annot"><span class="annottext">HashSet x
+</span><a href="#local-6989586621681492641"><span class="hs-identifier hs-var">trans</span></a></span><span> </span><span class="annot"><span class="annottext">(HashSet x -&gt; HashSet x) -&gt; IO (HashSet x) -&gt; IO (HashSet x)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; IO (HashSet x)
+</span><a href="#local-6989586621681492666"><span class="hs-identifier hs-var">plLookup</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681492640"><span class="hs-identifier hs-var">header</span></a></span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-150"></span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#payloadLookup"><span class="hs-identifier hs-type">payloadLookup</span></a></span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681492809"><span class="annot"><a href="#local-6989586621681492809"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492809"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681492809"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HashSet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier hs-type">HashableTrans</span></a></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span id="payloadLookup"><span class="annot"><span class="annottext">payloadLookup :: Maybe (PayloadDb cas)
+-&gt; BlockHeader -&gt; IO (HashSet (HashableTrans PayloadWithText))
+</span><a href="Chainweb.Mempool.Consensus.html#payloadLookup"><span class="hs-identifier hs-var hs-var">payloadLookup</span></a></span></span><span> </span><span id="local-6989586621681492637"><span class="annot"><span class="annottext">payloadStore :: Maybe (PayloadDb cas)
+</span><a href="#local-6989586621681492637"><span class="hs-identifier hs-var">payloadStore</span></a></span></span><span> </span><span id="local-6989586621681492636"><span class="annot"><span class="annottext">bh :: BlockHeader
+</span><a href="#local-6989586621681492636"><span class="hs-identifier hs-var">bh</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (PayloadDb cas)
+</span><a href="#local-6989586621681492637"><span class="hs-identifier hs-var">payloadStore</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-157"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HashSet (HashableTrans PayloadWithText)
+-&gt; IO (HashSet (HashableTrans PayloadWithText))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">HashSet (HashableTrans PayloadWithText)
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-158"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681492635"><span class="annot"><span class="annottext">s :: PayloadDb cas
+</span><a href="#local-6989586621681492635"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-159"></span><span>            </span><span id="local-6989586621681492634"><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="#local-6989586621681492634"><span class="hs-identifier hs-var">pwo</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+-&gt; BlockPayloadHash -&gt; IO (CasValueType (PayloadDb cas))
+forall a.
+(IsCas a, CasKeyType (CasValueType a) ~ BlockPayloadHash) =&gt;
+a -&gt; BlockPayloadHash -&gt; IO (CasValueType a)
+</span><a href="#local-6989586621681492633"><span class="hs-identifier hs-var">casLookupM'</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681492635"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockPayloadHash
+</span><a href="Chainweb.BlockHeader.html#_blockPayloadHash"><span class="hs-identifier hs-var hs-var">_blockPayloadHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681492636"><span class="hs-identifier hs-var">bh</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>            </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; IO (HashSet (HashableTrans PayloadWithText))
+</span><a href="Chainweb.Mempool.Consensus.html#chainwebTxsFromPWO"><span class="hs-identifier hs-var">chainwebTxsFromPWO</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="#local-6989586621681492634"><span class="hs-identifier hs-var">pwo</span></a></span><span>
+</span><span id="line-161"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-162"></span><span>    </span><span id="local-6989586621681492633"><span class="annot"><span class="annottext">casLookupM' :: a -&gt; BlockPayloadHash -&gt; IO (CasValueType a)
+</span><a href="#local-6989586621681492633"><span class="hs-identifier hs-var hs-var">casLookupM'</span></a></span></span><span> </span><span id="local-6989586621681492631"><span class="annot"><span class="annottext">s :: a
+</span><a href="#local-6989586621681492631"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681492630"><span class="annot"><span class="annottext">h :: BlockPayloadHash
+</span><a href="#local-6989586621681492630"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-163"></span><span>        </span><span id="local-6989586621681492629"><span class="annot"><span class="annottext">Maybe (CasValueType a)
+</span><a href="#local-6989586621681492629"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681492631"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">CasKeyType (CasValueType a)
+BlockPayloadHash
+</span><a href="#local-6989586621681492630"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-164"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (CasValueType a)
+</span><a href="#local-6989586621681492629"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-165"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadNotFoundException -&gt; IO (CasValueType a)
+forall e a. Exception e =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(PayloadNotFoundException -&gt; IO (CasValueType a))
+-&gt; PayloadNotFoundException -&gt; IO (CasValueType a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash -&gt; PayloadNotFoundException
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadNotFoundException"><span class="hs-identifier hs-var">PayloadNotFoundException</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681492630"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-166"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681492625"><span class="annot"><span class="annottext">pwo :: CasValueType a
+</span><a href="#local-6989586621681492625"><span class="hs-identifier hs-var">pwo</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">CasValueType a -&gt; IO (CasValueType a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">CasValueType a
+</span><a href="#local-6989586621681492625"><span class="hs-identifier hs-var">pwo</span></a></span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-170"></span><span class="annot"><a href="Chainweb.Mempool.Consensus.html#chainwebTxsFromPWO"><span class="hs-identifier hs-type">chainwebTxsFromPWO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HashSet</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier hs-type">HashableTrans</span></a></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span id="chainwebTxsFromPWO"><span class="annot"><span class="annottext">chainwebTxsFromPWO :: PayloadWithOutputs -&gt; IO (HashSet (HashableTrans PayloadWithText))
+</span><a href="Chainweb.Mempool.Consensus.html#chainwebTxsFromPWO"><span class="hs-identifier hs-var hs-var">chainwebTxsFromPWO</span></a></span></span><span> </span><span id="local-6989586621681492624"><span class="annot"><span class="annottext">pwo :: PayloadWithOutputs
+</span><a href="#local-6989586621681492624"><span class="hs-identifier hs-var">pwo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681492623"><span class="annot"><span class="annottext">transSeq :: Vector Transaction
+</span><a href="#local-6989586621681492623"><span class="hs-identifier hs-var hs-var">transSeq</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Transaction, TransactionOutput) -&gt; Transaction
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">((Transaction, TransactionOutput) -&gt; Transaction)
+-&gt; Vector (Transaction, TransactionOutput) -&gt; Vector Transaction
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; Vector (Transaction, TransactionOutput)
+</span><a href="Chainweb.Payload.html#_payloadWithOutputsTransactions"><span class="hs-identifier hs-var hs-var">_payloadWithOutputsTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="#local-6989586621681492624"><span class="hs-identifier hs-var">pwo</span></a></span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681492620"><span class="annot"><span class="annottext">bytes :: Vector ByteString
+</span><a href="#local-6989586621681492620"><span class="hs-identifier hs-var hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Transaction -&gt; ByteString
+</span><a href="Chainweb.Payload.html#_transactionBytes"><span class="hs-identifier hs-var hs-var">_transactionBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(Transaction -&gt; ByteString)
+-&gt; Vector Transaction -&gt; Vector ByteString
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Vector Transaction
+</span><a href="#local-6989586621681492623"><span class="hs-identifier hs-var">transSeq</span></a></span><span>
+</span><span id="line-174"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681492618"><span class="annot"><span class="annottext">eithers :: Vector (Either String ChainwebTransaction)
+</span><a href="#local-6989586621681492618"><span class="hs-identifier hs-var hs-var">eithers</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String ChainwebTransaction
+</span><a href="#local-6989586621681492617"><span class="hs-identifier hs-var">toCWTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either String ChainwebTransaction)
+-&gt; Vector ByteString -&gt; Vector (Either String ChainwebTransaction)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Vector ByteString
+</span><a href="#local-6989586621681492620"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-comment">-- Note: if any transactions fail to convert, the final validation hash will fail to match</span><span>
+</span><span id="line-176"></span><span>    </span><span class="hs-comment">-- the one computed during newBlock</span><span>
+</span><span id="line-177"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681492616"><span class="annot"><span class="annottext">theRights :: [ChainwebTransaction]
+</span><a href="#local-6989586621681492616"><span class="hs-identifier hs-var hs-var">theRights</span></a></span></span><span>  </span><span class="hs-glyph">=</span><span>  </span><span class="annot"><span class="annottext">[Either String ChainwebTransaction] -&gt; [ChainwebTransaction]
+forall a b. [Either a b] -&gt; [b]
+</span><span class="hs-identifier hs-var">rights</span></span><span> </span><span class="annot"><span class="annottext">([Either String ChainwebTransaction] -&gt; [ChainwebTransaction])
+-&gt; [Either String ChainwebTransaction] -&gt; [ChainwebTransaction]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Vector (Either String ChainwebTransaction)
+-&gt; [Either String ChainwebTransaction]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span> </span><span class="annot"><span class="annottext">Vector (Either String ChainwebTransaction)
+</span><a href="#local-6989586621681492618"><span class="hs-identifier hs-var">eithers</span></a></span><span>
+</span><span id="line-178"></span><span>    </span><span class="annot"><span class="annottext">HashSet (HashableTrans PayloadWithText)
+-&gt; IO (HashSet (HashableTrans PayloadWithText))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(HashSet (HashableTrans PayloadWithText)
+ -&gt; IO (HashSet (HashableTrans PayloadWithText)))
+-&gt; HashSet (HashableTrans PayloadWithText)
+-&gt; IO (HashSet (HashableTrans PayloadWithText))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">[HashableTrans PayloadWithText]
+-&gt; HashSet (HashableTrans PayloadWithText)
+forall a. (Eq a, Hashable a) =&gt; [a] -&gt; HashSet a
+</span><span class="hs-identifier hs-var">HS.fromList</span></span><span> </span><span class="annot"><span class="annottext">([HashableTrans PayloadWithText]
+ -&gt; HashSet (HashableTrans PayloadWithText))
+-&gt; [HashableTrans PayloadWithText]
+-&gt; HashSet (HashableTrans PayloadWithText)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebTransaction -&gt; HashableTrans PayloadWithText
+forall a. Command a -&gt; HashableTrans a
+</span><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier hs-var">HashableTrans</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainwebTransaction -&gt; HashableTrans PayloadWithText)
+-&gt; [ChainwebTransaction] -&gt; [HashableTrans PayloadWithText]
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">[ChainwebTransaction]
+</span><a href="#local-6989586621681492616"><span class="hs-identifier hs-var">theRights</span></a></span><span>
+</span><span id="line-179"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-180"></span><span>    </span><span id="local-6989586621681492617"><span class="annot"><span class="annottext">toCWTransaction :: ByteString -&gt; Either String ChainwebTransaction
+</span><a href="#local-6989586621681492617"><span class="hs-identifier hs-var hs-var">toCWTransaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Codec ChainwebTransaction
+-&gt; ByteString -&gt; Either String ChainwebTransaction
+forall t. Codec t -&gt; ByteString -&gt; Either String t
+</span><a href="Chainweb.Utils.html#codecDecode"><span class="hs-identifier hs-var hs-var">codecDecode</span></a></span><span> </span><span class="annot"><span class="annottext">Codec ChainwebTransaction
+</span><a href="Chainweb.Transaction.html#chainwebPayloadCodec"><span class="hs-identifier hs-var">chainwebPayloadCodec</span></a></span><span>
+</span><span id="line-181"></span></pre></body></html>

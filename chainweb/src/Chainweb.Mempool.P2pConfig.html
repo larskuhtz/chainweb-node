@@ -1,0 +1,352 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Module: Chainweb.Mempool.P2pConfig</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- P2p Configuration for the Mempool.</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Mempool.P2pConfig</span><span>
+</span><span id="line-18"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier">MempoolP2pConfig</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigMaxSessionCount"><span class="hs-identifier">mempoolP2pConfigMaxSessionCount</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigSessionTimeout"><span class="hs-identifier">mempoolP2pConfigSessionTimeout</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigPollInterval"><span class="hs-identifier">mempoolP2pConfigPollInterval</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#defaultMempoolP2pConfig"><span class="hs-identifier">defaultMempoolP2pConfig</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#pMempoolP2pConfig"><span class="hs-identifier">pMempoolP2pConfig</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Configuration.Utils</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.TH</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Time.html"><span class="hs-identifier">Chainweb.Time</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span id="local-6989586621681479593"><span id="local-6989586621681479594"></span></span><span class="hs-keyword">data</span><span> </span><span id="MempoolP2pConfig"><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-var">MempoolP2pConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MempoolP2pConfig"><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-var">MempoolP2pConfig</span></a></span></span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_mempoolP2pConfigMaxSessionCount"><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Natural
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigMaxSessionCount"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigMaxSessionCount</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-41"></span><span>        </span><span class="hs-comment">-- ^ max session count</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_mempoolP2pConfigSessionTimeout"><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigSessionTimeout"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigSessionTimeout</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Time.html#Seconds"><span class="hs-identifier hs-type">Seconds</span></a></span><span>
+</span><span id="line-43"></span><span>        </span><span class="hs-comment">-- ^ timeout in seconds</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_mempoolP2pConfigPollInterval"><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigPollInterval"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigPollInterval</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Time.html#Seconds"><span class="hs-identifier hs-type">Seconds</span></a></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681479583"><span id="local-6989586621681479585"><span id="local-6989586621681479587"><span class="annot"><span class="annottext">Int -&gt; MempoolP2pConfig -&gt; ShowS
+[MempoolP2pConfig] -&gt; ShowS
+MempoolP2pConfig -&gt; String
+(Int -&gt; MempoolP2pConfig -&gt; ShowS)
+-&gt; (MempoolP2pConfig -&gt; String)
+-&gt; ([MempoolP2pConfig] -&gt; ShowS)
+-&gt; Show MempoolP2pConfig
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [MempoolP2pConfig] -&gt; ShowS
+$cshowList :: [MempoolP2pConfig] -&gt; ShowS
+show :: MempoolP2pConfig -&gt; String
+$cshow :: MempoolP2pConfig -&gt; String
+showsPrec :: Int -&gt; MempoolP2pConfig -&gt; ShowS
+$cshowsPrec :: Int -&gt; MempoolP2pConfig -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681479578"><span id="local-6989586621681479580"><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+(MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool)
+-&gt; (MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool)
+-&gt; Eq MempoolP2pConfig
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+$c/= :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+== :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+$c== :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681479562"><span id="local-6989586621681479564"><span id="local-6989586621681479566"><span id="local-6989586621681479568"><span id="local-6989586621681479570"><span id="local-6989586621681479572"><span id="local-6989586621681479574"><span class="annot"><span class="annottext">Eq MempoolP2pConfig
+Eq MempoolP2pConfig =&gt;
+(MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Ordering)
+-&gt; (MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool)
+-&gt; (MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool)
+-&gt; (MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool)
+-&gt; (MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool)
+-&gt; (MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; (MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; Ord MempoolP2pConfig
+MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Ordering
+MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; MempoolP2pConfig
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; MempoolP2pConfig
+$cmin :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; MempoolP2pConfig
+max :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; MempoolP2pConfig
+$cmax :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; MempoolP2pConfig
+&gt;= :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+$c&gt;= :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+&gt; :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+$c&gt; :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+&lt;= :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+$c&lt;= :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+&lt; :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+$c&lt; :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Bool
+compare :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Ordering
+$ccompare :: MempoolP2pConfig -&gt; MempoolP2pConfig -&gt; Ordering
+$cp1Ord :: Eq MempoolP2pConfig
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. MempoolP2pConfig -&gt; Rep MempoolP2pConfig x)
+-&gt; (forall x. Rep MempoolP2pConfig x -&gt; MempoolP2pConfig)
+-&gt; Generic MempoolP2pConfig
+forall x. Rep MempoolP2pConfig x -&gt; MempoolP2pConfig
+forall x. MempoolP2pConfig -&gt; Rep MempoolP2pConfig x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep MempoolP2pConfig x -&gt; MempoolP2pConfig
+$cfrom :: forall x. MempoolP2pConfig -&gt; Rep MempoolP2pConfig x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span id="mempoolP2pConfigPollInterval"><span id="mempoolP2pConfigSessionTimeout"><span id="mempoolP2pConfigMaxSessionCount"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">MempoolP2pConfig</span></span></span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#defaultMempoolP2pConfig"><span class="hs-identifier hs-type">defaultMempoolP2pConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-type">MempoolP2pConfig</span></a></span><span>
+</span><span id="line-51"></span><span id="defaultMempoolP2pConfig"><span class="annot"><span class="annottext">defaultMempoolP2pConfig :: MempoolP2pConfig
+</span><a href="Chainweb.Mempool.P2pConfig.html#defaultMempoolP2pConfig"><span class="hs-identifier hs-var hs-var">defaultMempoolP2pConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WMempoolP2pConfig :: Natural -&gt; Seconds -&gt; Seconds -&gt; MempoolP2pConfig
+</span><a href="Chainweb.Mempool.P2pConfig.html#%24WMempoolP2pConfig"><span class="hs-identifier hs-type hs-type">MempoolP2pConfig</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_mempoolP2pConfigMaxSessionCount :: Natural
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigMaxSessionCount"><span class="hs-identifier hs-var">_mempoolP2pConfigMaxSessionCount</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">6</span></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_mempoolP2pConfigSessionTimeout :: Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigSessionTimeout"><span class="hs-identifier hs-var">_mempoolP2pConfigSessionTimeout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">120</span></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_mempoolP2pConfigPollInterval :: Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigPollInterval"><span class="hs-identifier hs-var">_mempoolP2pConfigPollInterval</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">30</span></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681479550"><span id="local-6989586621681479552"><span id="local-6989586621681479554"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-type">MempoolP2pConfig</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-58"></span><span>    </span><span id="local-6989586621681479548"><span class="annot"><span class="annottext">toJSON :: MempoolP2pConfig -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span id="local-6989586621681479546"><span class="annot"><span class="annottext">o :: MempoolP2pConfig
+</span><a href="#local-6989586621681479546"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-59"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;maxSessionCount&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Natural
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigMaxSessionCount"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigMaxSessionCount</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig
+</span><a href="#local-6989586621681479546"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-60"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;sessionTimeout&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Seconds -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigSessionTimeout"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigSessionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig
+</span><a href="#local-6989586621681479546"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-61"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;pollInterval&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Seconds -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigPollInterval"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigPollInterval</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig
+</span><a href="#local-6989586621681479546"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-62"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681479541"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-type">MempoolP2pConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-type">MempoolP2pConfig</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>    </span><span id="local-6989586621681479539"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig))
+-&gt; Value
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;MempoolP2pConfig&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig))
+ -&gt; Value -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig))
+-&gt; (Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig))
+-&gt; Value
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681479536"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681479536"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; MempoolP2pConfig
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-66"></span><span>        </span><span class="annot"><span class="annottext">(MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall (f :: * -&gt; *) b c a.
+Functor f =&gt;
+(b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;$&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Natural
+</span><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigMaxSessionCount"><span class="hs-identifier hs-var">mempoolP2pConfigMaxSessionCount</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Natural
+-&gt; Text -&gt; Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;maxSessionCount&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig))
+-&gt; Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681479536"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-67"></span><span>        </span><span class="annot"><span class="annottext">Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigSessionTimeout"><span class="hs-identifier hs-var">mempoolP2pConfigSessionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+-&gt; Text -&gt; Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;sessionTimeout&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig))
+-&gt; Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681479536"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-68"></span><span>        </span><span class="annot"><span class="annottext">Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigPollInterval"><span class="hs-identifier hs-var">mempoolP2pConfigPollInterval</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+-&gt; Text -&gt; Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;pollInterval&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig))
+-&gt; Object -&gt; Parser (MempoolP2pConfig -&gt; MempoolP2pConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681479536"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681479528"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-type">MempoolP2pConfig</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-71"></span><span>    </span><span id="local-6989586621681479527"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser MempoolP2pConfig
+</span><a href="#local-6989586621681479527"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser MempoolP2pConfig)
+-&gt; Value
+-&gt; Parser MempoolP2pConfig
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;P2pExampleConfig&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser MempoolP2pConfig)
+ -&gt; Value -&gt; Parser MempoolP2pConfig)
+-&gt; (Object -&gt; Parser MempoolP2pConfig)
+-&gt; Value
+-&gt; Parser MempoolP2pConfig
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681479526"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681479526"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Seconds -&gt; Seconds -&gt; MempoolP2pConfig
+</span><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-var">MempoolP2pConfig</span></a></span><span>
+</span><span id="line-72"></span><span>        </span><span class="annot"><span class="annottext">(Natural -&gt; Seconds -&gt; Seconds -&gt; MempoolP2pConfig)
+-&gt; Parser Natural
+-&gt; Parser (Seconds -&gt; Seconds -&gt; MempoolP2pConfig)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681479526"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Natural
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;maxSessionCount&quot;</span></span><span>
+</span><span id="line-73"></span><span>        </span><span class="annot"><span class="annottext">Parser (Seconds -&gt; Seconds -&gt; MempoolP2pConfig)
+-&gt; Parser Seconds -&gt; Parser (Seconds -&gt; MempoolP2pConfig)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681479526"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Seconds
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;sessionTimeout&quot;</span></span><span>
+</span><span id="line-74"></span><span>        </span><span class="annot"><span class="annottext">Parser (Seconds -&gt; MempoolP2pConfig)
+-&gt; Parser Seconds -&gt; Parser MempoolP2pConfig
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681479526"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Seconds
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;pollInterval&quot;</span></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#pMempoolP2pConfig"><span class="hs-identifier hs-type">pMempoolP2pConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MParser</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-type">MempoolP2pConfig</span></a></span><span>
+</span><span id="line-77"></span><span id="pMempoolP2pConfig"><span class="annot"><span class="annottext">pMempoolP2pConfig :: MParser MempoolP2pConfig
+</span><a href="Chainweb.Mempool.P2pConfig.html#pMempoolP2pConfig"><span class="hs-identifier hs-var hs-var">pMempoolP2pConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; MempoolP2pConfig
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">(MempoolP2pConfig -&gt; MempoolP2pConfig)
+-&gt; MParser MempoolP2pConfig -&gt; MParser MempoolP2pConfig
+forall (f :: * -&gt; *) b c a.
+Functor f =&gt;
+(b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;$&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Natural
+</span><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigMaxSessionCount"><span class="hs-identifier hs-var">mempoolP2pConfigMaxSessionCount</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Natural
+-&gt; Parser Natural -&gt; MParser MempoolP2pConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">ReadM Natural -&gt; Mod OptionFields Natural -&gt; Parser Natural
+forall a. ReadM a -&gt; Mod OptionFields a -&gt; Parser a
+</span><span class="hs-identifier hs-var">option</span></span><span> </span><span class="annot"><span class="annottext">ReadM Natural
+forall a. Read a =&gt; ReadM a
+</span><span class="hs-identifier hs-var">auto</span></span><span>
+</span><span id="line-79"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields Natural -&gt; Parser Natural)
+-&gt; Mod OptionFields Natural -&gt; Parser Natural
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Natural
+forall (f :: * -&gt; *) a. HasName f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool-p2p-max-session-count&quot;</span></span><span>
+</span><span id="line-80"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields Natural
+-&gt; Mod OptionFields Natural -&gt; Mod OptionFields Natural
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Natural
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;maximum number of sessions that are active at any time&quot;</span></span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">MParser MempoolP2pConfig
+-&gt; MParser MempoolP2pConfig -&gt; MParser MempoolP2pConfig
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigSessionTimeout"><span class="hs-identifier hs-var">mempoolP2pConfigSessionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+-&gt; Parser Seconds -&gt; MParser MempoolP2pConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields Seconds -&gt; Parser Seconds
+forall a. HasTextRepresentation a =&gt; Mod OptionFields a -&gt; Parser a
+</span><a href="Chainweb.Utils.html#textOption"><span class="hs-identifier hs-var">textOption</span></a></span><span>
+</span><span id="line-82"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields Seconds -&gt; Parser Seconds)
+-&gt; Mod OptionFields Seconds -&gt; Parser Seconds
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Seconds
+forall (f :: * -&gt; *) a. HasName f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool-p2p-session-timeout&quot;</span></span><span>
+</span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields Seconds
+-&gt; Mod OptionFields Seconds -&gt; Mod OptionFields Seconds
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Seconds
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;timeout for sessions in seconds&quot;</span></span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">MParser MempoolP2pConfig
+-&gt; MParser MempoolP2pConfig -&gt; MParser MempoolP2pConfig
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#mempoolP2pConfigPollInterval"><span class="hs-identifier hs-var">mempoolP2pConfigPollInterval</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' MempoolP2pConfig Seconds
+-&gt; Parser Seconds -&gt; MParser MempoolP2pConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields Seconds -&gt; Parser Seconds
+forall a. HasTextRepresentation a =&gt; Mod OptionFields a -&gt; Parser a
+</span><a href="Chainweb.Utils.html#textOption"><span class="hs-identifier hs-var">textOption</span></a></span><span>
+</span><span id="line-85"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields Seconds -&gt; Parser Seconds)
+-&gt; Mod OptionFields Seconds -&gt; Parser Seconds
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Seconds
+forall (f :: * -&gt; *) a. HasName f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool-p2p-poll-interval&quot;</span></span><span>
+</span><span id="line-86"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields Seconds
+-&gt; Mod OptionFields Seconds -&gt; Mod OptionFields Seconds
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields Seconds
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;poll interval for synchronizing mempools in seconds&quot;</span></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span></pre></body></html>

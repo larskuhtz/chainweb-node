@@ -1,0 +1,166 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Pact.Backend.SQLite.DirectV2</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BS</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.C.String</span></span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Database.SQLite3.Direct</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Database.SQLite3.Bindings.Types</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- chainweb</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.SQLite.V2.html"><span class="hs-identifier">Chainweb.Pact.Backend.SQLite.V2</span></a></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html"><span class="hs-identifier">Chainweb.Pact.Backend.Types</span></a></span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="annot"><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#open_v2"><span class="hs-identifier hs-type">open_v2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteFlag"><span class="hs-identifier hs-type">SQLiteFlag</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Database</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span id="open_v2"><span class="annot"><span class="annottext">open_v2 :: Utf8
+-&gt; SQLiteFlag -&gt; Maybe Utf8 -&gt; IO (Either (Error, Utf8) Database)
+</span><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#open_v2"><span class="hs-identifier hs-var hs-var">open_v2</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span id="local-6989586621681487800"><span class="annot"><span class="annottext">path :: ByteString
+</span><a href="#local-6989586621681487800"><span class="hs-identifier hs-var">path</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteFlag"><span class="hs-identifier hs-type">SQLiteFlag</span></a></span><span> </span><span id="local-6989586621681487798"><span class="annot"><span class="annottext">flag :: CInt
+</span><a href="#local-6989586621681487798"><span class="hs-identifier hs-var">flag</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681487797"><span class="annot"><span class="annottext">mzvfs :: Maybe Utf8
+</span><a href="#local-6989586621681487797"><span class="hs-identifier hs-var">mzvfs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><span class="annottext">ByteString
+-&gt; (CString -&gt; IO (Either (Error, Utf8) Database))
+-&gt; IO (Either (Error, Utf8) Database)
+forall a. ByteString -&gt; (CString -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">BS.useAsCString</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681487800"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="annot"><span class="annottext">((CString -&gt; IO (Either (Error, Utf8) Database))
+ -&gt; IO (Either (Error, Utf8) Database))
+-&gt; (CString -&gt; IO (Either (Error, Utf8) Database))
+-&gt; IO (Either (Error, Utf8) Database)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681487795"><span class="annot"><span class="annottext">path' :: CString
+</span><a href="#local-6989586621681487795"><span class="hs-identifier hs-var">path'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-19"></span><span>      </span><span class="annot"><span class="annottext">Maybe Utf8
+-&gt; (CString -&gt; IO (Either (Error, Utf8) Database))
+-&gt; IO (Either (Error, Utf8) Database)
+forall a. Maybe Utf8 -&gt; (CString -&gt; IO a) -&gt; IO a
+</span><a href="#local-6989586621681487794"><span class="hs-identifier hs-var">useAsMaybeCString</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Utf8
+</span><a href="#local-6989586621681487797"><span class="hs-identifier hs-var">mzvfs</span></a></span><span> </span><span class="annot"><span class="annottext">((CString -&gt; IO (Either (Error, Utf8) Database))
+ -&gt; IO (Either (Error, Utf8) Database))
+-&gt; (CString -&gt; IO (Either (Error, Utf8) Database))
+-&gt; IO (Either (Error, Utf8) Database)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681487793"><span class="annot"><span class="annottext">zvfs' :: CString
+</span><a href="#local-6989586621681487793"><span class="hs-identifier hs-var">zvfs'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-20"></span><span>        </span><span class="annot"><span class="annottext">(Ptr (Ptr CDatabase) -&gt; IO (Either (Error, Utf8) Database))
+-&gt; IO (Either (Error, Utf8) Database)
+forall a b. Storable a =&gt; (Ptr a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">alloca</span></span><span> </span><span class="annot"><span class="annottext">((Ptr (Ptr CDatabase) -&gt; IO (Either (Error, Utf8) Database))
+ -&gt; IO (Either (Error, Utf8) Database))
+-&gt; (Ptr (Ptr CDatabase) -&gt; IO (Either (Error, Utf8) Database))
+-&gt; IO (Either (Error, Utf8) Database)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681487791"><span class="annot"><span class="annottext">database :: Ptr (Ptr CDatabase)
+</span><a href="#local-6989586621681487791"><span class="hs-identifier hs-var">database</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-21"></span><span>            </span><span id="local-6989586621681487790"><span class="annot"><span class="annottext">CError
+</span><a href="#local-6989586621681487790"><span class="hs-identifier hs-var">rc</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CString -&gt; Ptr (Ptr CDatabase) -&gt; CInt -&gt; CString -&gt; IO CError
+</span><a href="Chainweb.Pact.Backend.SQLite.V2.html#c_sqlite3_open_v2"><span class="hs-identifier hs-var">c_sqlite3_open_v2</span></a></span><span> </span><span class="annot"><span class="annottext">CString
+</span><a href="#local-6989586621681487795"><span class="hs-identifier hs-var">path'</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr (Ptr CDatabase)
+</span><a href="#local-6989586621681487791"><span class="hs-identifier hs-var">database</span></a></span><span> </span><span class="annot"><span class="annottext">CInt
+</span><a href="#local-6989586621681487798"><span class="hs-identifier hs-var">flag</span></a></span><span> </span><span class="annot"><span class="annottext">CString
+</span><a href="#local-6989586621681487793"><span class="hs-identifier hs-var">zvfs'</span></a></span><span>
+</span><span id="line-22"></span><span>            </span><span id="local-6989586621681487788"><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487788"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Ptr CDatabase -&gt; Database
+</span><span class="hs-identifier hs-var">Database</span></span><span> </span><span class="annot"><span class="annottext">(Ptr CDatabase -&gt; Database) -&gt; IO (Ptr CDatabase) -&gt; IO Database
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Ptr (Ptr CDatabase) -&gt; IO (Ptr CDatabase)
+forall a. Storable a =&gt; Ptr a -&gt; IO a
+</span><span class="hs-identifier hs-var">peek</span></span><span> </span><span class="annot"><span class="annottext">Ptr (Ptr CDatabase)
+</span><a href="#local-6989586621681487791"><span class="hs-identifier hs-var">database</span></a></span><span>
+</span><span id="line-23"></span><span>                </span><span class="hs-comment">-- sqlite_open_v2 returns a sqlite3 even on failure.</span><span>
+</span><span id="line-24"></span><span>                </span><span class="hs-comment">-- That's where we get a more descriptive error message.</span><span>
+</span><span id="line-25"></span><span>            </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">() -&gt; CError -&gt; Either Error ()
+forall a. a -&gt; CError -&gt; Either Error a
+</span><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#toResult"><span class="hs-identifier hs-var">toResult</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CError
+</span><a href="#local-6989586621681487790"><span class="hs-identifier hs-var">rc</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-26"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681487783"><span class="annot"><span class="annottext">err :: Error
+</span><a href="#local-6989586621681487783"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-27"></span><span>                </span><span id="local-6989586621681487782"><span class="annot"><span class="annottext">Utf8
+</span><a href="#local-6989586621681487782"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Database -&gt; IO Utf8
+</span><span class="hs-identifier hs-var">errmsg</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487788"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="hs-comment">-- This returns &quot;out of memory&quot; if db is null.</span><span>
+</span><span id="line-28"></span><span>                </span><span class="annot"><span class="annottext">Either Error ()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Database -&gt; IO (Either Error ())
+</span><span class="hs-identifier hs-var">close</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487788"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="hs-comment">-- This is harmless if db is null.</span><span>
+</span><span id="line-29"></span><span>                </span><span class="annot"><span class="annottext">Either (Error, Utf8) Database -&gt; IO (Either (Error, Utf8) Database)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either (Error, Utf8) Database
+ -&gt; IO (Either (Error, Utf8) Database))
+-&gt; Either (Error, Utf8) Database
+-&gt; IO (Either (Error, Utf8) Database)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Error, Utf8) -&gt; Either (Error, Utf8) Database
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Error
+</span><a href="#local-6989586621681487783"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Utf8
+</span><a href="#local-6989586621681487782"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-31"></span><span>                </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487788"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">Database -&gt; Database -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Ptr CDatabase -&gt; Database
+</span><span class="hs-identifier hs-var">Database</span></span><span> </span><span class="annot"><span class="annottext">Ptr CDatabase
+forall a. Ptr a
+</span><span class="hs-identifier hs-var">nullPtr</span></span><span>
+</span><span id="line-32"></span><span>                </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; IO (Either (Error, Utf8) Database)
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;sqlite3_open_v2 unexpectedly returned NULL&quot;</span></span><span>
+</span><span id="line-33"></span><span>                </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Either (Error, Utf8) Database -&gt; IO (Either (Error, Utf8) Database)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either (Error, Utf8) Database
+ -&gt; IO (Either (Error, Utf8) Database))
+-&gt; Either (Error, Utf8) Database
+-&gt; IO (Either (Error, Utf8) Database)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Database -&gt; Either (Error, Utf8) Database
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487788"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-35"></span><span>    </span><span id="local-6989586621681487824"><span class="annot"><a href="#local-6989586621681487794"><span class="hs-identifier hs-type">useAsMaybeCString</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487824"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487824"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-36"></span><span>    </span><span id="local-6989586621681487794"><span class="annot"><span class="annottext">useAsMaybeCString :: Maybe Utf8 -&gt; (CString -&gt; IO a) -&gt; IO a
+</span><a href="#local-6989586621681487794"><span class="hs-identifier hs-var hs-var">useAsMaybeCString</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span id="local-6989586621681487777"><span class="annot"><span class="annottext">zvfs :: ByteString
+</span><a href="#local-6989586621681487777"><span class="hs-identifier hs-var">zvfs</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span id="local-6989586621681487776"><span class="annot"><span class="annottext">f :: CString -&gt; IO a
+</span><a href="#local-6989586621681487776"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (CString -&gt; IO a) -&gt; IO a
+forall a. ByteString -&gt; (CString -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">BS.useAsCString</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681487777"><span class="hs-identifier hs-var">zvfs</span></a></span><span> </span><span class="annot"><span class="annottext">CString -&gt; IO a
+</span><a href="#local-6989586621681487776"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><a href="#local-6989586621681487794"><span class="hs-identifier hs-var">useAsMaybeCString</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681487775"><span class="annot"><span class="annottext">f :: CString -&gt; IO a
+</span><a href="#local-6989586621681487775"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CString -&gt; IO a
+</span><a href="#local-6989586621681487775"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">CString
+forall a. Ptr a
+</span><span class="hs-identifier hs-var">nullPtr</span></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#close_v2"><span class="hs-identifier hs-type">close_v2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Database</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span id="close_v2"><span class="annot"><span class="annottext">close_v2 :: Database -&gt; IO (Either Error ())
+</span><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#close_v2"><span class="hs-identifier hs-var hs-var">close_v2</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Database</span></span><span> </span><span id="local-6989586621681487773"><span class="annot"><span class="annottext">db :: Ptr CDatabase
+</span><a href="#local-6989586621681487773"><span class="hs-identifier hs-var">db</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><span class="annottext">() -&gt; CError -&gt; Either Error ()
+forall a. a -&gt; CError -&gt; Either Error a
+</span><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#toResult"><span class="hs-identifier hs-var">toResult</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(CError -&gt; Either Error ()) -&gt; IO CError -&gt; IO (Either Error ())
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Ptr CDatabase -&gt; IO CError
+</span><a href="Chainweb.Pact.Backend.SQLite.V2.html#c_sqlite3_close_v2"><span class="hs-identifier hs-var">c_sqlite3_close_v2</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr CDatabase
+</span><a href="#local-6989586621681487773"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span id="local-6989586621681487814"><span class="annot"><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#toResult"><span class="hs-identifier hs-type">toResult</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681487814"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CError</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span> </span><span class="annot"><a href="#local-6989586621681487814"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-45"></span><span id="toResult"><span class="annot"><span class="annottext">toResult :: a -&gt; CError -&gt; Either Error a
+</span><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#toResult"><span class="hs-identifier hs-var hs-var">toResult</span></a></span></span><span> </span><span id="local-6989586621681487771"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681487771"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CError</span></span><span> </span><span class="hs-number">0</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Either Error a
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681487771"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#toResult"><span class="hs-identifier hs-var">toResult</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681487769"><span class="annot"><span class="annottext">code :: CError
+</span><a href="#local-6989586621681487769"><span class="hs-identifier hs-var">code</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Error -&gt; Either Error a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(Error -&gt; Either Error a) -&gt; Error -&gt; Either Error a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CError -&gt; Error
+</span><span class="hs-identifier hs-var">decodeError</span></span><span> </span><span class="annot"><span class="annottext">CError
+</span><a href="#local-6989586621681487769"><span class="hs-identifier hs-var">code</span></a></span><span>
+</span><span id="line-47"></span></pre></body></html>

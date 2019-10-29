@@ -1,0 +1,76 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ConstraintKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE StandaloneDeriving #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Module: Chainweb.Payload.PayloadStore</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Payload.PayloadStore</span><span>
+</span><span id="line-20"></span><span class="hs-special">(</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore.Types</span></a></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="annot"><span class="hs-comment">-- ** Initialize Payload Database with Genesis Payloads</span></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html#initializePayloadDb"><span class="hs-identifier">initializePayloadDb</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier">genesisBlockPayload</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore.Types</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- Initialize a PayloadDb with Genesis Payloads</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- | Initialize a PayloadDb with genesis payloads for the given chainweb</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- version.</span><span>
+</span><span id="line-40"></span><span class="hs-comment">--</span><span>
+</span><span id="line-41"></span><span id="local-6989586621681490288"><span class="annot"><a href="Chainweb.Payload.PayloadStore.html#initializePayloadDb"><span class="hs-identifier hs-type">initializePayloadDb</span></a></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681490288"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681490288"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-46"></span><span id="initializePayloadDb"><span class="annot"><span class="annottext">initializePayloadDb :: ChainwebVersion -&gt; PayloadDb cas -&gt; IO ()
+</span><a href="Chainweb.Payload.PayloadStore.html#initializePayloadDb"><span class="hs-identifier hs-var hs-var">initializePayloadDb</span></a></span></span><span> </span><span id="local-6989586621681490287"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681490287"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681490286"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681490286"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; IO ()) -&gt; HashSet ChainId -&gt; IO ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; IO ()
+</span><a href="#local-6989586621681490284"><span class="hs-identifier hs-var">initForChain</span></a></span><span> </span><span class="annot"><span class="annottext">(HashSet ChainId -&gt; IO ()) -&gt; HashSet ChainId -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; HashSet ChainId
+forall v. HasChainwebVersion v =&gt; v -&gt; HashSet ChainId
+</span><a href="Chainweb.Version.html#chainIds"><span class="hs-identifier hs-var">chainIds</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490287"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-48"></span><span>    </span><span id="local-6989586621681490284"><span class="annot"><span class="annottext">initForChain :: ChainId -&gt; IO ()
+</span><a href="#local-6989586621681490284"><span class="hs-identifier hs-var hs-var">initForChain</span></a></span></span><span> </span><span id="local-6989586621681490282"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681490282"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-49"></span><span>        </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; PayloadWithOutputs -&gt; IO ()
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+PayloadDb cas -&gt; PayloadWithOutputs -&gt; IO ()
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#addNewPayload"><span class="hs-identifier hs-var">addNewPayload</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681490286"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadWithOutputs -&gt; IO ()) -&gt; PayloadWithOutputs -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490287"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490282"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span></pre></body></html>

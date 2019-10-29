@@ -1,0 +1,181 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Module: Chainweb.Payload.PayloadStore.InMemory</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- An in-memory block payload store.</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Payload.PayloadStore.InMemory</span><span>
+</span><span id="line-15"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newPayloadDb"><span class="hs-identifier">newPayloadDb</span></a></span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="annot"><span class="hs-comment">-- * Internal</span></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockPayloadStore"><span class="hs-identifier">newBlockPayloadStore</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockTransactionsStore"><span class="hs-identifier">newBlockTransactionsStore</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionDb"><span class="hs-identifier">newTransactionDb</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockOutputsStore"><span class="hs-identifier">newBlockOutputsStore</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionTreeStore"><span class="hs-identifier">newTransactionTreeStore</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newOutputTreeStore"><span class="hs-identifier">newOutputTreeStore</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newPayloadCache"><span class="hs-identifier">newPayloadCache</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS.HashMap</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HashCAS</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- HashMap CAS</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockPayloadStore"><span class="hs-identifier hs-type">newBlockPayloadStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-type">BlockPayloadStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span id="newBlockPayloadStore"><span class="annot"><span class="annottext">newBlockPayloadStore :: IO (BlockPayloadStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockPayloadStore"><span class="hs-identifier hs-var hs-var">newBlockPayloadStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMapCas BlockPayload -&gt; BlockPayloadStore HashMapCas
+forall (cas :: * -&gt; *). cas BlockPayload -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-var">BlockPayloadStore</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMapCas BlockPayload -&gt; BlockPayloadStore HashMapCas)
+-&gt; IO (HashMapCas BlockPayload)
+-&gt; IO (BlockPayloadStore HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (HashMapCas BlockPayload)
+forall v.
+(Hashable (CasKeyType v), IsCasValue v) =&gt;
+IO (HashMapCas v)
+</span><span class="hs-identifier hs-var">HashCAS.emptyCas</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockTransactionsStore"><span class="hs-identifier hs-type">newBlockTransactionsStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-type">BlockTransactionsStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span id="newBlockTransactionsStore"><span class="annot"><span class="annottext">newBlockTransactionsStore :: IO (BlockTransactionsStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockTransactionsStore"><span class="hs-identifier hs-var hs-var">newBlockTransactionsStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMapCas BlockTransactions -&gt; BlockTransactionsStore HashMapCas
+forall (cas :: * -&gt; *).
+cas BlockTransactions -&gt; BlockTransactionsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-var">BlockTransactionsStore</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMapCas BlockTransactions -&gt; BlockTransactionsStore HashMapCas)
+-&gt; IO (HashMapCas BlockTransactions)
+-&gt; IO (BlockTransactionsStore HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (HashMapCas BlockTransactions)
+forall v.
+(Hashable (CasKeyType v), IsCasValue v) =&gt;
+IO (HashMapCas v)
+</span><span class="hs-identifier hs-var">HashCAS.emptyCas</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionDb"><span class="hs-identifier hs-type">newTransactionDb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier hs-type">TransactionDb</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span id="newTransactionDb"><span class="annot"><span class="annottext">newTransactionDb :: IO (TransactionDb HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionDb"><span class="hs-identifier hs-var hs-var">newTransactionDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockTransactionsStore HashMapCas
+-&gt; BlockPayloadStore HashMapCas -&gt; TransactionDb HashMapCas
+forall (cas :: * -&gt; *).
+BlockTransactionsStore cas
+-&gt; BlockPayloadStore cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier hs-var">TransactionDb</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">(BlockTransactionsStore HashMapCas
+ -&gt; BlockPayloadStore HashMapCas -&gt; TransactionDb HashMapCas)
+-&gt; IO (BlockTransactionsStore HashMapCas)
+-&gt; IO (BlockPayloadStore HashMapCas -&gt; TransactionDb HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (BlockTransactionsStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockTransactionsStore"><span class="hs-identifier hs-var">newBlockTransactionsStore</span></a></span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">IO (BlockPayloadStore HashMapCas -&gt; TransactionDb HashMapCas)
+-&gt; IO (BlockPayloadStore HashMapCas)
+-&gt; IO (TransactionDb HashMapCas)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (BlockPayloadStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockPayloadStore"><span class="hs-identifier hs-var">newBlockPayloadStore</span></a></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockOutputsStore"><span class="hs-identifier hs-type">newBlockOutputsStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-type">BlockOutputsStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span id="newBlockOutputsStore"><span class="annot"><span class="annottext">newBlockOutputsStore :: IO (BlockOutputsStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockOutputsStore"><span class="hs-identifier hs-var hs-var">newBlockOutputsStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMapCas BlockOutputs -&gt; BlockOutputsStore HashMapCas
+forall (cas :: * -&gt; *). cas BlockOutputs -&gt; BlockOutputsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-var">BlockOutputsStore</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMapCas BlockOutputs -&gt; BlockOutputsStore HashMapCas)
+-&gt; IO (HashMapCas BlockOutputs)
+-&gt; IO (BlockOutputsStore HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (HashMapCas BlockOutputs)
+forall v.
+(Hashable (CasKeyType v), IsCasValue v) =&gt;
+IO (HashMapCas v)
+</span><span class="hs-identifier hs-var">HashCAS.emptyCas</span></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionTreeStore"><span class="hs-identifier hs-type">newTransactionTreeStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-type">TransactionTreeStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span id="newTransactionTreeStore"><span class="annot"><span class="annottext">newTransactionTreeStore :: IO (TransactionTreeStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionTreeStore"><span class="hs-identifier hs-var hs-var">newTransactionTreeStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMapCas TransactionTree -&gt; TransactionTreeStore HashMapCas
+forall (cas :: * -&gt; *).
+cas TransactionTree -&gt; TransactionTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-var">TransactionTreeStore</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMapCas TransactionTree -&gt; TransactionTreeStore HashMapCas)
+-&gt; IO (HashMapCas TransactionTree)
+-&gt; IO (TransactionTreeStore HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (HashMapCas TransactionTree)
+forall v.
+(Hashable (CasKeyType v), IsCasValue v) =&gt;
+IO (HashMapCas v)
+</span><span class="hs-identifier hs-var">HashCAS.emptyCas</span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newOutputTreeStore"><span class="hs-identifier hs-type">newOutputTreeStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-type">OutputTreeStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span id="newOutputTreeStore"><span class="annot"><span class="annottext">newOutputTreeStore :: IO (OutputTreeStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newOutputTreeStore"><span class="hs-identifier hs-var hs-var">newOutputTreeStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMapCas OutputTree -&gt; OutputTreeStore HashMapCas
+forall (cas :: * -&gt; *). cas OutputTree -&gt; OutputTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-var">OutputTreeStore</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMapCas OutputTree -&gt; OutputTreeStore HashMapCas)
+-&gt; IO (HashMapCas OutputTree) -&gt; IO (OutputTreeStore HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (HashMapCas OutputTree)
+forall v.
+(Hashable (CasKeyType v), IsCasValue v) =&gt;
+IO (HashMapCas v)
+</span><span class="hs-identifier hs-var">HashCAS.emptyCas</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newPayloadCache"><span class="hs-identifier hs-type">newPayloadCache</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier hs-type">PayloadCache</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span id="newPayloadCache"><span class="annot"><span class="annottext">newPayloadCache :: IO (PayloadCache HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newPayloadCache"><span class="hs-identifier hs-var hs-var">newPayloadCache</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockOutputsStore HashMapCas
+-&gt; TransactionTreeStore HashMapCas
+-&gt; OutputTreeStore HashMapCas
+-&gt; PayloadCache HashMapCas
+forall (cas :: * -&gt; *).
+BlockOutputsStore cas
+-&gt; TransactionTreeStore cas
+-&gt; OutputTreeStore cas
+-&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier hs-var">PayloadCache</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockOutputsStore HashMapCas
+ -&gt; TransactionTreeStore HashMapCas
+ -&gt; OutputTreeStore HashMapCas
+ -&gt; PayloadCache HashMapCas)
+-&gt; IO (BlockOutputsStore HashMapCas)
+-&gt; IO
+     (TransactionTreeStore HashMapCas
+      -&gt; OutputTreeStore HashMapCas -&gt; PayloadCache HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (BlockOutputsStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newBlockOutputsStore"><span class="hs-identifier hs-var">newBlockOutputsStore</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">IO
+  (TransactionTreeStore HashMapCas
+   -&gt; OutputTreeStore HashMapCas -&gt; PayloadCache HashMapCas)
+-&gt; IO (TransactionTreeStore HashMapCas)
+-&gt; IO (OutputTreeStore HashMapCas -&gt; PayloadCache HashMapCas)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (TransactionTreeStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionTreeStore"><span class="hs-identifier hs-var">newTransactionTreeStore</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">IO (OutputTreeStore HashMapCas -&gt; PayloadCache HashMapCas)
+-&gt; IO (OutputTreeStore HashMapCas) -&gt; IO (PayloadCache HashMapCas)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (OutputTreeStore HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newOutputTreeStore"><span class="hs-identifier hs-var">newOutputTreeStore</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.InMemory.html#newPayloadDb"><span class="hs-identifier hs-type">newPayloadDb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashCAS.HashMapCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span id="newPayloadDb"><span class="annot"><span class="annottext">newPayloadDb :: IO (PayloadDb HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newPayloadDb"><span class="hs-identifier hs-var hs-var">newPayloadDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionDb HashMapCas
+-&gt; PayloadCache HashMapCas -&gt; PayloadDb HashMapCas
+forall (cas :: * -&gt; *).
+TransactionDb cas -&gt; PayloadCache cas -&gt; PayloadDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-var">PayloadDb</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb HashMapCas
+ -&gt; PayloadCache HashMapCas -&gt; PayloadDb HashMapCas)
+-&gt; IO (TransactionDb HashMapCas)
+-&gt; IO (PayloadCache HashMapCas -&gt; PayloadDb HashMapCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (TransactionDb HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newTransactionDb"><span class="hs-identifier hs-var">newTransactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">IO (PayloadCache HashMapCas -&gt; PayloadDb HashMapCas)
+-&gt; IO (PayloadCache HashMapCas) -&gt; IO (PayloadDb HashMapCas)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (PayloadCache HashMapCas)
+</span><a href="Chainweb.Payload.PayloadStore.InMemory.html#newPayloadCache"><span class="hs-identifier hs-var">newPayloadCache</span></a></span><span>
+</span><span id="line-62"></span></pre></body></html>

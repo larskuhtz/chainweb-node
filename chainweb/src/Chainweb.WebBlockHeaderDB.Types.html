@@ -1,0 +1,65 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Module: Chainweb.WebBlockHeaderDB.Types</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.WebBlockHeaderDB.Types</span><span>
+</span><span id="line-16"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier">WebBlockHeaderDb</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html"><span class="hs-identifier">Chainweb.BlockHeaderDB.Types</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- Web Chain Database</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- | Every WebChain has the following properties</span><span>
+</span><span id="line-31"></span><span class="hs-comment">--</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- * All entires of _webBlockHeaderDb are valid BlockHeaderDbs</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- * There are no dangling adjacent parent hashes</span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- * The adjacent hashes of all block headers conform with the chain graph</span><span>
+</span><span id="line-35"></span><span class="hs-comment">--   of the web chain.</span><span>
+</span><span id="line-36"></span><span class="hs-comment">--</span><span>
+</span><span id="line-37"></span><span class="hs-comment">--  TODO: in order to enforce these invariants the insertion to</span><span>
+</span><span id="line-38"></span><span class="hs-comment">--  the dbs must be guarded see issue #123.</span><span>
+</span><span id="line-39"></span><span class="hs-comment">--</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">data</span><span> </span><span id="WebBlockHeaderDb"><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-var">WebBlockHeaderDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="WebBlockHeaderDb"><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-var">WebBlockHeaderDb</span></a></span></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_webBlockHeaderDb"><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; HashMap ChainId BlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#_webBlockHeaderDb"><span class="hs-identifier hs-var hs-var">_webBlockHeaderDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webChainwebVersion"><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainwebVersion
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#_webChainwebVersion"><span class="hs-identifier hs-var hs-var">_webChainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681485169"><span class="annot"><a href="Chainweb.Graph.html#HasChainGraph"><span class="hs-identifier hs-type">HasChainGraph</span></a></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>    </span><span id="local-6989586621681485167"><span class="annot"><span class="annottext">_chainGraph :: WebBlockHeaderDb -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainGraph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainGraph
+forall a. HasChainGraph a =&gt; a -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var">_chainGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainwebVersion -&gt; ChainGraph)
+-&gt; (WebBlockHeaderDb -&gt; ChainwebVersion)
+-&gt; WebBlockHeaderDb
+-&gt; ChainGraph
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainwebVersion
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#_webChainwebVersion"><span class="hs-identifier hs-var hs-var">_webChainwebVersion</span></a></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-pragma hs-type">_chainGraph</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681485162"><span class="annot"><a href="Chainweb.Version.html#HasChainwebVersion"><span class="hs-identifier hs-type">HasChainwebVersion</span></a></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-50"></span><span>    </span><span id="local-6989586621681485160"><span class="annot"><span class="annottext">_chainwebVersion :: WebBlockHeaderDb -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainwebVersion
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#_webChainwebVersion"><span class="hs-identifier hs-var hs-var">_webChainwebVersion</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-pragma hs-type">_chainwebVersion</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-52"></span></pre></body></html>

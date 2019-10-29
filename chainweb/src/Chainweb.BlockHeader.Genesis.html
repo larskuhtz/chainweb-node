@@ -1,0 +1,613 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE QuasiQuotes #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Module: Chainweb.BlockHeader.Genesis</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Maintainer: Colin Woodbury &lt;colin@kadena.io&gt;</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Hard-coded Genesis blocks for various versions of Chainweb.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.BlockHeader.Genesis</span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * Genesis Blocks</span></span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Creation</span></span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader"><span class="hs-identifier">genesisBlockHeader</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader%27"><span class="hs-identifier">genesisBlockHeader'</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeaders"><span class="hs-identifier">genesisBlockHeaders</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="annot"><span class="hs-comment">-- ** Querying</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier">genesisBlockPayload</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisParentBlockHash"><span class="hs-identifier">genesisParentBlockHash</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockTarget"><span class="hs-identifier">genesisBlockTarget</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier">genesisTime</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(&amp;&amp;&amp;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toList</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashSet</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HS</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.MerkleLog</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Actual</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Expected</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MerkleHash</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Development0Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Development0Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">DN0</span></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.DevelopmentNPayload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.DevelopmentNPayload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">DNN</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.FastTimedCPM0Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.FastTimedCPM0Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">TN0</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.FastTimedCPMNPayload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.FastTimedCPMNPayload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">TNN</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet0Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet0Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN0</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet1Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet1Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN1</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet2Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet2Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN2</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet3Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet3Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN3</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet4Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet4Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN4</span></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet5Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet5Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN5</span></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet6Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet6Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN6</span></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet7Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet7Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN7</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet8Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet8Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN8</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Mainnet9Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Mainnet9Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MN9</span></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.Testnet0Payload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.Testnet0Payload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">PN0</span></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.TestnetNPayload.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis.TestnetNPayload</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">PNN</span></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html"><span class="hs-identifier">Chainweb.Crypto.MerkleLog</span></a></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Difficulty.html"><span class="hs-identifier">Chainweb.Difficulty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Difficulty.html#HashTarget"><span class="hs-identifier">HashTarget</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Difficulty.html#maxTarget"><span class="hs-identifier">maxTarget</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Graph.html"><span class="hs-identifier">Chainweb.Graph</span></a></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html"><span class="hs-identifier">Chainweb.MerkleLogHash</span></a></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.MerkleUniverse.html"><span class="hs-identifier">Chainweb.MerkleUniverse</span></a></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Types.html"><span class="hs-identifier">Chainweb.Pact.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Types.html#emptyPayload"><span class="hs-identifier">emptyPayload</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Time.html"><span class="hs-identifier">Chainweb.Time</span></a></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-comment">---</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- Genesis BlockHeader</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- | The genesis block hash includes the Chainweb version and the 'ChainId'</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- within the Chainweb version.</span><span>
+</span><span id="line-72"></span><span class="hs-comment">--</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- It is the '_blockParent' of the genesis block</span><span>
+</span><span id="line-74"></span><span class="hs-comment">--</span><span>
+</span><span id="line-75"></span><span id="local-6989586621681490173"><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisParentBlockHash"><span class="hs-identifier hs-type">genesisParentBlockHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681490173"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681490173"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span></span><span>
+</span><span id="line-76"></span><span id="genesisParentBlockHash"><span class="annot"><span class="annottext">genesisParentBlockHash :: ChainwebVersion -&gt; p -&gt; BlockHash
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisParentBlockHash"><span class="hs-identifier hs-var hs-var">genesisParentBlockHash</span></a></span></span><span> </span><span id="local-6989586621681490127"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681490127"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681490126"><span class="annot"><span class="annottext">p :: p
+</span><a href="#local-6989586621681490126"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; BlockHash
+</span><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-var">BlockHash</span></a></span><span> </span><span class="annot"><span class="annottext">(MerkleLogHash -&gt; BlockHash) -&gt; MerkleLogHash -&gt; BlockHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-var">MerkleLogHash</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">(MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash)
+-&gt; MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MerkleTree SHA512t_256 -&gt; MerkleRoot (HashAlg ChainwebHashTag)
+forall a. HashAlgorithm a =&gt; MerkleTree a -&gt; MerkleRoot a
+</span><span class="hs-identifier hs-var">merkleRoot</span></span><span> </span><span class="annot"><span class="annottext">(MerkleTree SHA512t_256 -&gt; MerkleRoot (HashAlg ChainwebHashTag))
+-&gt; MerkleTree SHA512t_256 -&gt; MerkleRoot (HashAlg ChainwebHashTag)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[MerkleNodeType (HashAlg ChainwebHashTag) ByteString]
+-&gt; MerkleTree (HashAlg ChainwebHashTag)
+forall a b.
+(HasCallStack, HashAlgorithm a, ByteArrayAccess b) =&gt;
+[MerkleNodeType a b] -&gt; MerkleTree a
+</span><span class="hs-identifier hs-var">merkleTree</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html#HashAlg"><span class="hs-identifier hs-type">HashAlg</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleUniverse.html#ChainwebHashTag"><span class="hs-identifier hs-type">ChainwebHashTag</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; MerkleNodeType SHA512t_256 ByteString
+forall a b. b -&gt; MerkleNodeType a b
+</span><span class="hs-identifier hs-var">InputNode</span></span><span> </span><span class="annot"><span class="hs-string">&quot;CHAINWEB_GENESIS&quot;</span></span><span>
+</span><span id="line-79"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall (m :: * -&gt; *). MonadPut m =&gt; ChainwebVersion -&gt; m ())
+-&gt; ChainwebVersion -&gt; MerkleNodeType SHA512t_256 ByteString
+forall b a.
+(forall (m :: * -&gt; *). MonadPut m =&gt; b -&gt; m ())
+-&gt; b -&gt; MerkleNodeType a ByteString
+</span><a href="Chainweb.Crypto.MerkleLog.html#encodeMerkleInputNode"><span class="hs-identifier hs-var">encodeMerkleInputNode</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *). MonadPut m =&gt; ChainwebVersion -&gt; m ()
+</span><a href="Chainweb.Version.html#encodeChainwebVersion"><span class="hs-identifier hs-var">encodeChainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490127"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-80"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall (m :: * -&gt; *). MonadPut m =&gt; ChainId -&gt; m ())
+-&gt; ChainId -&gt; MerkleNodeType SHA512t_256 ByteString
+forall b a.
+(forall (m :: * -&gt; *). MonadPut m =&gt; b -&gt; m ())
+-&gt; b -&gt; MerkleNodeType a ByteString
+</span><a href="Chainweb.Crypto.MerkleLog.html#encodeMerkleInputNode"><span class="hs-identifier hs-var">encodeMerkleInputNode</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *). MonadPut m =&gt; ChainId -&gt; m ()
+</span><a href="Chainweb.ChainId.html#encodeChainId"><span class="hs-identifier hs-var">encodeChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">p -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621681490126"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- | By definition, Genesis Blocks are &quot;mined&quot; on the easiest difficulty. No</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- subsequent block mining can have a `HashTarget` easier (re: higher) than</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- this. Equivalent to `maxTarget`.</span><span>
+</span><span id="line-86"></span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockTarget"><span class="hs-identifier hs-type">genesisBlockTarget</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Difficulty.html#HashTarget"><span class="hs-identifier hs-type">HashTarget</span></a></span><span>
+</span><span id="line-88"></span><span id="genesisBlockTarget"><span class="annot"><span class="annottext">genesisBlockTarget :: HashTarget
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockTarget"><span class="hs-identifier hs-var hs-var">genesisBlockTarget</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashTarget
+</span><a href="Chainweb.Difficulty.html#maxTarget"><span class="hs-identifier hs-var">maxTarget</span></a></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- | The moment of creation of a Genesis Block. For test chains, this is the</span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- Linux Epoch. Production chains are otherwise fixed to a specific timestamp.</span><span>
+</span><span id="line-92"></span><span class="hs-comment">--</span><span>
+</span><span id="line-93"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-type">genesisTime</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-type">BlockCreationTime</span></a></span><span>
+</span><span id="line-94"></span><span id="genesisTime"><span class="annot"><span class="annottext">genesisTime :: ChainwebVersion -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var hs-var">genesisTime</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Test"><span class="hs-identifier hs-type">Test</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+forall a. Num a =&gt; Time a
+</span><a href="Chainweb.Time.html#epoch"><span class="hs-identifier hs-var">epoch</span></a></span><span>
+</span><span id="line-95"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#TimedConsensus"><span class="hs-identifier hs-type">TimedConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+forall a. Num a =&gt; Time a
+</span><a href="Chainweb.Time.html#epoch"><span class="hs-identifier hs-var">epoch</span></a></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#PowConsensus"><span class="hs-identifier hs-type">PowConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+forall a. Num a =&gt; Time a
+</span><a href="Chainweb.Time.html#epoch"><span class="hs-identifier hs-var">epoch</span></a></span><span>
+</span><span id="line-97"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#TimedCPM"><span class="hs-identifier hs-type">TimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+forall a. Num a =&gt; Time a
+</span><a href="Chainweb.Time.html#epoch"><span class="hs-identifier hs-var">epoch</span></a></span><span>
+</span><span id="line-98"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#FastTimedCPM"><span class="hs-identifier hs-type">FastTimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+forall a. Num a =&gt; Time a
+</span><a href="Chainweb.Time.html#epoch"><span class="hs-identifier hs-var">epoch</span></a></span><span>
+</span><span id="line-99"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Development"><span class="hs-identifier hs-type">Development</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="">[timeMicrosQQ| 2019-07-17T18:28:37.613832 |]</span></span><span>
+</span><span id="line-100"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Testnet02"><span class="hs-identifier hs-type">Testnet02</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="">[timeMicrosQQ| 2019-07-17T18:28:37.613832 |]</span></span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Mainnet01"><span class="hs-identifier hs-type">Mainnet01</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="">[timeMicrosQQ| 2019-10-24T21:51:26.444848 |]</span></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayloadHash"><span class="hs-identifier hs-type">genesisBlockPayloadHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span>
+</span><span id="line-104"></span><span id="genesisBlockPayloadHash"><span class="annot"><span class="annottext">genesisBlockPayloadHash :: ChainwebVersion -&gt; ChainId -&gt; BlockPayloadHash
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayloadHash"><span class="hs-identifier hs-var hs-var">genesisBlockPayloadHash</span></a></span></span><span> </span><span id="local-6989586621681490102"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681490102"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; BlockPayloadHash
+</span><a href="Chainweb.Payload.html#_payloadWithOutputsPayloadHash"><span class="hs-identifier hs-var hs-var">_payloadWithOutputsPayloadHash</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadWithOutputs -&gt; BlockPayloadHash)
+-&gt; (ChainId -&gt; PayloadWithOutputs) -&gt; ChainId -&gt; BlockPayloadHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490102"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- TODO when Payload DB is finally loading genesis post-sync and post-pact,</span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- the genesis block payload should be PayloadData, and PayloadWithOutputs</span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- should have the TransactionTree and OutputTree to avoid recreating those</span><span>
+</span><span id="line-109"></span><span class="hs-comment">-- in PayloadStore.</span><span>
+</span><span id="line-110"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-type">genesisBlockPayload</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- Test Instances</span><span>
+</span><span id="line-112"></span><span id="genesisBlockPayload"><span class="annot"><span class="annottext">genesisBlockPayload :: ChainwebVersion -&gt; ChainId -&gt; PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var hs-var">genesisBlockPayload</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Test"><span class="hs-identifier hs-type">Test</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.Pact.Types.html#emptyPayload"><span class="hs-identifier hs-var">emptyPayload</span></a></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#TimedConsensus"><span class="hs-identifier hs-type">TimedConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.Pact.Types.html#emptyPayload"><span class="hs-identifier hs-var">emptyPayload</span></a></span><span>
+</span><span id="line-114"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#PowConsensus"><span class="hs-identifier hs-type">PowConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.Pact.Types.html#emptyPayload"><span class="hs-identifier hs-var">emptyPayload</span></a></span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#TimedCPM"><span class="hs-identifier hs-type">TimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span id="local-6989586621681490099"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681490099"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Int
+forall i. Integral i =&gt; ChainId -&gt; i
+</span><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier hs-var">chainIdInt</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490099"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.FastTimedCPM0Payload.html#payloadBlock"><span class="hs-identifier hs-var">TN0.payloadBlock</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.FastTimedCPMNPayload.html#payloadBlock"><span class="hs-identifier hs-var">TNN.payloadBlock</span></a></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#FastTimedCPM"><span class="hs-identifier hs-type">FastTimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span id="local-6989586621681490095"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681490095"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Int
+forall i. Integral i =&gt; ChainId -&gt; i
+</span><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier hs-var">chainIdInt</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490095"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.FastTimedCPM0Payload.html#payloadBlock"><span class="hs-identifier hs-var">TN0.payloadBlock</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.FastTimedCPMNPayload.html#payloadBlock"><span class="hs-identifier hs-var">TNN.payloadBlock</span></a></span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- Development Instances</span><span>
+</span><span id="line-124"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Development"><span class="hs-identifier hs-type">Development</span></a></span><span> </span><span id="local-6989586621681490094"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681490094"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Int
+forall i. Integral i =&gt; ChainId -&gt; i
+</span><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier hs-var">chainIdInt</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490094"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Development0Payload.html#payloadBlock"><span class="hs-identifier hs-var">DN0.payloadBlock</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.DevelopmentNPayload.html#payloadBlock"><span class="hs-identifier hs-var">DNN.payloadBlock</span></a></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="hs-comment">-- Production Instances</span><span>
+</span><span id="line-129"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Testnet02"><span class="hs-identifier hs-type">Testnet02</span></a></span><span> </span><span id="local-6989586621681490091"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681490091"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Int
+forall i. Integral i =&gt; ChainId -&gt; i
+</span><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier hs-var">chainIdInt</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490091"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Testnet0Payload.html#payloadBlock"><span class="hs-identifier hs-var">PN0.payloadBlock</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.TestnetNPayload.html#payloadBlock"><span class="hs-identifier hs-var">PNN.payloadBlock</span></a></span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayload"><span class="hs-identifier hs-var">genesisBlockPayload</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Mainnet01"><span class="hs-identifier hs-type">Mainnet01</span></a></span><span> </span><span id="local-6989586621681490088"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681490088"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Int
+forall i. Integral i =&gt; ChainId -&gt; i
+</span><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier hs-var">chainIdInt</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490088"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet0Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN0.payloadBlock</span></a></span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-number">1</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet1Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN1.payloadBlock</span></a></span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-number">2</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet2Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN2.payloadBlock</span></a></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-number">3</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet3Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN3.payloadBlock</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-number">4</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet4Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN4.payloadBlock</span></a></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-number">5</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet5Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN5.payloadBlock</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-number">6</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet6Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN6.payloadBlock</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-number">7</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet7Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN7.payloadBlock</span></a></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-number">8</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet8Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN8.payloadBlock</span></a></span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-number">9</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="Chainweb.BlockHeader.Genesis.Mainnet9Payload.html#payloadBlock"><span class="hs-identifier hs-var">MN9.payloadBlock</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; PayloadWithOutputs
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;peterson graph only supports a maximum of 10 chains - please review&quot;</span></span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="hs-comment">-- | A block chain is globally uniquely identified by its genesis hash.</span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- Internally, we use the 'ChainwebVersion' value and the 'ChainId'</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- as identifiers. We thus include the 'ChainwebVersion' value and the</span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- 'ChainId' into the genesis block hash.</span><span>
+</span><span id="line-150"></span><span class="hs-comment">--</span><span>
+</span><span id="line-151"></span><span class="hs-comment">-- We assume that there is always only a single 'ChainwebVersion' in</span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- scope and identify chains only by their internal 'ChainId'.</span><span>
+</span><span id="line-153"></span><span class="hs-comment">--</span><span>
+</span><span id="line-154"></span><span class="hs-comment">--</span><span>
+</span><span id="line-155"></span><span id="local-6989586621681490148"><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader"><span class="hs-identifier hs-type">genesisBlockHeader</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681490148"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681490148"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span></span><span>
+</span><span id="line-156"></span><span id="genesisBlockHeader"><span class="annot"><span class="annottext">genesisBlockHeader :: ChainwebVersion -&gt; p -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader"><span class="hs-identifier hs-var hs-var">genesisBlockHeader</span></a></span></span><span> </span><span id="local-6989586621681490076"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681490076"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681490075"><span class="annot"><span class="annottext">p :: p
+</span><a href="#local-6989586621681490075"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; p -&gt; BlockCreationTime -&gt; Nonce -&gt; BlockHeader
+forall p.
+HasChainId p =&gt;
+ChainwebVersion -&gt; p -&gt; BlockCreationTime -&gt; Nonce -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader%27"><span class="hs-identifier hs-var">genesisBlockHeader'</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490076"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621681490075"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisTime"><span class="hs-identifier hs-var">genesisTime</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490076"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64 -&gt; Nonce
+</span><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-var">Nonce</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span class="hs-comment">-- | Like `genesisBlockHeader`, but with slightly more control.</span><span>
+</span><span id="line-159"></span><span class="hs-comment">--</span><span>
+</span><span id="line-160"></span><span id="local-6989586621681490198"><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader%27"><span class="hs-identifier hs-type">genesisBlockHeader'</span></a></span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681490198"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681490198"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-164"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-type">BlockCreationTime</span></a></span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-type">Nonce</span></a></span><span>
+</span><span id="line-166"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span></span><span>
+</span><span id="line-167"></span><span id="genesisBlockHeader%27"><span class="annot"><span class="annottext">genesisBlockHeader' :: ChainwebVersion -&gt; p -&gt; BlockCreationTime -&gt; Nonce -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader%27"><span class="hs-identifier hs-var hs-var">genesisBlockHeader'</span></a></span></span><span> </span><span id="local-6989586621681490073"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681490073"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681490072"><span class="annot"><span class="annottext">p :: p
+</span><a href="#local-6989586621681490072"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621681490071"><span class="annot"><span class="annottext">ct :: BlockCreationTime
+</span><a href="#local-6989586621681490071"><span class="hs-identifier hs-var">ct</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-type">BlockCreationTime</span></a></span><span> </span><span id="local-6989586621681490070"><span class="annot"><span class="annottext">t :: Time Micros
+</span><a href="#local-6989586621681490070"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681490069"><span class="annot"><span class="annottext">n :: Nonce
+</span><a href="#local-6989586621681490069"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleLog
+  ChainwebHashTag
+  (MerkleLogHeader BlockHeader)
+  (MerkleLogBody BlockHeader)
+-&gt; BlockHeader
+forall u b.
+HasMerkleLog u b =&gt;
+MerkleLog u (MerkleLogHeader b) (MerkleLogBody b) -&gt; b
+</span><a href="Chainweb.Crypto.MerkleLog.html#fromLog"><span class="hs-identifier hs-var">fromLog</span></a></span><span> </span><span class="annot"><span class="annottext">MerkleLog
+  ChainwebHashTag
+  '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+    BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+    ChainwebVersion, EpochStartTime, FeatureFlags]
+  BlockHash
+MerkleLog
+  ChainwebHashTag
+  (MerkleLogHeader BlockHeader)
+  (MerkleLogBody BlockHeader)
+</span><a href="#local-6989586621681490067"><span class="hs-identifier hs-var">mlog</span></a></span><span>
+</span><span id="line-168"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-169"></span><span>    </span><span id="local-6989586621681490066"><span class="annot"><span class="annottext">g :: ChainGraph
+</span><a href="#local-6989586621681490066"><span class="hs-identifier hs-var hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainGraph
+forall a. HasChainGraph a =&gt; a -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var">_chainGraph</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490073"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-170"></span><span>    </span><span id="local-6989586621681490064"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681490064"><span class="hs-identifier hs-var hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">p -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621681490072"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-171"></span><span>
+</span><span id="line-172"></span><span>    </span><span id="local-6989586621681490067"><span class="annot"><span class="annottext">mlog :: MerkleLog
+  ChainwebHashTag
+  '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+    BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+    ChainwebVersion, EpochStartTime, FeatureFlags]
+  BlockHash
+</span><a href="#local-6989586621681490067"><span class="hs-identifier hs-var hs-var">mlog</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleLogEntries
+  ChainwebHashTag
+  '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+    BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+    ChainwebVersion, EpochStartTime, FeatureFlags]
+  BlockHash
+-&gt; MerkleLog
+     ChainwebHashTag
+     '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+       BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall u (h :: [*]) b.
+MerkleUniverse u =&gt;
+MerkleLogEntries u h b -&gt; MerkleLog u h b
+</span><a href="Chainweb.Crypto.MerkleLog.html#newMerkleLog"><span class="hs-identifier hs-var">newMerkleLog</span></a></span><span>
+</span><span id="line-173"></span><span>        </span><span class="annot"><span class="annottext">(MerkleLogEntries
+   ChainwebHashTag
+   '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+     BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+     ChainwebVersion, EpochStartTime, FeatureFlags]
+   BlockHash
+ -&gt; MerkleLog
+      ChainwebHashTag
+      '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+        BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+        ChainwebVersion, EpochStartTime, FeatureFlags]
+      BlockHash)
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+       BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+-&gt; MerkleLog
+     ChainwebHashTag
+     '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+       BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Nonce
+</span><a href="#local-6989586621681490069"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-174"></span><span>        </span><span class="annot"><span class="annottext">Nonce
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockCreationTime, BlockHash, HashTarget, BlockPayloadHash,
+       ChainId, BlockWeight, BlockHeight, ChainwebVersion, EpochStartTime,
+       FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[Nonce, BlockCreationTime, BlockHash, HashTarget,
+       BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">BlockCreationTime
+</span><a href="#local-6989586621681490071"><span class="hs-identifier hs-var">ct</span></a></span><span>
+</span><span id="line-175"></span><span>        </span><span class="annot"><span class="annottext">BlockCreationTime
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockHash, HashTarget, BlockPayloadHash, ChainId, BlockWeight,
+       BlockHeight, ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockCreationTime, BlockHash, HashTarget, BlockPayloadHash,
+       ChainId, BlockWeight, BlockHeight, ChainwebVersion, EpochStartTime,
+       FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; BlockHash
+forall p. HasChainId p =&gt; ChainwebVersion -&gt; p -&gt; BlockHash
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisParentBlockHash"><span class="hs-identifier hs-var">genesisParentBlockHash</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490073"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490064"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-176"></span><span>        </span><span class="annot"><span class="annottext">BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[HashTarget, BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockHash, HashTarget, BlockPayloadHash, ChainId, BlockWeight,
+       BlockHeight, ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">HashTarget
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockTarget"><span class="hs-identifier hs-var">genesisBlockTarget</span></a></span><span>
+</span><span id="line-177"></span><span>        </span><span class="annot"><span class="annottext">HashTarget
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[HashTarget, BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; BlockPayloadHash
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockPayloadHash"><span class="hs-identifier hs-var">genesisBlockPayloadHash</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490073"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490064"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-178"></span><span>        </span><span class="annot"><span class="annottext">BlockPayloadHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[ChainId, BlockWeight, BlockHeight, ChainwebVersion,
+       EpochStartTime, FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockPayloadHash, ChainId, BlockWeight, BlockHeight,
+       ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490064"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-179"></span><span>        </span><span class="annot"><span class="annottext">ChainId
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockWeight, BlockHeight, ChainwebVersion, EpochStartTime,
+       FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[ChainId, BlockWeight, BlockHeight, ChainwebVersion,
+       EpochStartTime, FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">HashDifficulty -&gt; BlockWeight
+</span><a href="Chainweb.BlockHeader.html#BlockWeight"><span class="hs-identifier hs-var">BlockWeight</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-180"></span><span>        </span><span class="annot"><span class="annottext">BlockWeight
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockHeight, ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockWeight, BlockHeight, ChainwebVersion, EpochStartTime,
+       FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; BlockHeight
+</span><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-var">BlockHeight</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-181"></span><span>        </span><span class="annot"><span class="annottext">BlockHeight
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[BlockHeight, ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490073"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-182"></span><span>        </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; MerkleLogEntries
+     ChainwebHashTag '[EpochStartTime, FeatureFlags] BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag
+     '[ChainwebVersion, EpochStartTime, FeatureFlags]
+     BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; EpochStartTime
+</span><a href="Chainweb.BlockHeader.html#EpochStartTime"><span class="hs-identifier hs-var">EpochStartTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+</span><a href="#local-6989586621681490070"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-183"></span><span>        </span><span class="annot"><span class="annottext">EpochStartTime
+-&gt; MerkleLogEntries ChainwebHashTag '[FeatureFlags] BlockHash
+-&gt; MerkleLogEntries
+     ChainwebHashTag '[EpochStartTime, FeatureFlags] BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; FeatureFlags
+</span><a href="Chainweb.BlockHeader.html#FeatureFlags"><span class="hs-identifier hs-var">FeatureFlags</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-184"></span><span>        </span><span class="annot"><span class="annottext">FeatureFlags
+-&gt; MerkleLogEntries ChainwebHashTag '[] BlockHash
+-&gt; MerkleLogEntries ChainwebHashTag '[FeatureFlags] BlockHash
+forall u h (t :: [*]) b.
+IsMerkleLogEntry u h =&gt;
+h -&gt; MerkleLogEntries u t b -&gt; MerkleLogEntries u (h : t) b
+</span><a href="Chainweb.Crypto.MerkleLog.html#%3A%2B%3A"><span class="hs-operator hs-var">:+:</span></a></span><span> </span><span class="annot"><span class="annottext">Vector BlockHash -&gt; MerkleLogEntries ChainwebHashTag '[] BlockHash
+forall u b.
+IsMerkleLogEntry u b =&gt;
+Vector b -&gt; MerkleLogEntries u '[] b
+</span><a href="Chainweb.Crypto.MerkleLog.html#MerkleLogBody"><span class="hs-identifier hs-var">MerkleLogBody</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHashRecord -&gt; Vector BlockHash
+</span><a href="Chainweb.BlockHash.html#blockHashRecordToVector"><span class="hs-identifier hs-var">blockHashRecordToVector</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHashRecord
+</span><a href="#local-6989586621681490055"><span class="hs-identifier hs-var">adjParents</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-185"></span><span>    </span><span id="local-6989586621681490055"><span class="annot"><span class="annottext">adjParents :: BlockHashRecord
+</span><a href="#local-6989586621681490055"><span class="hs-identifier hs-var hs-var">adjParents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap ChainId BlockHash -&gt; BlockHashRecord
+</span><a href="Chainweb.BlockHash.html#BlockHashRecord"><span class="hs-identifier hs-var">BlockHashRecord</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMap ChainId BlockHash -&gt; BlockHashRecord)
+-&gt; HashMap ChainId BlockHash -&gt; BlockHashRecord
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[(ChainId, BlockHash)] -&gt; HashMap ChainId BlockHash
+forall k v. (Eq k, Hashable k) =&gt; [(k, v)] -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(ChainId, BlockHash)] -&gt; HashMap ChainId BlockHash)
+-&gt; [(ChainId, BlockHash)] -&gt; HashMap ChainId BlockHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-186"></span><span>        </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681490052"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681490052"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490052"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; BlockHash
+forall p. HasChainId p =&gt; ChainwebVersion -&gt; p -&gt; BlockHash
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisParentBlockHash"><span class="hs-identifier hs-var">genesisParentBlockHash</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490073"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681490052"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; (ChainId, BlockHash))
+-&gt; [ChainId] -&gt; [(ChainId, BlockHash)]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">HashSet ChainId -&gt; [ChainId]
+forall a. HashSet a -&gt; [a]
+</span><span class="hs-identifier hs-var">HS.toList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainGraph -&gt; p -&gt; HashSet ChainId
+forall p. HasChainId p =&gt; ChainGraph -&gt; p -&gt; HashSet ChainId
+</span><a href="Chainweb.Graph.html#adjacentChainIds"><span class="hs-identifier hs-var">adjacentChainIds</span></a></span><span> </span><span class="annot"><span class="annottext">ChainGraph
+</span><a href="#local-6989586621681490066"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621681490072"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-187"></span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- | This is an expensive call, try not to repeat it.</span><span>
+</span><span id="line-189"></span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeaders"><span class="hs-identifier hs-type">genesisBlockHeaders</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-190"></span><span id="genesisBlockHeaders"><span class="annot"><span class="annottext">genesisBlockHeaders :: ChainwebVersion -&gt; HashMap ChainId BlockHeader
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeaders"><span class="hs-identifier hs-var hs-var">genesisBlockHeaders</span></a></span></span><span> </span><span id="local-6989586621681490048"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681490048"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(ChainId, BlockHeader)] -&gt; HashMap ChainId BlockHeader
+forall k v. (Eq k, Hashable k) =&gt; [(k, v)] -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.fromList</span></span><span>
+</span><span id="line-191"></span><span>    </span><span class="annot"><span class="annottext">([(ChainId, BlockHeader)] -&gt; HashMap ChainId BlockHeader)
+-&gt; (HashSet ChainId -&gt; [(ChainId, BlockHeader)])
+-&gt; HashSet ChainId
+-&gt; HashMap ChainId BlockHeader
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; (ChainId, BlockHeader))
+-&gt; [ChainId] -&gt; [(ChainId, BlockHeader)]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainId -&gt; ChainId
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; ChainId)
+-&gt; (ChainId -&gt; BlockHeader) -&gt; ChainId -&gt; (ChainId, BlockHeader)
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; BlockHeader
+forall p. HasChainId p =&gt; ChainwebVersion -&gt; p -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader"><span class="hs-identifier hs-var">genesisBlockHeader</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490048"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-192"></span><span>    </span><span class="annot"><span class="annottext">([ChainId] -&gt; [(ChainId, BlockHeader)])
+-&gt; (HashSet ChainId -&gt; [ChainId])
+-&gt; HashSet ChainId
+-&gt; [(ChainId, BlockHeader)]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">HashSet ChainId -&gt; [ChainId]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span>
+</span><span id="line-193"></span><span>    </span><span class="annot"><span class="annottext">(HashSet ChainId -&gt; HashMap ChainId BlockHeader)
+-&gt; HashSet ChainId -&gt; HashMap ChainId BlockHeader
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; HashSet ChainId
+forall v. HasChainwebVersion v =&gt; v -&gt; HashSet ChainId
+</span><a href="Chainweb.Version.html#chainIds"><span class="hs-identifier hs-var">chainIds</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681490048"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-194"></span></pre></body></html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-orphans #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Module: Chainweb.WebBlockHeaderDB</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.WebBlockHeaderDB</span><span>
+</span><span id="line-17"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#mkWebBlockHeaderDb"><span class="hs-identifier">mkWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#initWebBlockHeaderDb"><span class="hs-identifier">initWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#getWebBlockHeaderDb"><span class="hs-identifier">getWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#webBlockHeaderDb"><span class="hs-identifier">webBlockHeaderDb</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#webEntries"><span class="hs-identifier">webEntries</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#lookupWebBlockHeaderDb"><span class="hs-identifier">lookupWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#lookupAdjacentParentHeader"><span class="hs-identifier">lookupAdjacentParentHeader</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#lookupParentHeader"><span class="hs-identifier">lookupParentHeader</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#insertWebBlockHeaderDb"><span class="hs-identifier">insertWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#blockAdjacentParentHeaders"><span class="hs-identifier">blockAdjacentParentHeaders</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#checkBlockHeaderGraph"><span class="hs-identifier">checkBlockHeaderGraph</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#checkBlockAdjacentParents"><span class="hs-identifier">checkBlockAdjacentParents</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Of</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashSet</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HS</span></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Reflection</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Streaming.Prelude</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html"><span class="hs-identifier">Chainweb.BlockHeader.Genesis</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader"><span class="hs-identifier">genesisBlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.html"><span class="hs-identifier">Chainweb.BlockHeaderDB</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Graph.html"><span class="hs-identifier">Chainweb.Graph</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html"><span class="hs-identifier">Chainweb.TreeDB</span></a></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html"><span class="hs-identifier">Chainweb.WebBlockHeaderDB.Types</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS.RocksDB</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#webBlockHeaderDb"><span class="hs-identifier hs-type">webBlockHeaderDb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Getter</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span id="webBlockHeaderDb"><span class="annot"><span class="annottext">webBlockHeaderDb :: (HashMap ChainId BlockHeaderDb
+ -&gt; f (HashMap ChainId BlockHeaderDb))
+-&gt; WebBlockHeaderDb -&gt; f WebBlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.html#webBlockHeaderDb"><span class="hs-identifier hs-var hs-var">webBlockHeaderDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(WebBlockHeaderDb -&gt; HashMap ChainId BlockHeaderDb)
+-&gt; (HashMap ChainId BlockHeaderDb
+    -&gt; f (HashMap ChainId BlockHeaderDb))
+-&gt; WebBlockHeaderDb
+-&gt; f WebBlockHeaderDb
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; HashMap ChainId BlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#_webBlockHeaderDb"><span class="hs-identifier hs-var hs-var">_webBlockHeaderDb</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- | Returns all blocks in all block header databases.</span><span>
+</span><span id="line-62"></span><span class="hs-comment">--</span><span>
+</span><span id="line-63"></span><span id="local-6989586621681491369"><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#webEntries"><span class="hs-identifier hs-type">webEntries</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">S.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681491369"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681491369"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-64"></span><span id="webEntries"><span class="annot"><span class="annottext">webEntries :: WebBlockHeaderDb -&gt; (Stream (Of BlockHeader) IO () -&gt; IO a) -&gt; IO a
+</span><a href="Chainweb.WebBlockHeaderDB.html#webEntries"><span class="hs-identifier hs-var hs-var">webEntries</span></a></span></span><span> </span><span id="local-6989586621681491368"><span class="annot"><span class="annottext">db :: WebBlockHeaderDb
+</span><a href="#local-6989586621681491368"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681491367"><span class="annot"><span class="annottext">f :: Stream (Of BlockHeader) IO () -&gt; IO a
+</span><a href="#local-6989586621681491367"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[BlockHeaderDb] -&gt; Stream (Of BlockHeader) IO () -&gt; IO a
+</span><a href="#local-6989586621681491366"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting [BlockHeaderDb] WebBlockHeaderDb [BlockHeaderDb]
+-&gt; WebBlockHeaderDb -&gt; [BlockHeaderDb]
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(HashMap ChainId BlockHeaderDb
+ -&gt; Const [BlockHeaderDb] (HashMap ChainId BlockHeaderDb))
+-&gt; WebBlockHeaderDb -&gt; Const [BlockHeaderDb] WebBlockHeaderDb
+Getter WebBlockHeaderDb (HashMap ChainId BlockHeaderDb)
+</span><a href="Chainweb.WebBlockHeaderDB.html#webBlockHeaderDb"><span class="hs-identifier hs-var">webBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">((HashMap ChainId BlockHeaderDb
+  -&gt; Const [BlockHeaderDb] (HashMap ChainId BlockHeaderDb))
+ -&gt; WebBlockHeaderDb -&gt; Const [BlockHeaderDb] WebBlockHeaderDb)
+-&gt; (([BlockHeaderDb] -&gt; Const [BlockHeaderDb] [BlockHeaderDb])
+    -&gt; HashMap ChainId BlockHeaderDb
+    -&gt; Const [BlockHeaderDb] (HashMap ChainId BlockHeaderDb))
+-&gt; Getting [BlockHeaderDb] WebBlockHeaderDb [BlockHeaderDb]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(HashMap ChainId BlockHeaderDb -&gt; [BlockHeaderDb])
+-&gt; ([BlockHeaderDb] -&gt; Const [BlockHeaderDb] [BlockHeaderDb])
+-&gt; HashMap ChainId BlockHeaderDb
+-&gt; Const [BlockHeaderDb] (HashMap ChainId BlockHeaderDb)
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="annot"><span class="annottext">HashMap ChainId BlockHeaderDb -&gt; [BlockHeaderDb]
+forall k v. HashMap k v -&gt; [v]
+</span><span class="hs-identifier hs-var">HM.elems</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb
+</span><a href="#local-6989586621681491368"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Stream (Of BlockHeader) IO ()
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621681491366"><span class="annot"><span class="annottext">go :: [BlockHeaderDb] -&gt; Stream (Of BlockHeader) IO () -&gt; IO a
+</span><a href="#local-6989586621681491366"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span id="local-6989586621681491362"><span class="annot"><span class="annottext">s :: Stream (Of BlockHeader) IO ()
+</span><a href="#local-6989586621681491362"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of BlockHeader) IO () -&gt; IO a
+</span><a href="#local-6989586621681491367"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Stream (Of BlockHeader) IO ()
+</span><a href="#local-6989586621681491362"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><a href="#local-6989586621681491366"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681491361"><span class="annot"><span class="annottext">h :: BlockHeaderDb
+</span><a href="#local-6989586621681491361"><span class="hs-identifier hs-var">h</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621681491360"><span class="annot"><span class="annottext">t :: [BlockHeaderDb]
+</span><a href="#local-6989586621681491360"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681491359"><span class="annot"><span class="annottext">s :: Stream (Of BlockHeader) IO ()
+</span><a href="#local-6989586621681491359"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+-&gt; Maybe (NextItem (DbKey BlockHeaderDb))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbEntry BlockHeaderDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+forall db a.
+TreeDb db =&gt;
+db
+-&gt; Maybe (NextItem (DbKey db))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbEntry db)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.TreeDB.html#entries"><span class="hs-identifier hs-var">entries</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681491361"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem (DbKey BlockHeaderDb))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Maybe MinRank
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Maybe MaxRank
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">((Stream (Of (DbEntry BlockHeaderDb)) IO (Natural, Eos) -&gt; IO a)
+ -&gt; IO a)
+-&gt; (Stream (Of (DbEntry BlockHeaderDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681491357"><span class="annot"><span class="annottext">x :: Stream (Of (DbEntry BlockHeaderDb)) IO (Natural, Eos)
+</span><a href="#local-6989586621681491357"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-68"></span><span>        </span><span class="annot"><span class="annottext">[BlockHeaderDb] -&gt; Stream (Of BlockHeader) IO () -&gt; IO a
+</span><a href="#local-6989586621681491366"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">[BlockHeaderDb]
+</span><a href="#local-6989586621681491360"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">()
+-&gt; Stream (Of BlockHeader) IO ((), (Natural, Eos))
+-&gt; Stream (Of BlockHeader) IO ()
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; BlockCreationTime)
+-&gt; Stream (Of BlockHeader) IO ()
+-&gt; Stream (Of BlockHeader) IO (Natural, Eos)
+-&gt; Stream (Of BlockHeader) IO ((), (Natural, Eos))
+forall (m :: * -&gt; *) b a r s.
+(Monad m, Ord b) =&gt;
+(a -&gt; b)
+-&gt; Stream (Of a) m r -&gt; Stream (Of a) m s -&gt; Stream (Of a) m (r, s)
+</span><span class="hs-identifier hs-var">S.mergeOn</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#_blockCreationTime"><span class="hs-identifier hs-var hs-var">_blockCreationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Stream (Of BlockHeader) IO ()
+</span><a href="#local-6989586621681491359"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbEntry BlockHeaderDb)) IO (Natural, Eos)
+Stream (Of BlockHeader) IO (Natural, Eos)
+</span><a href="#local-6989586621681491357"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>            </span><span class="hs-comment">-- FIXME: should we include the rank in the order?</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">type</span><span> </span><span class="hs-keyword">instance</span><span> </span><span id="Index"><span class="annot"><span class="hs-identifier hs-var">Index</span></span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">type</span><span> </span><span class="hs-keyword">instance</span><span> </span><span id="IxValue"><span class="annot"><span class="hs-identifier hs-var">IxValue</span></span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#IxedGet"><span class="hs-identifier hs-type">IxedGet</span></a></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-75"></span><span>    </span><span id="local-6989586621681491351"><span class="annot"><span class="annottext">ixg :: Index WebBlockHeaderDb
+-&gt; Fold WebBlockHeaderDb (IxValue WebBlockHeaderDb)
+</span><a href="Chainweb.Utils.html#ixg"><span class="hs-identifier hs-var hs-var hs-var hs-var">ixg</span></a></span></span><span> </span><span id="local-6989586621681491349"><span class="annot"><span class="annottext">i :: Index WebBlockHeaderDb
+</span><a href="#local-6989586621681491349"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(HashMap ChainId BlockHeaderDb
+ -&gt; f (HashMap ChainId BlockHeaderDb))
+-&gt; WebBlockHeaderDb -&gt; f WebBlockHeaderDb
+Getter WebBlockHeaderDb (HashMap ChainId BlockHeaderDb)
+</span><a href="Chainweb.WebBlockHeaderDB.html#webBlockHeaderDb"><span class="hs-identifier hs-var">webBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">((HashMap ChainId BlockHeaderDb
+  -&gt; f (HashMap ChainId BlockHeaderDb))
+ -&gt; WebBlockHeaderDb -&gt; f WebBlockHeaderDb)
+-&gt; ((BlockHeaderDb -&gt; f BlockHeaderDb)
+    -&gt; HashMap ChainId BlockHeaderDb
+    -&gt; f (HashMap ChainId BlockHeaderDb))
+-&gt; (BlockHeaderDb -&gt; f BlockHeaderDb)
+-&gt; WebBlockHeaderDb
+-&gt; f WebBlockHeaderDb
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Index (HashMap ChainId BlockHeaderDb)
+-&gt; Traversal'
+     (HashMap ChainId BlockHeaderDb)
+     (IxValue (HashMap ChainId BlockHeaderDb))
+forall m. Ixed m =&gt; Index m -&gt; Traversal' m (IxValue m)
+</span><span class="hs-identifier hs-var">ix</span></span><span> </span><span class="annot"><span class="annottext">Index (HashMap ChainId BlockHeaderDb)
+Index WebBlockHeaderDb
+</span><a href="#local-6989586621681491349"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#ixg"><span class="hs-pragma hs-type">ixg</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#initWebBlockHeaderDb"><span class="hs-identifier hs-type">initWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-82"></span><span id="initWebBlockHeaderDb"><span class="annot"><span class="annottext">initWebBlockHeaderDb :: RocksDb -&gt; ChainwebVersion -&gt; IO WebBlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.html#initWebBlockHeaderDb"><span class="hs-identifier hs-var hs-var">initWebBlockHeaderDb</span></a></span></span><span> </span><span id="local-6989586621681491347"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681491347"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681491346"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681491346"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap ChainId BlockHeaderDb
+-&gt; ChainwebVersion -&gt; WebBlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-var">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">(HashMap ChainId BlockHeaderDb
+ -&gt; ChainwebVersion -&gt; WebBlockHeaderDb)
+-&gt; IO (HashMap ChainId BlockHeaderDb)
+-&gt; IO (ChainwebVersion -&gt; WebBlockHeaderDb)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; () -&gt; IO BlockHeaderDb)
+-&gt; HashMap ChainId () -&gt; IO (HashMap ChainId BlockHeaderDb)
+forall i (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(TraversableWithIndex i t, Applicative f) =&gt;
+(i -&gt; a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">itraverse</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681491342"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681491342"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Configuration -&gt; IO BlockHeaderDb
+</span><a href="Chainweb.BlockHeaderDB.html#initBlockHeaderDb"><span class="hs-identifier hs-var">initBlockHeaderDb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainId -&gt; RocksDb -&gt; Configuration
+</span><a href="#local-6989586621681491340"><span class="hs-identifier hs-var">conf</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681491342"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681491347"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashSet ChainId -&gt; HashMap ChainId ()
+forall a. HashSet a -&gt; HashMap a ()
+</span><span class="hs-identifier hs-var">HS.toMap</span></span><span> </span><span class="annot"><span class="annottext">(HashSet ChainId -&gt; HashMap ChainId ())
+-&gt; HashSet ChainId -&gt; HashMap ChainId ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; HashSet ChainId
+forall v. HasChainwebVersion v =&gt; v -&gt; HashSet ChainId
+</span><a href="Chainweb.Version.html#chainIds"><span class="hs-identifier hs-var">chainIds</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681491346"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">IO (ChainwebVersion -&gt; WebBlockHeaderDb)
+-&gt; IO ChainwebVersion -&gt; IO WebBlockHeaderDb
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; IO ChainwebVersion
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681491346"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-85"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-86"></span><span>    </span><span id="local-6989586621681491340"><span class="annot"><span class="annottext">conf :: ChainId -&gt; RocksDb -&gt; Configuration
+</span><a href="#local-6989586621681491340"><span class="hs-identifier hs-var hs-var">conf</span></a></span></span><span> </span><span id="local-6989586621681491337"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681491337"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; RocksDb -&gt; Configuration
+</span><a href="Chainweb.BlockHeaderDB.html#Configuration"><span class="hs-identifier hs-var">Configuration</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; BlockHeader
+forall p. HasChainId p =&gt; ChainwebVersion -&gt; p -&gt; BlockHeader
+</span><a href="Chainweb.BlockHeader.Genesis.html#genesisBlockHeader"><span class="hs-identifier hs-var">genesisBlockHeader</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681491346"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681491337"><span class="hs-identifier hs-var">cid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- initWebBlockHeaderDb</span><span>
+</span><span id="line-89"></span><span class="hs-comment">--     :: ChainwebVersion</span><span>
+</span><span id="line-90"></span><span class="hs-comment">--     -&gt; IO WebBlockHeaderDb</span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- initWebBlockHeaderDb v = WebBlockHeaderDb</span><span>
+</span><span id="line-92"></span><span class="hs-comment">--     &lt;$&gt; itraverse (\cid _ -&gt; initBlockHeaderDb (conf cid)) (HS.toMap $ chainIds v)</span><span>
+</span><span id="line-93"></span><span class="hs-comment">--     &lt;*&gt; pure v</span><span>
+</span><span id="line-94"></span><span class="hs-comment">--   where</span><span>
+</span><span id="line-95"></span><span class="hs-comment">--     conf cid = Configuration (genesisBlockHeader v cid)</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- | FIXME: this needs some consistency checks</span><span>
+</span><span id="line-98"></span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#mkWebBlockHeaderDb"><span class="hs-identifier hs-type">mkWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-103"></span><span id="mkWebBlockHeaderDb"><span class="annot"><span class="annottext">mkWebBlockHeaderDb :: ChainwebVersion
+-&gt; HashMap ChainId BlockHeaderDb -&gt; WebBlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.html#mkWebBlockHeaderDb"><span class="hs-identifier hs-var hs-var">mkWebBlockHeaderDb</span></a></span></span><span> </span><span id="local-6989586621681491335"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681491335"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681491334"><span class="annot"><span class="annottext">m :: HashMap ChainId BlockHeaderDb
+</span><a href="#local-6989586621681491334"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap ChainId BlockHeaderDb
+-&gt; ChainwebVersion -&gt; WebBlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-var">WebBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap ChainId BlockHeaderDb
+</span><a href="#local-6989586621681491334"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681491335"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span id="local-6989586621681491402"><span id="local-6989586621681491403"><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#getWebBlockHeaderDb"><span class="hs-identifier hs-type">getWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681491403"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681491402"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Given</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681491402"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681491403"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span></span></span><span>
+</span><span id="line-111"></span><span id="getWebBlockHeaderDb"><span class="annot"><span class="annottext">getWebBlockHeaderDb :: p -&gt; m BlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.html#getWebBlockHeaderDb"><span class="hs-identifier hs-var hs-var">getWebBlockHeaderDb</span></a></span></span><span> </span><span id="local-6989586621681491333"><span class="annot"><span class="annottext">p :: p
+</span><a href="#local-6989586621681491333"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; p -&gt; m ()
+forall (m :: * -&gt; *) g p.
+(MonadThrow m, HasChainGraph g, HasChainId p) =&gt;
+g -&gt; p -&gt; m ()
+</span><a href="Chainweb.Graph.html#checkWebChainId"><span class="hs-identifier hs-var">checkWebChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; WebBlockHeaderDb
+forall a. Given a =&gt; a
+</span><span class="hs-identifier hs-var">given</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621681491333"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="annottext">BlockHeaderDb -&gt; m BlockHeaderDb
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(BlockHeaderDb -&gt; m BlockHeaderDb)
+-&gt; BlockHeaderDb -&gt; m BlockHeaderDb
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; HashMap ChainId BlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.Types.html#_webBlockHeaderDb"><span class="hs-identifier hs-var hs-var">_webBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb
+forall a. Given a =&gt; a
+</span><span class="hs-identifier hs-var">given</span></span><span> </span><span class="annot"><span class="annottext">HashMap ChainId BlockHeaderDb -&gt; ChainId -&gt; BlockHeaderDb
+forall k v. (Eq k, Hashable k) =&gt; HashMap k v -&gt; k -&gt; v
+</span><span class="hs-operator hs-var">HM.!</span></span><span> </span><span class="annot"><span class="annottext">p -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621681491333"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#lookupWebBlockHeaderDb"><span class="hs-identifier hs-type">lookupWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Given</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-120"></span><span id="lookupWebBlockHeaderDb"><span class="annot"><span class="annottext">lookupWebBlockHeaderDb :: ChainId -&gt; BlockHash -&gt; IO BlockHeader
+</span><a href="Chainweb.WebBlockHeaderDB.html#lookupWebBlockHeaderDb"><span class="hs-identifier hs-var hs-var">lookupWebBlockHeaderDb</span></a></span></span><span> </span><span id="local-6989586621681491327"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681491327"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621681491326"><span class="annot"><span class="annottext">h :: BlockHash
+</span><a href="#local-6989586621681491326"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainId -&gt; IO ()
+forall (m :: * -&gt; *) g p.
+(MonadThrow m, HasChainGraph g, HasChainId p) =&gt;
+g -&gt; p -&gt; m ()
+</span><a href="Chainweb.Graph.html#checkWebChainId"><span class="hs-identifier hs-var">checkWebChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; WebBlockHeaderDb
+forall a. Given a =&gt; a
+</span><span class="hs-identifier hs-var">given</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681491327"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-122"></span><span>    </span><span id="local-6989586621681491325"><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681491325"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; IO BlockHeaderDb
+forall (m :: * -&gt; *) p.
+(MonadThrow m, HasChainId p, Given WebBlockHeaderDb) =&gt;
+p -&gt; m BlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.html#getWebBlockHeaderDb"><span class="hs-identifier hs-var">getWebBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681491327"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="annot"><span class="annottext">BlockHeaderDb -&gt; DbKey BlockHeaderDb -&gt; IO (DbEntry BlockHeaderDb)
+forall db. TreeDb db =&gt; db -&gt; DbKey db -&gt; IO (DbEntry db)
+</span><a href="Chainweb.TreeDB.html#lookupM"><span class="hs-identifier hs-var">lookupM</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681491325"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">DbKey BlockHeaderDb
+BlockHash
+</span><a href="#local-6989586621681491326"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#blockAdjacentParentHeaders"><span class="hs-identifier hs-type">blockAdjacentParentHeaders</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Given</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span id="blockAdjacentParentHeaders"><span class="annot"><span class="annottext">blockAdjacentParentHeaders :: BlockHeader -&gt; IO (HashMap ChainId BlockHeader)
+</span><a href="Chainweb.WebBlockHeaderDB.html#blockAdjacentParentHeaders"><span class="hs-identifier hs-var hs-var">blockAdjacentParentHeaders</span></a></span></span><span> </span><span id="local-6989586621681491323"><span class="annot"><span class="annottext">h :: BlockHeader
+</span><a href="#local-6989586621681491323"><span class="hs-identifier hs-var">h</span></a></span></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; BlockHash -&gt; IO BlockHeader)
+-&gt; HashMap ChainId BlockHash -&gt; IO (HashMap ChainId BlockHeader)
+forall i (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(TraversableWithIndex i t, Applicative f) =&gt;
+(i -&gt; a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">itraverse</span></span><span> </span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; ChainId -&gt; BlockHash -&gt; IO BlockHeader
+ChainId -&gt; BlockHash -&gt; IO BlockHeader
+</span><a href="Chainweb.WebBlockHeaderDB.html#lookupWebBlockHeaderDb"><span class="hs-identifier hs-var">lookupWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="annot"><span class="annottext">(HashMap ChainId BlockHash -&gt; IO (HashMap ChainId BlockHeader))
+-&gt; HashMap ChainId BlockHash -&gt; IO (HashMap ChainId BlockHeader)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHashRecord -&gt; HashMap ChainId BlockHash
+</span><a href="Chainweb.BlockHash.html#_getBlockHashRecord"><span class="hs-identifier hs-var hs-var">_getBlockHashRecord</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="annot"><span class="annottext">(BlockHashRecord -&gt; HashMap ChainId BlockHash)
+-&gt; BlockHashRecord -&gt; HashMap ChainId BlockHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHashRecord
+</span><a href="Chainweb.BlockHeader.html#_blockAdjacentHashes"><span class="hs-identifier hs-var hs-var">_blockAdjacentHashes</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491323"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#lookupAdjacentParentHeader"><span class="hs-identifier hs-type">lookupAdjacentParentHeader</span></a></span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Given</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-139"></span><span id="lookupAdjacentParentHeader"><span class="annot"><span class="annottext">lookupAdjacentParentHeader :: BlockHeader -&gt; ChainId -&gt; IO BlockHeader
+</span><a href="Chainweb.WebBlockHeaderDB.html#lookupAdjacentParentHeader"><span class="hs-identifier hs-var hs-var">lookupAdjacentParentHeader</span></a></span></span><span> </span><span id="local-6989586621681491320"><span class="annot"><span class="annottext">h :: BlockHeader
+</span><a href="#local-6989586621681491320"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span id="local-6989586621681491319"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681491319"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-140"></span><span>    </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; BlockHeader -&gt; IO ()
+forall (m :: * -&gt; *) g p.
+(MonadThrow m, HasChainGraph g, HasChainId p) =&gt;
+g -&gt; p -&gt; m ()
+</span><a href="Chainweb.Graph.html#checkWebChainId"><span class="hs-identifier hs-var">checkWebChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; WebBlockHeaderDb
+forall a. Given a =&gt; a
+</span><span class="hs-identifier hs-var">given</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491320"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681491318"><span class="annot"><span class="annottext">ph :: BlockHash
+</span><a href="#local-6989586621681491318"><span class="hs-identifier hs-var hs-var">ph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491320"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+-&gt; Getting (Endo BlockHash) BlockHeader BlockHash -&gt; BlockHash
+forall s a. HasCallStack =&gt; s -&gt; Getting (Endo a) s a -&gt; a
+</span><span class="hs-operator hs-var">^?!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockHashRecord -&gt; Const (Endo BlockHash) BlockHashRecord)
+-&gt; BlockHeader -&gt; Const (Endo BlockHash) BlockHeader
+Lens' BlockHeader BlockHashRecord
+</span><a href="Chainweb.BlockHeader.html#blockAdjacentHashes"><span class="hs-identifier hs-var">blockAdjacentHashes</span></a></span><span> </span><span class="annot"><span class="annottext">((BlockHashRecord -&gt; Const (Endo BlockHash) BlockHashRecord)
+ -&gt; BlockHeader -&gt; Const (Endo BlockHash) BlockHeader)
+-&gt; ((BlockHash -&gt; Const (Endo BlockHash) BlockHash)
+    -&gt; BlockHashRecord -&gt; Const (Endo BlockHash) BlockHashRecord)
+-&gt; Getting (Endo BlockHash) BlockHeader BlockHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Index BlockHashRecord
+-&gt; Traversal' BlockHashRecord (IxValue BlockHashRecord)
+forall m. Ixed m =&gt; Index m -&gt; Traversal' m (IxValue m)
+</span><span class="hs-identifier hs-var">ix</span></span><span> </span><span class="annot"><span class="annottext">Index BlockHashRecord
+ChainId
+</span><a href="#local-6989586621681491319"><span class="hs-identifier hs-var">cid</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>    </span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; ChainId -&gt; BlockHash -&gt; IO BlockHeader
+ChainId -&gt; BlockHash -&gt; IO BlockHeader
+</span><a href="Chainweb.WebBlockHeaderDB.html#lookupWebBlockHeaderDb"><span class="hs-identifier hs-var">lookupWebBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681491319"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHash
+</span><a href="#local-6989586621681491318"><span class="hs-identifier hs-var">ph</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#lookupParentHeader"><span class="hs-identifier hs-type">lookupParentHeader</span></a></span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Given</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-146"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-147"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-148"></span><span id="lookupParentHeader"><span class="annot"><span class="annottext">lookupParentHeader :: BlockHeader -&gt; IO BlockHeader
+</span><a href="Chainweb.WebBlockHeaderDB.html#lookupParentHeader"><span class="hs-identifier hs-var hs-var">lookupParentHeader</span></a></span></span><span> </span><span id="local-6989586621681491315"><span class="annot"><span class="annottext">h :: BlockHeader
+</span><a href="#local-6989586621681491315"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-149"></span><span>    </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; BlockHeader -&gt; IO ()
+forall (m :: * -&gt; *) g p.
+(MonadThrow m, HasChainGraph g, HasChainId p) =&gt;
+g -&gt; p -&gt; m ()
+</span><a href="Chainweb.Graph.html#checkWebChainId"><span class="hs-identifier hs-var">checkWebChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; WebBlockHeaderDb
+forall a. Given a =&gt; a
+</span><span class="hs-identifier hs-var">given</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491315"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; ChainId -&gt; BlockHash -&gt; IO BlockHeader
+ChainId -&gt; BlockHash -&gt; IO BlockHeader
+</span><a href="Chainweb.WebBlockHeaderDB.html#lookupWebBlockHeaderDb"><span class="hs-identifier hs-var">lookupWebBlockHeaderDb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491315"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHash
+</span><a href="Chainweb.BlockHeader.html#_blockParent"><span class="hs-identifier hs-var hs-var">_blockParent</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491315"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#insertWebBlockHeaderDb"><span class="hs-identifier hs-type">insertWebBlockHeaderDb</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Given</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span id="insertWebBlockHeaderDb"><span class="annot"><span class="annottext">insertWebBlockHeaderDb :: BlockHeader -&gt; IO ()
+</span><a href="Chainweb.WebBlockHeaderDB.html#insertWebBlockHeaderDb"><span class="hs-identifier hs-var hs-var">insertWebBlockHeaderDb</span></a></span></span><span> </span><span id="local-6989586621681491313"><span class="annot"><span class="annottext">h :: BlockHeader
+</span><a href="#local-6989586621681491313"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-157"></span><span>    </span><span id="local-6989586621681491312"><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681491312"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; IO BlockHeaderDb
+forall (m :: * -&gt; *) p.
+(MonadThrow m, HasChainId p, Given WebBlockHeaderDb) =&gt;
+p -&gt; m BlockHeaderDb
+</span><a href="Chainweb.WebBlockHeaderDB.html#getWebBlockHeaderDb"><span class="hs-identifier hs-var">getWebBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491313"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt; BlockHeader -&gt; IO ()
+BlockHeader -&gt; IO ()
+</span><a href="Chainweb.WebBlockHeaderDB.html#checkBlockAdjacentParents"><span class="hs-identifier hs-var">checkBlockAdjacentParents</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491313"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-159"></span><span>    </span><span class="annot"><span class="annottext">BlockHeaderDb -&gt; DbEntry BlockHeaderDb -&gt; IO ()
+forall db. TreeDb db =&gt; db -&gt; DbEntry db -&gt; IO ()
+</span><a href="Chainweb.TreeDB.html#insert"><span class="hs-identifier hs-var">insert</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681491312"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">DbEntry BlockHeaderDb
+BlockHeader
+</span><a href="#local-6989586621681491313"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- Checks and Properties</span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="hs-comment">-- | Given a 'ChainGraph' @g@, @checkBlockHeaderGraph h@ checks that the</span><span>
+</span><span id="line-165"></span><span class="hs-comment">-- @_chainId h@ is a vertex in @g@ and that the adjacent hashes of @h@</span><span>
+</span><span id="line-166"></span><span class="hs-comment">-- correspond exactly to the adjacent vertices of @h@ in @g@.</span><span>
+</span><span id="line-167"></span><span class="hs-comment">--</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- TODO: move this to &quot;Chainweb.BlockHeader&quot;?</span><span>
+</span><span id="line-169"></span><span class="hs-comment">--</span><span>
+</span><span id="line-170"></span><span id="local-6989586621681491310"><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#checkBlockHeaderGraph"><span class="hs-identifier hs-type">checkBlockHeaderGraph</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681491310"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681491310"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-174"></span><span id="checkBlockHeaderGraph"><span class="annot"><span class="annottext">checkBlockHeaderGraph :: BlockHeader -&gt; m ()
+</span><a href="Chainweb.WebBlockHeaderDB.html#checkBlockHeaderGraph"><span class="hs-identifier hs-var hs-var">checkBlockHeaderGraph</span></a></span></span><span> </span><span id="local-6989586621681491309"><span class="annot"><span class="annottext">b :: BlockHeader
+</span><a href="#local-6989586621681491309"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m (HashSet ChainId) -&gt; m ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span>
+</span><span id="line-175"></span><span>    </span><span class="annot"><span class="annottext">(m (HashSet ChainId) -&gt; m ()) -&gt; m (HashSet ChainId) -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+-&gt; BlockHeader -&gt; Expected (HashSet ChainId) -&gt; m (HashSet ChainId)
+forall (m :: * -&gt; *) g cid adj.
+(MonadThrow m, HasChainGraph g, HasChainId cid, HasChainId adj) =&gt;
+g -&gt; cid -&gt; Expected (HashSet adj) -&gt; m (HashSet adj)
+</span><a href="Chainweb.Graph.html#checkAdjacentChainIds"><span class="hs-identifier hs-var">checkAdjacentChainIds</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491309"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491309"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">(Expected (HashSet ChainId) -&gt; m (HashSet ChainId))
+-&gt; Expected (HashSet ChainId) -&gt; m (HashSet ChainId)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HashSet ChainId -&gt; Expected (HashSet ChainId)
+forall a. a -&gt; Expected a
+</span><a href="Chainweb.Utils.html#Expected"><span class="hs-identifier hs-var">Expected</span></a></span><span> </span><span class="annot"><span class="annottext">(HashSet ChainId -&gt; Expected (HashSet ChainId))
+-&gt; HashSet ChainId -&gt; Expected (HashSet ChainId)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; HashSet ChainId
+</span><a href="Chainweb.BlockHeader.html#_blockAdjacentChainIds"><span class="hs-identifier hs-var">_blockAdjacentChainIds</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681491309"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- | Given a 'WebBlockHeaderDb' @db@, @checkBlockAdjacentParents h@ checks that</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- all referenced adjacent parents block headers exist in @db@.</span><span>
+</span><span id="line-179"></span><span class="hs-comment">--</span><span>
+</span><span id="line-180"></span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html#checkBlockAdjacentParents"><span class="hs-identifier hs-type">checkBlockAdjacentParents</span></a></span><span>
+</span><span id="line-181"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Given</span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-182"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-183"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-184"></span><span id="checkBlockAdjacentParents"><span class="annot"><span class="annottext">checkBlockAdjacentParents :: BlockHeader -&gt; IO ()
+</span><a href="Chainweb.WebBlockHeaderDB.html#checkBlockAdjacentParents"><span class="hs-identifier hs-var hs-var">checkBlockAdjacentParents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (HashMap ChainId BlockHeader) -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO (HashMap ChainId BlockHeader) -&gt; IO ())
+-&gt; (BlockHeader -&gt; IO (HashMap ChainId BlockHeader))
+-&gt; BlockHeader
+-&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Given WebBlockHeaderDb =&gt;
+BlockHeader -&gt; IO (HashMap ChainId BlockHeader)
+BlockHeader -&gt; IO (HashMap ChainId BlockHeader)
+</span><a href="Chainweb.WebBlockHeaderDB.html#blockAdjacentParentHeaders"><span class="hs-identifier hs-var">blockAdjacentParentHeaders</span></a></span><span>
+</span><span id="line-185"></span></pre></body></html>

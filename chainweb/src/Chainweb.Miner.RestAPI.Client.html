@@ -1,0 +1,105 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Module: Chainweb.Miner.RestAPI.Client</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Maintainer: Colin Woodbury &lt;colin@kadena.io&gt;</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Miner.RestAPI.Client</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Miner.RestAPI.Client.html#workClient"><span class="hs-identifier">workClient</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.RestAPI.Client.html#solvedClient"><span class="hs-identifier">solvedClient</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Types</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Method</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.API</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ClientM</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Response</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">client</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html"><span class="hs-identifier">Chainweb.Miner.Core</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier">ChainBytes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier">HeaderBytes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier">WorkBytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html"><span class="hs-identifier">Chainweb.Miner.Pact</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier">Miner</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.RestAPI.html"><span class="hs-identifier">Chainweb.Miner.RestAPI</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.RestAPI.html#miningApi"><span class="hs-identifier">miningApi</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Singletons.html"><span class="hs-identifier">Data.Singletons</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- -----------------------------------------------------------------------------</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- Mining Results</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="annot"><a href="Chainweb.Miner.RestAPI.Client.html#workClient"><span class="hs-identifier hs-type">workClient</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-type">WorkBytes</span></a></span><span>
+</span><span id="line-36"></span><span id="workClient"><span class="annot"><span class="annottext">workClient :: ChainwebVersion -&gt; Maybe ChainId -&gt; Miner -&gt; ClientM WorkBytes
+</span><a href="Chainweb.Miner.RestAPI.Client.html#workClient"><span class="hs-identifier hs-var hs-var">workClient</span></a></span></span><span> </span><span id="local-6989586621681496994"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681496994"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681496993"><span class="annot"><span class="annottext">mcid :: Maybe ChainId
+</span><a href="#local-6989586621681496993"><span class="hs-identifier hs-var">mcid</span></a></span></span><span> </span><span id="local-6989586621681496992"><span class="annot"><span class="annottext">m :: Miner
+</span><a href="#local-6989586621681496992"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; (Maybe ChainId -&gt; Miner -&gt; ClientM WorkBytes)
+   :&lt;|&gt; ((HeaderBytes -&gt; ClientM NoContent)
+         :&lt;|&gt; (ChainBytes -&gt; Method -&gt; ClientM Response))
+</span><a href="Chainweb.Miner.RestAPI.Client.html#clients"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681496994"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621681496990"><span class="annot"><span class="annottext">f :: Maybe ChainId -&gt; Miner -&gt; ClientM WorkBytes
+</span><a href="#local-6989586621681496990"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&lt;|&gt;</span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe ChainId -&gt; Miner -&gt; ClientM WorkBytes
+</span><a href="#local-6989586621681496990"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe ChainId
+</span><a href="#local-6989586621681496993"><span class="hs-identifier hs-var">mcid</span></a></span><span> </span><span class="annot"><span class="annottext">Miner
+</span><a href="#local-6989586621681496992"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><a href="Chainweb.Miner.RestAPI.Client.html#solvedClient"><span class="hs-identifier hs-type">solvedClient</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NoContent</span></span><span>
+</span><span id="line-40"></span><span id="solvedClient"><span class="annot"><span class="annottext">solvedClient :: ChainwebVersion -&gt; HeaderBytes -&gt; ClientM NoContent
+</span><a href="Chainweb.Miner.RestAPI.Client.html#solvedClient"><span class="hs-identifier hs-var hs-var">solvedClient</span></a></span></span><span> </span><span id="local-6989586621681496988"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681496988"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681496987"><span class="annot"><span class="annottext">hbytes :: HeaderBytes
+</span><a href="#local-6989586621681496987"><span class="hs-identifier hs-var">hbytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; (Maybe ChainId -&gt; Miner -&gt; ClientM WorkBytes)
+   :&lt;|&gt; ((HeaderBytes -&gt; ClientM NoContent)
+         :&lt;|&gt; (ChainBytes -&gt; Method -&gt; ClientM Response))
+</span><a href="Chainweb.Miner.RestAPI.Client.html#clients"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681496988"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-identifier">_</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&lt;|&gt;</span></span><span> </span><span id="local-6989586621681496986"><span class="annot"><span class="annottext">f :: HeaderBytes -&gt; ClientM NoContent
+</span><a href="#local-6989586621681496986"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&lt;|&gt;</span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeaderBytes -&gt; ClientM NoContent
+</span><a href="#local-6989586621681496986"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">HeaderBytes
+</span><a href="#local-6989586621681496987"><span class="hs-identifier hs-var">hbytes</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><a href="Chainweb.Miner.RestAPI.Client.html#clients"><span class="hs-identifier hs-type">clients</span></a></span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-type">WorkBytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>    </span><span class="annot"><span class="hs-operator hs-type">:&lt;|&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NoContent</span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>    </span><span class="annot"><span class="hs-operator hs-type">:&lt;|&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier hs-type">ChainBytes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Method</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Response</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span id="clients"><span class="annot"><span class="annottext">clients :: ChainwebVersion
+-&gt; (Maybe ChainId -&gt; Miner -&gt; ClientM WorkBytes)
+   :&lt;|&gt; ((HeaderBytes -&gt; ClientM NoContent)
+         :&lt;|&gt; (ChainBytes -&gt; Method -&gt; ClientM Response))
+</span><a href="Chainweb.Miner.RestAPI.Client.html#clients"><span class="hs-identifier hs-var hs-var">clients</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496984"><span class="annot"><a href="Chainweb.Version.html#SChainwebVersion"><span class="hs-identifier hs-type">SChainwebVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496984"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy
+  ('ChainwebEndpoint a
+   :&gt; ((&quot;mining&quot;
+        :&gt; (&quot;work&quot;
+            :&gt; (QueryParam &quot;chain&quot; ChainId
+                :&gt; (ReqBody '[JSON] Miner :&gt; Get '[OctetStream] WorkBytes))))
+       :&lt;|&gt; ((&quot;mining&quot;
+              :&gt; (&quot;solved&quot;
+                  :&gt; (ReqBody '[OctetStream] HeaderBytes :&gt; Post '[JSON] NoContent)))
+             :&lt;|&gt; (&quot;mining&quot;
+                   :&gt; (&quot;updates&quot; :&gt; (ReqBody '[OctetStream] ChainBytes :&gt; Raw))))))
+-&gt; Client
+     ClientM
+     ('ChainwebEndpoint a
+      :&gt; ((&quot;mining&quot;
+           :&gt; (&quot;work&quot;
+               :&gt; (QueryParam &quot;chain&quot; ChainId
+                   :&gt; (ReqBody '[JSON] Miner :&gt; Get '[OctetStream] WorkBytes))))
+          :&lt;|&gt; ((&quot;mining&quot;
+                 :&gt; (&quot;solved&quot;
+                     :&gt; (ReqBody '[OctetStream] HeaderBytes :&gt; Post '[JSON] NoContent)))
+                :&lt;|&gt; (&quot;mining&quot;
+                      :&gt; (&quot;updates&quot; :&gt; (ReqBody '[OctetStream] ChainBytes :&gt; Raw))))))
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (MiningApi a)
+forall (v :: ChainwebVersionT). Proxy (MiningApi v)
+</span><a href="Chainweb.Miner.RestAPI.html#miningApi"><span class="hs-identifier hs-var">miningApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496984"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span></pre></body></html>

@@ -1,0 +1,1698 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="%24con2tag_7JYN6hX7Gh1156Dv9q7Co6"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveFunctor #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DeriveTraversable #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Module: Chainweb.Utils.Paging</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Utils.Paging</span><span>
+</span><span id="line-21"></span><span class="hs-special">(</span><span>
+</span><span id="line-22"></span><span class="annot"><span class="hs-comment">-- * Limit</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier">Limit</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="annot"><span class="hs-comment">-- * Page</span></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier">Page</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#pageLimit"><span class="hs-identifier">pageLimit</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#pageItems"><span class="hs-identifier">pageItems</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#pageNext"><span class="hs-identifier">pageNext</span></a></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="annot"><span class="hs-comment">-- * Next Item</span></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier">NextItem</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#_getNextItem"><span class="hs-identifier">_getNextItem</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#getNextItem"><span class="hs-identifier">getNextItem</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#isExclusive"><span class="hs-identifier">isExclusive</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#isInclusive"><span class="hs-identifier">isInclusive</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#nextItemToText"><span class="hs-identifier">nextItemToText</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#nextItemFromText"><span class="hs-identifier">nextItemFromText</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><span class="hs-comment">-- * End-Of-Stream</span></span><span>
+</span><span id="line-41"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier">Eos</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#isEos"><span class="hs-identifier">isEos</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#atEos"><span class="hs-identifier">atEos</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><span class="hs-comment">-- * Tools for creating pages from streams</span></span><span>
+</span><span id="line-46"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#finitePrefixOfInfiniteStreamToPage"><span class="hs-identifier">finitePrefixOfInfiniteStreamToPage</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#finiteStreamToPage"><span class="hs-identifier">finiteStreamToPage</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#seekFiniteStreamToPage"><span class="hs-identifier">seekFiniteStreamToPage</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><span class="hs-comment">-- * Properties</span></span><span>
+</span><span id="line-51"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#properties"><span class="hs-identifier">properties</span></a></span><span>
+</span><span id="line-52"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Getter</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">to</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.TH</span></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Identity</span></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Functor.Of</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Streaming.Prelude</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#%3D%3D%3E"><span class="hs-operator">(==&gt;)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- Limit</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- | Limit the result of a query to a maximum number of items</span><span>
+</span><span id="line-82"></span><span class="hs-comment">--</span><span>
+</span><span id="line-83"></span><span id="local-6989586621681471453"><span id="local-6989586621681471454"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="Limit"><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-var">Limit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Limit"><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-var">Limit</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_getLimit"><span class="annot"><span class="annottext">Limit -&gt; Natural
+</span><a href="Chainweb.Utils.Paging.html#_getLimit"><span class="hs-identifier hs-var hs-var">_getLimit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681471447"><span id="local-6989586621681471449"><span class="annot"><span class="annottext">Limit -&gt; Limit -&gt; Bool
+(Limit -&gt; Limit -&gt; Bool) -&gt; (Limit -&gt; Limit -&gt; Bool) -&gt; Eq Limit
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Limit -&gt; Limit -&gt; Bool
+$c/= :: Limit -&gt; Limit -&gt; Bool
+== :: Limit -&gt; Limit -&gt; Bool
+$c== :: Limit -&gt; Limit -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471440"><span id="local-6989586621681471442"><span id="local-6989586621681471444"><span class="annot"><span class="annottext">Int -&gt; Limit -&gt; ShowS
+[Limit] -&gt; ShowS
+Limit -&gt; String
+(Int -&gt; Limit -&gt; ShowS)
+-&gt; (Limit -&gt; String) -&gt; ([Limit] -&gt; ShowS) -&gt; Show Limit
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Limit] -&gt; ShowS
+$cshowList :: [Limit] -&gt; ShowS
+show :: Limit -&gt; String
+$cshow :: Limit -&gt; String
+showsPrec :: Int -&gt; Limit -&gt; ShowS
+$cshowsPrec :: Int -&gt; Limit -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Limit -&gt; Rep Limit x)
+-&gt; (forall x. Rep Limit x -&gt; Limit) -&gt; Generic Limit
+forall x. Rep Limit x -&gt; Limit
+forall x. Limit -&gt; Rep Limit x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep Limit x -&gt; Limit
+$cfrom :: forall x. Limit -&gt; Rep Limit x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681471432"><span id="local-6989586621681471434"><span class="annot"><span class="annottext">Int -&gt; Limit -&gt; Int
+Limit -&gt; Int
+(Int -&gt; Limit -&gt; Int) -&gt; (Limit -&gt; Int) -&gt; Hashable Limit
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: Limit -&gt; Int
+$chash :: Limit -&gt; Int
+hashWithSalt :: Int -&gt; Limit -&gt; Int
+$chashWithSalt :: Int -&gt; Limit -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681471417"><span id="local-6989586621681471419"><span id="local-6989586621681471421"><span id="local-6989586621681471423"><span id="local-6989586621681471425"><span id="local-6989586621681471427"><span id="local-6989586621681471429"><span class="annot"><span class="annottext">Integer -&gt; Limit
+Limit -&gt; Limit
+Limit -&gt; Limit -&gt; Limit
+(Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit)
+-&gt; (Integer -&gt; Limit)
+-&gt; Num Limit
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Integer -&gt; a)
+-&gt; Num a
+fromInteger :: Integer -&gt; Limit
+$cfromInteger :: Integer -&gt; Limit
+signum :: Limit -&gt; Limit
+$csignum :: Limit -&gt; Limit
+abs :: Limit -&gt; Limit
+$cabs :: Limit -&gt; Limit
+negate :: Limit -&gt; Limit
+$cnegate :: Limit -&gt; Limit
+* :: Limit -&gt; Limit -&gt; Limit
+$c* :: Limit -&gt; Limit -&gt; Limit
+- :: Limit -&gt; Limit -&gt; Limit
+$c- :: Limit -&gt; Limit -&gt; Limit
++ :: Limit -&gt; Limit -&gt; Limit
+$c+ :: Limit -&gt; Limit -&gt; Limit
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471412"><span class="annot"><span class="annottext">Num Limit
+Ord Limit
+(Num Limit, Ord Limit) =&gt; (Limit -&gt; Rational) -&gt; Real Limit
+Limit -&gt; Rational
+forall a. (Num a, Ord a) =&gt; (a -&gt; Rational) -&gt; Real a
+toRational :: Limit -&gt; Rational
+$ctoRational :: Limit -&gt; Rational
+$cp2Real :: Ord Limit
+$cp1Real :: Num Limit
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471395"><span id="local-6989586621681471397"><span id="local-6989586621681471399"><span id="local-6989586621681471401"><span id="local-6989586621681471403"><span id="local-6989586621681471405"><span id="local-6989586621681471407"><span class="annot"><span class="annottext">Enum Limit
+Real Limit
+(Real Limit, Enum Limit) =&gt;
+(Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit -&gt; (Limit, Limit))
+-&gt; (Limit -&gt; Limit -&gt; (Limit, Limit))
+-&gt; (Limit -&gt; Integer)
+-&gt; Integral Limit
+Limit -&gt; Integer
+Limit -&gt; Limit -&gt; (Limit, Limit)
+Limit -&gt; Limit -&gt; Limit
+forall a.
+(Real a, Enum a) =&gt;
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; Integer)
+-&gt; Integral a
+toInteger :: Limit -&gt; Integer
+$ctoInteger :: Limit -&gt; Integer
+divMod :: Limit -&gt; Limit -&gt; (Limit, Limit)
+$cdivMod :: Limit -&gt; Limit -&gt; (Limit, Limit)
+quotRem :: Limit -&gt; Limit -&gt; (Limit, Limit)
+$cquotRem :: Limit -&gt; Limit -&gt; (Limit, Limit)
+mod :: Limit -&gt; Limit -&gt; Limit
+$cmod :: Limit -&gt; Limit -&gt; Limit
+div :: Limit -&gt; Limit -&gt; Limit
+$cdiv :: Limit -&gt; Limit -&gt; Limit
+rem :: Limit -&gt; Limit -&gt; Limit
+$crem :: Limit -&gt; Limit -&gt; Limit
+quot :: Limit -&gt; Limit -&gt; Limit
+$cquot :: Limit -&gt; Limit -&gt; Limit
+$cp2Integral :: Enum Limit
+$cp1Integral :: Real Limit
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Integral</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471378"><span id="local-6989586621681471380"><span id="local-6989586621681471382"><span id="local-6989586621681471384"><span id="local-6989586621681471386"><span id="local-6989586621681471388"><span id="local-6989586621681471390"><span id="local-6989586621681471392"><span class="annot"><span class="annottext">Int -&gt; Limit
+Limit -&gt; Int
+Limit -&gt; [Limit]
+Limit -&gt; Limit
+Limit -&gt; Limit -&gt; [Limit]
+Limit -&gt; Limit -&gt; Limit -&gt; [Limit]
+(Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit)
+-&gt; (Int -&gt; Limit)
+-&gt; (Limit -&gt; Int)
+-&gt; (Limit -&gt; [Limit])
+-&gt; (Limit -&gt; Limit -&gt; [Limit])
+-&gt; (Limit -&gt; Limit -&gt; [Limit])
+-&gt; (Limit -&gt; Limit -&gt; Limit -&gt; [Limit])
+-&gt; Enum Limit
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+enumFromThenTo :: Limit -&gt; Limit -&gt; Limit -&gt; [Limit]
+$cenumFromThenTo :: Limit -&gt; Limit -&gt; Limit -&gt; [Limit]
+enumFromTo :: Limit -&gt; Limit -&gt; [Limit]
+$cenumFromTo :: Limit -&gt; Limit -&gt; [Limit]
+enumFromThen :: Limit -&gt; Limit -&gt; [Limit]
+$cenumFromThen :: Limit -&gt; Limit -&gt; [Limit]
+enumFrom :: Limit -&gt; [Limit]
+$cenumFrom :: Limit -&gt; [Limit]
+fromEnum :: Limit -&gt; Int
+$cfromEnum :: Limit -&gt; Int
+toEnum :: Int -&gt; Limit
+$ctoEnum :: Int -&gt; Limit
+pred :: Limit -&gt; Limit
+$cpred :: Limit -&gt; Limit
+succ :: Limit -&gt; Limit
+$csucc :: Limit -&gt; Limit
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471362"><span id="local-6989586621681471364"><span id="local-6989586621681471366"><span id="local-6989586621681471368"><span id="local-6989586621681471370"><span id="local-6989586621681471372"><span id="local-6989586621681471374"><span class="annot"><span class="annottext">Eq Limit
+Eq Limit =&gt;
+(Limit -&gt; Limit -&gt; Ordering)
+-&gt; (Limit -&gt; Limit -&gt; Bool)
+-&gt; (Limit -&gt; Limit -&gt; Bool)
+-&gt; (Limit -&gt; Limit -&gt; Bool)
+-&gt; (Limit -&gt; Limit -&gt; Bool)
+-&gt; (Limit -&gt; Limit -&gt; Limit)
+-&gt; (Limit -&gt; Limit -&gt; Limit)
+-&gt; Ord Limit
+Limit -&gt; Limit -&gt; Bool
+Limit -&gt; Limit -&gt; Ordering
+Limit -&gt; Limit -&gt; Limit
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Limit -&gt; Limit -&gt; Limit
+$cmin :: Limit -&gt; Limit -&gt; Limit
+max :: Limit -&gt; Limit -&gt; Limit
+$cmax :: Limit -&gt; Limit -&gt; Limit
+&gt;= :: Limit -&gt; Limit -&gt; Bool
+$c&gt;= :: Limit -&gt; Limit -&gt; Bool
+&gt; :: Limit -&gt; Limit -&gt; Bool
+$c&gt; :: Limit -&gt; Limit -&gt; Bool
+&lt;= :: Limit -&gt; Limit -&gt; Bool
+$c&lt;= :: Limit -&gt; Limit -&gt; Bool
+&lt; :: Limit -&gt; Limit -&gt; Bool
+$c&lt; :: Limit -&gt; Limit -&gt; Bool
+compare :: Limit -&gt; Limit -&gt; Ordering
+$ccompare :: Limit -&gt; Limit -&gt; Ordering
+$cp1Ord :: Eq Limit
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681471358"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621681471356"><span class="annot"><span class="annottext">arbitrary :: Gen Limit
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Limit
+</span><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-var">Limit</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Limit) -&gt; Gen Natural -&gt; Gen Limit
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen Natural
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- Page</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span id="local-6989586621681471352"><span id="local-6989586621681471353"></span></span><span class="hs-keyword">data</span><span> </span><span id="Page"><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-var">Page</span></a></span></span><span> </span><span id="local-6989586621681471648"><span class="annot"><a href="#local-6989586621681471648"><span class="hs-identifier hs-type">k</span></a></span></span><span> </span><span id="local-6989586621681471647"><span class="annot"><a href="#local-6989586621681471647"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Page"><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-var">Page</span></a></span></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_pageLimit"><span class="annot"><span class="annottext">Page k a -&gt; Limit
+</span><a href="Chainweb.Utils.Paging.html#_pageLimit"><span class="hs-identifier hs-var hs-var">_pageLimit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span><span>
+</span><span id="line-96"></span><span>        </span><span class="hs-comment">-- ^ The number of items in the page</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_pageItems"><span class="annot"><span class="annottext">Page k a -&gt; [a]
+</span><a href="Chainweb.Utils.Paging.html#_pageItems"><span class="hs-identifier hs-var hs-var">_pageItems</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621681471647"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-98"></span><span>        </span><span class="hs-comment">-- ^ The items of the page</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_pageNext"><span class="annot"><span class="annottext">Page k a -&gt; Maybe k
+</span><a href="Chainweb.Utils.Paging.html#_pageNext"><span class="hs-identifier hs-var hs-var">_pageNext</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621681471648"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>        </span><span class="hs-comment">-- ^ A cursor for querying the next page, if there is any. The value</span><span>
+</span><span id="line-101"></span><span>        </span><span class="hs-comment">-- is given the next parameter of the respective query interface.</span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681471342"><span id="local-6989586621681471344"><span id="local-6989586621681471346"><span class="annot"><span class="annottext">Int -&gt; Page k a -&gt; ShowS
+[Page k a] -&gt; ShowS
+Page k a -&gt; String
+(Int -&gt; Page k a -&gt; ShowS)
+-&gt; (Page k a -&gt; String) -&gt; ([Page k a] -&gt; ShowS) -&gt; Show (Page k a)
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+forall k a. (Show a, Show k) =&gt; Int -&gt; Page k a -&gt; ShowS
+forall k a. (Show a, Show k) =&gt; [Page k a] -&gt; ShowS
+forall k a. (Show a, Show k) =&gt; Page k a -&gt; String
+showList :: [Page k a] -&gt; ShowS
+$cshowList :: forall k a. (Show a, Show k) =&gt; [Page k a] -&gt; ShowS
+show :: Page k a -&gt; String
+$cshow :: forall k a. (Show a, Show k) =&gt; Page k a -&gt; String
+showsPrec :: Int -&gt; Page k a -&gt; ShowS
+$cshowsPrec :: forall k a. (Show a, Show k) =&gt; Int -&gt; Page k a -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471338"><span id="local-6989586621681471340"><span class="annot"><span class="annottext">Page k a -&gt; Page k a -&gt; Bool
+(Page k a -&gt; Page k a -&gt; Bool)
+-&gt; (Page k a -&gt; Page k a -&gt; Bool) -&gt; Eq (Page k a)
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+forall k a. (Eq a, Eq k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+/= :: Page k a -&gt; Page k a -&gt; Bool
+$c/= :: forall k a. (Eq a, Eq k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+== :: Page k a -&gt; Page k a -&gt; Bool
+$c== :: forall k a. (Eq a, Eq k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471323"><span id="local-6989586621681471325"><span id="local-6989586621681471327"><span id="local-6989586621681471329"><span id="local-6989586621681471331"><span id="local-6989586621681471333"><span id="local-6989586621681471335"><span class="annot"><span class="annottext">Eq (Page k a)
+Eq (Page k a) =&gt;
+(Page k a -&gt; Page k a -&gt; Ordering)
+-&gt; (Page k a -&gt; Page k a -&gt; Bool)
+-&gt; (Page k a -&gt; Page k a -&gt; Bool)
+-&gt; (Page k a -&gt; Page k a -&gt; Bool)
+-&gt; (Page k a -&gt; Page k a -&gt; Bool)
+-&gt; (Page k a -&gt; Page k a -&gt; Page k a)
+-&gt; (Page k a -&gt; Page k a -&gt; Page k a)
+-&gt; Ord (Page k a)
+Page k a -&gt; Page k a -&gt; Bool
+Page k a -&gt; Page k a -&gt; Ordering
+Page k a -&gt; Page k a -&gt; Page k a
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+forall k a. (Ord a, Ord k) =&gt; Eq (Page k a)
+forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Ordering
+forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Page k a
+min :: Page k a -&gt; Page k a -&gt; Page k a
+$cmin :: forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Page k a
+max :: Page k a -&gt; Page k a -&gt; Page k a
+$cmax :: forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Page k a
+&gt;= :: Page k a -&gt; Page k a -&gt; Bool
+$c&gt;= :: forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+&gt; :: Page k a -&gt; Page k a -&gt; Bool
+$c&gt; :: forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+&lt;= :: Page k a -&gt; Page k a -&gt; Bool
+$c&lt;= :: forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+&lt; :: Page k a -&gt; Page k a -&gt; Bool
+$c&lt; :: forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Bool
+compare :: Page k a -&gt; Page k a -&gt; Ordering
+$ccompare :: forall k a. (Ord a, Ord k) =&gt; Page k a -&gt; Page k a -&gt; Ordering
+$cp1Ord :: forall k a. (Ord a, Ord k) =&gt; Eq (Page k a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Page k a -&gt; Rep (Page k a) x)
+-&gt; (forall x. Rep (Page k a) x -&gt; Page k a) -&gt; Generic (Page k a)
+forall x. Rep (Page k a) x -&gt; Page k a
+forall x. Page k a -&gt; Rep (Page k a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall k a x. Rep (Page k a) x -&gt; Page k a
+forall k a x. Page k a -&gt; Rep (Page k a) x
+$cto :: forall k a x. Rep (Page k a) x -&gt; Page k a
+$cfrom :: forall k a x. Page k a -&gt; Rep (Page k a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471317"><span id="local-6989586621681471319"><span class="annot"><span class="annottext">a -&gt; Page k b -&gt; Page k a
+(a -&gt; b) -&gt; Page k a -&gt; Page k b
+(forall a b. (a -&gt; b) -&gt; Page k a -&gt; Page k b)
+-&gt; (forall a b. a -&gt; Page k b -&gt; Page k a) -&gt; Functor (Page k)
+forall a b. a -&gt; Page k b -&gt; Page k a
+forall a b. (a -&gt; b) -&gt; Page k a -&gt; Page k b
+forall k a b. a -&gt; Page k b -&gt; Page k a
+forall k a b. (a -&gt; b) -&gt; Page k a -&gt; Page k b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; Page k b -&gt; Page k a
+$c&lt;$ :: forall k a b. a -&gt; Page k b -&gt; Page k a
+fmap :: (a -&gt; b) -&gt; Page k a -&gt; Page k b
+$cfmap :: forall k a b. (a -&gt; b) -&gt; Page k a -&gt; Page k b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471282"><span id="local-6989586621681471284"><span id="local-6989586621681471286"><span id="local-6989586621681471288"><span id="local-6989586621681471290"><span id="local-6989586621681471292"><span id="local-6989586621681471294"><span id="local-6989586621681471296"><span id="local-6989586621681471298"><span id="local-6989586621681471300"><span id="local-6989586621681471302"><span id="local-6989586621681471304"><span id="local-6989586621681471306"><span id="local-6989586621681471308"><span id="local-6989586621681471310"><span id="local-6989586621681471312"><span id="local-6989586621681471314"><span class="annot"><span class="annottext">Page k a -&gt; Bool
+(a -&gt; m) -&gt; Page k a -&gt; m
+(a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+(forall m. Monoid m =&gt; Page k m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; Page k a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; Page k a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a)
+-&gt; (forall a. Page k a -&gt; [a])
+-&gt; (forall a. Page k a -&gt; Bool)
+-&gt; (forall a. Page k a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; Page k a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; Page k a -&gt; a)
+-&gt; (forall a. Ord a =&gt; Page k a -&gt; a)
+-&gt; (forall a. Num a =&gt; Page k a -&gt; a)
+-&gt; (forall a. Num a =&gt; Page k a -&gt; a)
+-&gt; Foldable (Page k)
+forall a. Eq a =&gt; a -&gt; Page k a -&gt; Bool
+forall a. Num a =&gt; Page k a -&gt; a
+forall a. Ord a =&gt; Page k a -&gt; a
+forall m. Monoid m =&gt; Page k m -&gt; m
+forall a. Page k a -&gt; Bool
+forall a. Page k a -&gt; Int
+forall a. Page k a -&gt; [a]
+forall a. (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a
+forall k a. Eq a =&gt; a -&gt; Page k a -&gt; Bool
+forall k a. Num a =&gt; Page k a -&gt; a
+forall k a. Ord a =&gt; Page k a -&gt; a
+forall m a. Monoid m =&gt; (a -&gt; m) -&gt; Page k a -&gt; m
+forall k m. Monoid m =&gt; Page k m -&gt; m
+forall k a. Page k a -&gt; Bool
+forall k a. Page k a -&gt; Int
+forall k a. Page k a -&gt; [a]
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+forall k a. (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a
+forall k m a. Monoid m =&gt; (a -&gt; m) -&gt; Page k a -&gt; m
+forall k b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+forall k a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+forall (t :: * -&gt; *).
+(forall m. Monoid m =&gt; t m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. t a -&gt; [a])
+-&gt; (forall a. t a -&gt; Bool)
+-&gt; (forall a. t a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; t a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; Foldable t
+product :: Page k a -&gt; a
+$cproduct :: forall k a. Num a =&gt; Page k a -&gt; a
+sum :: Page k a -&gt; a
+$csum :: forall k a. Num a =&gt; Page k a -&gt; a
+minimum :: Page k a -&gt; a
+$cminimum :: forall k a. Ord a =&gt; Page k a -&gt; a
+maximum :: Page k a -&gt; a
+$cmaximum :: forall k a. Ord a =&gt; Page k a -&gt; a
+elem :: a -&gt; Page k a -&gt; Bool
+$celem :: forall k a. Eq a =&gt; a -&gt; Page k a -&gt; Bool
+length :: Page k a -&gt; Int
+$clength :: forall k a. Page k a -&gt; Int
+null :: Page k a -&gt; Bool
+$cnull :: forall k a. Page k a -&gt; Bool
+toList :: Page k a -&gt; [a]
+$ctoList :: forall k a. Page k a -&gt; [a]
+foldl1 :: (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a
+$cfoldl1 :: forall k a. (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a
+foldr1 :: (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a
+$cfoldr1 :: forall k a. (a -&gt; a -&gt; a) -&gt; Page k a -&gt; a
+foldl' :: (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+$cfoldl' :: forall k b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+foldl :: (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+$cfoldl :: forall k b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+foldr' :: (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+$cfoldr' :: forall k a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+foldr :: (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+$cfoldr :: forall k a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Page k a -&gt; b
+foldMap' :: (a -&gt; m) -&gt; Page k a -&gt; m
+$cfoldMap' :: forall k m a. Monoid m =&gt; (a -&gt; m) -&gt; Page k a -&gt; m
+foldMap :: (a -&gt; m) -&gt; Page k a -&gt; m
+$cfoldMap :: forall k m a. Monoid m =&gt; (a -&gt; m) -&gt; Page k a -&gt; m
+fold :: Page k m -&gt; m
+$cfold :: forall k m. Monoid m =&gt; Page k m -&gt; m
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Foldable</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span id="local-6989586621681471279"><span id="local-6989586621681471280"><span id="pageNext"><span id="pageItems"><span id="pageLimit"><span id="local-6989586621681471647"><span id="local-6989586621681471648"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">Page</span></span></span></span></span></span></span></span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span id="local-6989586621681471277"><span id="local-6989586621681471278"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681471270"><span id="local-6989586621681471272"><span id="local-6989586621681471274"><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471278"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681471278"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681471277"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471278"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471277"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-108"></span><span>    </span><span id="local-6989586621681471268"><span class="annot"><span class="annottext">toJSON :: Page k a -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span id="local-6989586621681471266"><span class="annot"><span class="annottext">p :: Page k a
+</span><a href="#local-6989586621681471266"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-109"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;limit&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; Natural
+</span><a href="Chainweb.Utils.Paging.html#_getLimit"><span class="hs-identifier hs-var hs-var">_getLimit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Page k a -&gt; Limit
+forall k a. Page k a -&gt; Limit
+</span><a href="Chainweb.Utils.Paging.html#_pageLimit"><span class="hs-identifier hs-var hs-var">_pageLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Page k a
+</span><a href="#local-6989586621681471266"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;items&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [a] -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Page k a -&gt; [a]
+forall k a. Page k a -&gt; [a]
+</span><a href="Chainweb.Utils.Paging.html#_pageItems"><span class="hs-identifier hs-var hs-var">_pageItems</span></a></span><span> </span><span class="annot"><span class="annottext">Page k a
+</span><a href="#local-6989586621681471266"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-111"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;next&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe k -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Page k a -&gt; Maybe k
+forall k a. Page k a -&gt; Maybe k
+</span><a href="Chainweb.Utils.Paging.html#_pageNext"><span class="hs-identifier hs-var hs-var">_pageNext</span></a></span><span> </span><span class="annot"><span class="annottext">Page k a
+</span><a href="#local-6989586621681471266"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-112"></span><span>        </span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span id="local-6989586621681471262"><span id="local-6989586621681471263"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681471259"><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471263"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681471263"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681471262"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471263"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471262"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-115"></span><span>    </span><span id="local-6989586621681471257"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (Page k a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser (Page k a)) -&gt; Value -&gt; Parser (Page k a)
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;page&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser (Page k a)) -&gt; Value -&gt; Parser (Page k a))
+-&gt; (Object -&gt; Parser (Page k a)) -&gt; Value -&gt; Parser (Page k a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681471254"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681471254"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Limit -&gt; [a] -&gt; Maybe k -&gt; Page k a
+forall k a. Limit -&gt; [a] -&gt; Maybe k -&gt; Page k a
+</span><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-var">Page</span></a></span><span>
+</span><span id="line-116"></span><span>        </span><span class="annot"><span class="annottext">(Limit -&gt; [a] -&gt; Maybe k -&gt; Page k a)
+-&gt; Parser Limit -&gt; Parser ([a] -&gt; Maybe k -&gt; Page k a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Limit
+</span><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-var">Limit</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Limit) -&gt; Parser Natural -&gt; Parser Limit
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681471254"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Natural
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;limit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>        </span><span class="annot"><span class="annottext">Parser ([a] -&gt; Maybe k -&gt; Page k a)
+-&gt; Parser [a] -&gt; Parser (Maybe k -&gt; Page k a)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681471254"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser [a]
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;items&quot;</span></span><span>
+</span><span id="line-118"></span><span>        </span><span class="annot"><span class="annottext">Parser (Maybe k -&gt; Page k a)
+-&gt; Parser (Maybe k) -&gt; Parser (Page k a)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681471254"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser (Maybe k)
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;next&quot;</span></span></span></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- Next Item</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- | When seeking a position in a stream, define if the given position</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- is inclusive or exclusive.</span><span>
+</span><span id="line-125"></span><span class="hs-comment">--</span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- Inclusive: return all items of the stream starting with the given key.</span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- Exclusive: return all items of the stream starting immidiately after the given key.</span><span>
+</span><span id="line-128"></span><span class="hs-comment">--</span><span>
+</span><span id="line-129"></span><span class="hs-keyword">data</span><span> </span><span id="NextItem"><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-var">NextItem</span></a></span></span><span> </span><span id="local-6989586621681471563"><span class="annot"><a href="#local-6989586621681471563"><span class="hs-identifier hs-type">k</span></a></span></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span id="Inclusive"><span class="annot"><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-var">Inclusive</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621681471563"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span id="Exclusive"><span class="annot"><a href="Chainweb.Utils.Paging.html#Exclusive"><span class="hs-identifier hs-var">Exclusive</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621681471563"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681471247"><span id="local-6989586621681471249"><span class="annot"><span class="annottext">NextItem k -&gt; NextItem k -&gt; Bool
+(NextItem k -&gt; NextItem k -&gt; Bool)
+-&gt; (NextItem k -&gt; NextItem k -&gt; Bool) -&gt; Eq (NextItem k)
+forall k. Eq k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: NextItem k -&gt; NextItem k -&gt; Bool
+$c/= :: forall k. Eq k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+== :: NextItem k -&gt; NextItem k -&gt; Bool
+$c== :: forall k. Eq k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471241"><span id="local-6989586621681471243"><span id="local-6989586621681471245"><span class="annot"><span class="annottext">Int -&gt; NextItem k -&gt; ShowS
+[NextItem k] -&gt; ShowS
+NextItem k -&gt; String
+(Int -&gt; NextItem k -&gt; ShowS)
+-&gt; (NextItem k -&gt; String)
+-&gt; ([NextItem k] -&gt; ShowS)
+-&gt; Show (NextItem k)
+forall k. Show k =&gt; Int -&gt; NextItem k -&gt; ShowS
+forall k. Show k =&gt; [NextItem k] -&gt; ShowS
+forall k. Show k =&gt; NextItem k -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [NextItem k] -&gt; ShowS
+$cshowList :: forall k. Show k =&gt; [NextItem k] -&gt; ShowS
+show :: NextItem k -&gt; String
+$cshow :: forall k. Show k =&gt; NextItem k -&gt; String
+showsPrec :: Int -&gt; NextItem k -&gt; ShowS
+$cshowsPrec :: forall k. Show k =&gt; Int -&gt; NextItem k -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471226"><span id="local-6989586621681471228"><span id="local-6989586621681471230"><span id="local-6989586621681471232"><span id="local-6989586621681471234"><span id="local-6989586621681471236"><span id="local-6989586621681471238"><span class="annot"><span class="annottext">Eq (NextItem k)
+Eq (NextItem k) =&gt;
+(NextItem k -&gt; NextItem k -&gt; Ordering)
+-&gt; (NextItem k -&gt; NextItem k -&gt; Bool)
+-&gt; (NextItem k -&gt; NextItem k -&gt; Bool)
+-&gt; (NextItem k -&gt; NextItem k -&gt; Bool)
+-&gt; (NextItem k -&gt; NextItem k -&gt; Bool)
+-&gt; (NextItem k -&gt; NextItem k -&gt; NextItem k)
+-&gt; (NextItem k -&gt; NextItem k -&gt; NextItem k)
+-&gt; Ord (NextItem k)
+NextItem k -&gt; NextItem k -&gt; Bool
+NextItem k -&gt; NextItem k -&gt; Ordering
+NextItem k -&gt; NextItem k -&gt; NextItem k
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+forall k. Ord k =&gt; Eq (NextItem k)
+forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; Ordering
+forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; NextItem k
+min :: NextItem k -&gt; NextItem k -&gt; NextItem k
+$cmin :: forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; NextItem k
+max :: NextItem k -&gt; NextItem k -&gt; NextItem k
+$cmax :: forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; NextItem k
+&gt;= :: NextItem k -&gt; NextItem k -&gt; Bool
+$c&gt;= :: forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+&gt; :: NextItem k -&gt; NextItem k -&gt; Bool
+$c&gt; :: forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+&lt;= :: NextItem k -&gt; NextItem k -&gt; Bool
+$c&lt;= :: forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+&lt; :: NextItem k -&gt; NextItem k -&gt; Bool
+$c&lt; :: forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; Bool
+compare :: NextItem k -&gt; NextItem k -&gt; Ordering
+$ccompare :: forall k. Ord k =&gt; NextItem k -&gt; NextItem k -&gt; Ordering
+$cp1Ord :: forall k. Ord k =&gt; Eq (NextItem k)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471222"><span id="local-6989586621681471224"><span class="annot"><span class="annottext">a -&gt; NextItem b -&gt; NextItem a
+(a -&gt; b) -&gt; NextItem a -&gt; NextItem b
+(forall a b. (a -&gt; b) -&gt; NextItem a -&gt; NextItem b)
+-&gt; (forall a b. a -&gt; NextItem b -&gt; NextItem a) -&gt; Functor NextItem
+forall a b. a -&gt; NextItem b -&gt; NextItem a
+forall a b. (a -&gt; b) -&gt; NextItem a -&gt; NextItem b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; NextItem b -&gt; NextItem a
+$c&lt;$ :: forall a b. a -&gt; NextItem b -&gt; NextItem a
+fmap :: (a -&gt; b) -&gt; NextItem a -&gt; NextItem b
+$cfmap :: forall a b. (a -&gt; b) -&gt; NextItem a -&gt; NextItem b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471188"><span id="local-6989586621681471190"><span id="local-6989586621681471192"><span id="local-6989586621681471194"><span id="local-6989586621681471196"><span id="local-6989586621681471198"><span id="local-6989586621681471200"><span id="local-6989586621681471202"><span id="local-6989586621681471204"><span id="local-6989586621681471206"><span id="local-6989586621681471208"><span id="local-6989586621681471210"><span id="local-6989586621681471212"><span id="local-6989586621681471214"><span id="local-6989586621681471216"><span id="local-6989586621681471218"><span id="local-6989586621681471220"><span class="annot"><span class="annottext">NextItem a -&gt; Bool
+(a -&gt; m) -&gt; NextItem a -&gt; m
+(a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+(forall m. Monoid m =&gt; NextItem m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; NextItem a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; NextItem a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; NextItem a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; NextItem a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; NextItem a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; NextItem a -&gt; a)
+-&gt; (forall a. NextItem a -&gt; [a])
+-&gt; (forall a. NextItem a -&gt; Bool)
+-&gt; (forall a. NextItem a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; NextItem a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; NextItem a -&gt; a)
+-&gt; (forall a. Ord a =&gt; NextItem a -&gt; a)
+-&gt; (forall a. Num a =&gt; NextItem a -&gt; a)
+-&gt; (forall a. Num a =&gt; NextItem a -&gt; a)
+-&gt; Foldable NextItem
+forall a. Eq a =&gt; a -&gt; NextItem a -&gt; Bool
+forall a. Num a =&gt; NextItem a -&gt; a
+forall a. Ord a =&gt; NextItem a -&gt; a
+forall m. Monoid m =&gt; NextItem m -&gt; m
+forall a. NextItem a -&gt; Bool
+forall a. NextItem a -&gt; Int
+forall a. NextItem a -&gt; [a]
+forall a. (a -&gt; a -&gt; a) -&gt; NextItem a -&gt; a
+forall m a. Monoid m =&gt; (a -&gt; m) -&gt; NextItem a -&gt; m
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+forall (t :: * -&gt; *).
+(forall m. Monoid m =&gt; t m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. t a -&gt; [a])
+-&gt; (forall a. t a -&gt; Bool)
+-&gt; (forall a. t a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; t a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; Foldable t
+product :: NextItem a -&gt; a
+$cproduct :: forall a. Num a =&gt; NextItem a -&gt; a
+sum :: NextItem a -&gt; a
+$csum :: forall a. Num a =&gt; NextItem a -&gt; a
+minimum :: NextItem a -&gt; a
+$cminimum :: forall a. Ord a =&gt; NextItem a -&gt; a
+maximum :: NextItem a -&gt; a
+$cmaximum :: forall a. Ord a =&gt; NextItem a -&gt; a
+elem :: a -&gt; NextItem a -&gt; Bool
+$celem :: forall a. Eq a =&gt; a -&gt; NextItem a -&gt; Bool
+length :: NextItem a -&gt; Int
+$clength :: forall a. NextItem a -&gt; Int
+null :: NextItem a -&gt; Bool
+$cnull :: forall a. NextItem a -&gt; Bool
+toList :: NextItem a -&gt; [a]
+$ctoList :: forall a. NextItem a -&gt; [a]
+foldl1 :: (a -&gt; a -&gt; a) -&gt; NextItem a -&gt; a
+$cfoldl1 :: forall a. (a -&gt; a -&gt; a) -&gt; NextItem a -&gt; a
+foldr1 :: (a -&gt; a -&gt; a) -&gt; NextItem a -&gt; a
+$cfoldr1 :: forall a. (a -&gt; a -&gt; a) -&gt; NextItem a -&gt; a
+foldl' :: (b -&gt; a -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+$cfoldl' :: forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+foldl :: (b -&gt; a -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+$cfoldl :: forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+foldr' :: (a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+$cfoldr' :: forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+foldr :: (a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+$cfoldr :: forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; NextItem a -&gt; b
+foldMap' :: (a -&gt; m) -&gt; NextItem a -&gt; m
+$cfoldMap' :: forall m a. Monoid m =&gt; (a -&gt; m) -&gt; NextItem a -&gt; m
+foldMap :: (a -&gt; m) -&gt; NextItem a -&gt; m
+$cfoldMap :: forall m a. Monoid m =&gt; (a -&gt; m) -&gt; NextItem a -&gt; m
+fold :: NextItem m -&gt; m
+$cfold :: forall m. Monoid m =&gt; NextItem m -&gt; m
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Foldable</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471178"><span id="local-6989586621681471180"><span id="local-6989586621681471182"><span id="local-6989586621681471184"><span class="annot"><span class="annottext">Functor NextItem
+Foldable NextItem
+(Functor NextItem, Foldable NextItem) =&gt;
+(forall (f :: * -&gt; *) a b.
+ Applicative f =&gt;
+ (a -&gt; f b) -&gt; NextItem a -&gt; f (NextItem b))
+-&gt; (forall (f :: * -&gt; *) a.
+    Applicative f =&gt;
+    NextItem (f a) -&gt; f (NextItem a))
+-&gt; (forall (m :: * -&gt; *) a b.
+    Monad m =&gt;
+    (a -&gt; m b) -&gt; NextItem a -&gt; m (NextItem b))
+-&gt; (forall (m :: * -&gt; *) a.
+    Monad m =&gt;
+    NextItem (m a) -&gt; m (NextItem a))
+-&gt; Traversable NextItem
+(a -&gt; f b) -&gt; NextItem a -&gt; f (NextItem b)
+forall (t :: * -&gt; *).
+(Functor t, Foldable t) =&gt;
+(forall (f :: * -&gt; *) a b.
+ Applicative f =&gt;
+ (a -&gt; f b) -&gt; t a -&gt; f (t b))
+-&gt; (forall (f :: * -&gt; *) a. Applicative f =&gt; t (f a) -&gt; f (t a))
+-&gt; (forall (m :: * -&gt; *) a b.
+    Monad m =&gt;
+    (a -&gt; m b) -&gt; t a -&gt; m (t b))
+-&gt; (forall (m :: * -&gt; *) a. Monad m =&gt; t (m a) -&gt; m (t a))
+-&gt; Traversable t
+forall (m :: * -&gt; *) a. Monad m =&gt; NextItem (m a) -&gt; m (NextItem a)
+forall (f :: * -&gt; *) a.
+Applicative f =&gt;
+NextItem (f a) -&gt; f (NextItem a)
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; NextItem a -&gt; m (NextItem b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; NextItem a -&gt; f (NextItem b)
+sequence :: NextItem (m a) -&gt; m (NextItem a)
+$csequence :: forall (m :: * -&gt; *) a. Monad m =&gt; NextItem (m a) -&gt; m (NextItem a)
+mapM :: (a -&gt; m b) -&gt; NextItem a -&gt; m (NextItem b)
+$cmapM :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; NextItem a -&gt; m (NextItem b)
+sequenceA :: NextItem (f a) -&gt; f (NextItem a)
+$csequenceA :: forall (f :: * -&gt; *) a.
+Applicative f =&gt;
+NextItem (f a) -&gt; f (NextItem a)
+traverse :: (a -&gt; f b) -&gt; NextItem a -&gt; f (NextItem b)
+$ctraverse :: forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; NextItem a -&gt; f (NextItem b)
+$cp2Traversable :: Foldable NextItem
+$cp1Traversable :: Functor NextItem
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Traversable</span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span id="local-6989586621681471571"><span class="annot"><a href="Chainweb.Utils.Paging.html#_getNextItem"><span class="hs-identifier hs-type">_getNextItem</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471571"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471571"><span class="hs-identifier hs-type">k</span></a></span></span><span>
+</span><span id="line-135"></span><span id="_getNextItem"><span class="annot"><span class="annottext">_getNextItem :: NextItem k -&gt; k
+</span><a href="Chainweb.Utils.Paging.html#_getNextItem"><span class="hs-identifier hs-var hs-var">_getNextItem</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-type">Inclusive</span></a></span><span> </span><span id="local-6989586621681471176"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681471176"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681471176"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-136"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#_getNextItem"><span class="hs-identifier hs-var">_getNextItem</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Exclusive"><span class="hs-identifier hs-type">Exclusive</span></a></span><span> </span><span id="local-6989586621681471175"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681471175"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681471175"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-137"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#_getNextItem"><span class="hs-pragma hs-type">_getNextItem</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span id="local-6989586621681471174"><span class="annot"><a href="Chainweb.Utils.Paging.html#getNextItem"><span class="hs-identifier hs-type">getNextItem</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Getter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471174"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471174"><span class="hs-identifier hs-type">k</span></a></span></span><span>
+</span><span id="line-140"></span><span id="getNextItem"><span class="annot"><span class="annottext">getNextItem :: (k -&gt; f k) -&gt; NextItem k -&gt; f (NextItem k)
+</span><a href="Chainweb.Utils.Paging.html#getNextItem"><span class="hs-identifier hs-var hs-var">getNextItem</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NextItem k -&gt; k) -&gt; (k -&gt; f k) -&gt; NextItem k -&gt; f (NextItem k)
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="annot"><span class="annottext">NextItem k -&gt; k
+forall k. NextItem k -&gt; k
+</span><a href="Chainweb.Utils.Paging.html#_getNextItem"><span class="hs-identifier hs-var">_getNextItem</span></a></span><span>
+</span><span id="line-141"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#getNextItem"><span class="hs-pragma hs-type">getNextItem</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span id="local-6989586621681471173"><span class="annot"><a href="Chainweb.Utils.Paging.html#isInclusive"><span class="hs-identifier hs-type">isInclusive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471173"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-144"></span><span id="isInclusive"><span class="annot"><span class="annottext">isInclusive :: NextItem k -&gt; Bool
+</span><a href="Chainweb.Utils.Paging.html#isInclusive"><span class="hs-identifier hs-var hs-var">isInclusive</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-type">Inclusive</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-145"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#isInclusive"><span class="hs-identifier hs-var">isInclusive</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span id="local-6989586621681471172"><span class="annot"><a href="Chainweb.Utils.Paging.html#isExclusive"><span class="hs-identifier hs-type">isExclusive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471172"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-148"></span><span id="isExclusive"><span class="annot"><span class="annottext">isExclusive :: NextItem k -&gt; Bool
+</span><a href="Chainweb.Utils.Paging.html#isExclusive"><span class="hs-identifier hs-var hs-var">isExclusive</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Exclusive"><span class="hs-identifier hs-type">Exclusive</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-149"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#isExclusive"><span class="hs-identifier hs-var">isExclusive</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span id="local-6989586621681471171"><span class="annot"><a href="Chainweb.Utils.Paging.html#nextItemToText"><span class="hs-identifier hs-type">nextItemToText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471171"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471171"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span></span><span>
+</span><span id="line-152"></span><span id="nextItemToText"><span class="annot"><span class="annottext">nextItemToText :: NextItem k -&gt; Text
+</span><a href="Chainweb.Utils.Paging.html#nextItemToText"><span class="hs-identifier hs-var hs-var">nextItemToText</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-type">Inclusive</span></a></span><span> </span><span id="local-6989586621681471170"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681471170"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;inclusive:&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681471170"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-153"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#nextItemToText"><span class="hs-identifier hs-var">nextItemToText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Exclusive"><span class="hs-identifier hs-type">Exclusive</span></a></span><span> </span><span id="local-6989586621681471168"><span class="annot"><span class="annottext">k :: k
+</span><a href="#local-6989586621681471168"><span class="hs-identifier hs-var">k</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;exclusive:&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">k -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681471168"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span id="local-6989586621681471549"><span id="local-6989586621681471550"><span class="annot"><a href="Chainweb.Utils.Paging.html#nextItemFromText"><span class="hs-identifier hs-type">nextItemFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681471550"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471549"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471550"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471549"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-156"></span><span id="nextItemFromText"><span class="annot"><span class="annottext">nextItemFromText :: Text -&gt; m (NextItem k)
+</span><a href="Chainweb.Utils.Paging.html#nextItemFromText"><span class="hs-identifier hs-var hs-var">nextItemFromText</span></a></span></span><span> </span><span id="local-6989586621681471167"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681471167"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; Text -&gt; (Text, Text)
+</span><span class="hs-identifier hs-var">T.break</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-char">':'</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471167"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681471165"><span class="annot"><span class="annottext">a :: Text
+</span><a href="#local-6989586621681471165"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471164"><span class="annot"><span class="annottext">b :: Text
+</span><a href="#local-6989586621681471164"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471165"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-string">&quot;inclusive&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">k -&gt; NextItem k
+forall k. k -&gt; NextItem k
+</span><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-var">Inclusive</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; NextItem k) -&gt; m k -&gt; m (NextItem k)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; m k
+forall a (m :: * -&gt; *).
+(HasTextRepresentation a, MonadThrow m) =&gt;
+Text -&gt; m a
+</span><a href="Chainweb.Utils.html#fromText"><span class="hs-identifier hs-var">fromText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.drop</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471164"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471165"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-string">&quot;exclusive&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">k -&gt; NextItem k
+forall k. k -&gt; NextItem k
+</span><a href="Chainweb.Utils.Paging.html#Exclusive"><span class="hs-identifier hs-var">Exclusive</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; NextItem k) -&gt; m k -&gt; m (NextItem k)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; m k
+forall a (m :: * -&gt; *).
+(HasTextRepresentation a, MonadThrow m) =&gt;
+Text -&gt; m a
+</span><a href="Chainweb.Utils.html#fromText"><span class="hs-identifier hs-var">fromText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.drop</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471164"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.null</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471164"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EncodingException -&gt; m (NextItem k)
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m (NextItem k))
+-&gt; (Text -&gt; EncodingException) -&gt; Text -&gt; m (NextItem k)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#TextFormatException"><span class="hs-identifier hs-var">TextFormatException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m (NextItem k)) -&gt; Text -&gt; m (NextItem k)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;missing ':' in next item: \&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471167"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;\&quot;.&quot;</span></span><span>
+</span><span id="line-161"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EncodingException -&gt; m (NextItem k)
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m (NextItem k))
+-&gt; EncodingException -&gt; m (NextItem k)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#TextFormatException"><span class="hs-identifier hs-var">TextFormatException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; EncodingException) -&gt; Text -&gt; EncodingException
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;unrecognized next item: \&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681471167"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;\&quot;.&quot;</span></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span id="local-6989586621681471157"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471157"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471157"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-164"></span><span>    </span><span id="local-6989586621681471153"><span class="annot"><span class="annottext">toText :: NextItem k -&gt; Text
+</span><a href="#local-6989586621681471153"><span class="hs-identifier hs-var hs-var hs-var hs-var">toText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NextItem k -&gt; Text
+forall k. HasTextRepresentation k =&gt; NextItem k -&gt; Text
+</span><a href="Chainweb.Utils.Paging.html#nextItemToText"><span class="hs-identifier hs-var">nextItemToText</span></a></span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#toText"><span class="hs-pragma hs-type">toText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-166"></span><span>    </span><span id="local-6989586621681471152"><span class="annot"><span class="annottext">fromText :: Text -&gt; m (NextItem k)
+</span><a href="#local-6989586621681471152"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m (NextItem k)
+forall (m :: * -&gt; *) k.
+(MonadThrow m, HasTextRepresentation k) =&gt;
+Text -&gt; m (NextItem k)
+</span><a href="Chainweb.Utils.Paging.html#nextItemFromText"><span class="hs-identifier hs-var">nextItemFromText</span></a></span><span>
+</span><span id="line-167"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#fromText"><span class="hs-pragma hs-type">fromText</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span id="local-6989586621681471151"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681471144"><span id="local-6989586621681471146"><span id="local-6989586621681471148"><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471151"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471151"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-170"></span><span>    </span><span id="local-6989586621681471143"><span class="annot"><span class="annottext">toJSON :: NextItem k -&gt; Value
+</span><a href="#local-6989586621681471143"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Value) -&gt; (NextItem k -&gt; Text) -&gt; NextItem k -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NextItem k -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSON</span></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span id="local-6989586621681471142"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681471139"><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471142"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471142"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-174"></span><span>    </span><span id="local-6989586621681471138"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (NextItem k)
+</span><a href="#local-6989586621681471138"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Value -&gt; Parser (NextItem k)
+forall a. HasTextRepresentation a =&gt; String -&gt; Value -&gt; Parser a
+</span><a href="Chainweb.Utils.html#parseJsonFromText"><span class="hs-identifier hs-var">parseJsonFromText</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;NextItem&quot;</span></span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">parseJSON</span></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- End-Of-Stream</span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span class="hs-comment">-- | Data type to indicate end of stream</span><span>
+</span><span id="line-181"></span><span class="hs-comment">--</span><span>
+</span><span id="line-182"></span><span id="local-6989586621681471135"><span id="local-6989586621681471136"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="Eos"><span class="annot"><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier hs-var">Eos</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Eos"><span class="annot"><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier hs-var">Eos</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_getEos"><span class="annot"><span class="annottext">Eos -&gt; Bool
+</span><a href="Chainweb.Utils.Paging.html#_getEos"><span class="hs-identifier hs-var hs-var">_getEos</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-183"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681471129"><span id="local-6989586621681471131"><span class="annot"><span class="annottext">Eos -&gt; Eos -&gt; Bool
+(Eos -&gt; Eos -&gt; Bool) -&gt; (Eos -&gt; Eos -&gt; Bool) -&gt; Eq Eos
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Eos -&gt; Eos -&gt; Bool
+$c/= :: Eos -&gt; Eos -&gt; Bool
+== :: Eos -&gt; Eos -&gt; Bool
+$c== :: Eos -&gt; Eos -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471123"><span id="local-6989586621681471125"><span id="local-6989586621681471127"><span class="annot"><span class="annottext">Int -&gt; Eos -&gt; ShowS
+[Eos] -&gt; ShowS
+Eos -&gt; String
+(Int -&gt; Eos -&gt; ShowS)
+-&gt; (Eos -&gt; String) -&gt; ([Eos] -&gt; ShowS) -&gt; Show Eos
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Eos] -&gt; ShowS
+$cshowList :: [Eos] -&gt; ShowS
+show :: Eos -&gt; String
+$cshow :: Eos -&gt; String
+showsPrec :: Int -&gt; Eos -&gt; ShowS
+$cshowsPrec :: Int -&gt; Eos -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471108"><span id="local-6989586621681471110"><span id="local-6989586621681471112"><span id="local-6989586621681471114"><span id="local-6989586621681471116"><span id="local-6989586621681471118"><span id="local-6989586621681471120"><span class="annot"><span class="annottext">Eq Eos
+Eq Eos =&gt;
+(Eos -&gt; Eos -&gt; Ordering)
+-&gt; (Eos -&gt; Eos -&gt; Bool)
+-&gt; (Eos -&gt; Eos -&gt; Bool)
+-&gt; (Eos -&gt; Eos -&gt; Bool)
+-&gt; (Eos -&gt; Eos -&gt; Bool)
+-&gt; (Eos -&gt; Eos -&gt; Eos)
+-&gt; (Eos -&gt; Eos -&gt; Eos)
+-&gt; Ord Eos
+Eos -&gt; Eos -&gt; Bool
+Eos -&gt; Eos -&gt; Ordering
+Eos -&gt; Eos -&gt; Eos
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Eos -&gt; Eos -&gt; Eos
+$cmin :: Eos -&gt; Eos -&gt; Eos
+max :: Eos -&gt; Eos -&gt; Eos
+$cmax :: Eos -&gt; Eos -&gt; Eos
+&gt;= :: Eos -&gt; Eos -&gt; Bool
+$c&gt;= :: Eos -&gt; Eos -&gt; Bool
+&gt; :: Eos -&gt; Eos -&gt; Bool
+$c&gt; :: Eos -&gt; Eos -&gt; Bool
+&lt;= :: Eos -&gt; Eos -&gt; Bool
+$c&lt;= :: Eos -&gt; Eos -&gt; Bool
+&lt; :: Eos -&gt; Eos -&gt; Bool
+$c&lt; :: Eos -&gt; Eos -&gt; Bool
+compare :: Eos -&gt; Eos -&gt; Ordering
+$ccompare :: Eos -&gt; Eos -&gt; Ordering
+$cp1Ord :: Eq Eos
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Eos -&gt; Rep Eos x)
+-&gt; (forall x. Rep Eos x -&gt; Eos) -&gt; Generic Eos
+forall x. Rep Eos x -&gt; Eos
+forall x. Eos -&gt; Rep Eos x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep Eos x -&gt; Eos
+$cfrom :: forall x. Eos -&gt; Rep Eos x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-184"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681471090"><span id="local-6989586621681471092"><span id="local-6989586621681471094"><span id="local-6989586621681471096"><span id="local-6989586621681471098"><span id="local-6989586621681471100"><span id="local-6989586621681471102"><span id="local-6989586621681471104"><span class="annot"><span class="annottext">Int -&gt; Eos
+Eos -&gt; Int
+Eos -&gt; [Eos]
+Eos -&gt; Eos
+Eos -&gt; Eos -&gt; [Eos]
+Eos -&gt; Eos -&gt; Eos -&gt; [Eos]
+(Eos -&gt; Eos)
+-&gt; (Eos -&gt; Eos)
+-&gt; (Int -&gt; Eos)
+-&gt; (Eos -&gt; Int)
+-&gt; (Eos -&gt; [Eos])
+-&gt; (Eos -&gt; Eos -&gt; [Eos])
+-&gt; (Eos -&gt; Eos -&gt; [Eos])
+-&gt; (Eos -&gt; Eos -&gt; Eos -&gt; [Eos])
+-&gt; Enum Eos
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+enumFromThenTo :: Eos -&gt; Eos -&gt; Eos -&gt; [Eos]
+$cenumFromThenTo :: Eos -&gt; Eos -&gt; Eos -&gt; [Eos]
+enumFromTo :: Eos -&gt; Eos -&gt; [Eos]
+$cenumFromTo :: Eos -&gt; Eos -&gt; [Eos]
+enumFromThen :: Eos -&gt; Eos -&gt; [Eos]
+$cenumFromThen :: Eos -&gt; Eos -&gt; [Eos]
+enumFrom :: Eos -&gt; [Eos]
+$cenumFrom :: Eos -&gt; [Eos]
+fromEnum :: Eos -&gt; Int
+$cfromEnum :: Eos -&gt; Int
+toEnum :: Int -&gt; Eos
+$ctoEnum :: Int -&gt; Eos
+pred :: Eos -&gt; Eos
+$cpred :: Eos -&gt; Eos
+succ :: Eos -&gt; Eos
+$csucc :: Eos -&gt; Eos
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471086"><span id="local-6989586621681471088"><span class="annot"><span class="annottext">Eos
+Eos -&gt; Eos -&gt; Bounded Eos
+forall a. a -&gt; a -&gt; Bounded a
+maxBound :: Eos
+$cmaxBound :: Eos
+minBound :: Eos
+$cminBound :: Eos
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471081"><span id="local-6989586621681471083"><span class="annot"><span class="annottext">Value -&gt; Parser [Eos]
+Value -&gt; Parser Eos
+(Value -&gt; Parser Eos) -&gt; (Value -&gt; Parser [Eos]) -&gt; FromJSON Eos
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [Eos]
+$cparseJSONList :: Value -&gt; Parser [Eos]
+parseJSON :: Value -&gt; Parser Eos
+$cparseJSON :: Value -&gt; Parser Eos
+</span><a href="#local-6989586621681471081"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681471073"><span id="local-6989586621681471075"><span id="local-6989586621681471077"><span id="local-6989586621681471079"><span class="annot"><span class="annottext">[Eos] -&gt; Encoding
+[Eos] -&gt; Value
+Eos -&gt; Encoding
+Eos -&gt; Value
+(Eos -&gt; Value)
+-&gt; (Eos -&gt; Encoding)
+-&gt; ([Eos] -&gt; Value)
+-&gt; ([Eos] -&gt; Encoding)
+-&gt; ToJSON Eos
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [Eos] -&gt; Encoding
+$ctoEncodingList :: [Eos] -&gt; Encoding
+toJSONList :: [Eos] -&gt; Value
+$ctoJSONList :: [Eos] -&gt; Value
+toEncoding :: Eos -&gt; Encoding
+$ctoEncoding :: Eos -&gt; Encoding
+toJSON :: Eos -&gt; Value
+$ctoJSON :: Eos -&gt; Value
+</span><a href="#local-6989586621681471073"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></a></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#isEos"><span class="hs-identifier hs-type">isEos</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier hs-type">Eos</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-187"></span><span id="isEos"><span class="annot"><span class="annottext">isEos :: Eos -&gt; Bool
+</span><a href="Chainweb.Utils.Paging.html#isEos"><span class="hs-identifier hs-var hs-var">isEos</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Eos -&gt; Bool
+</span><a href="Chainweb.Utils.Paging.html#_getEos"><span class="hs-identifier hs-var hs-var">_getEos</span></a></span><span>
+</span><span id="line-188"></span><span>
+</span><span id="line-189"></span><span id="local-6989586621681471071"><span id="local-6989586621681471072"><span class="annot"><a href="Chainweb.Utils.Paging.html#atEos"><span class="hs-identifier hs-type">atEos</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681471072"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681471071"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471072"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471072"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier hs-type">Eos</span></a></span></span></span><span>
+</span><span id="line-190"></span><span id="atEos"><span class="annot"><span class="annottext">atEos :: Stream (Of a) m () -&gt; m Eos
+</span><a href="Chainweb.Utils.Paging.html#atEos"><span class="hs-identifier hs-var hs-var">atEos</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Maybe a -&gt; Eos) -&gt; m (Maybe a) -&gt; m Eos
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; Eos
+</span><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier hs-var">Eos</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Eos) -&gt; (Maybe a -&gt; Bool) -&gt; Maybe a -&gt; Eos
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Maybe a -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><span class="hs-identifier hs-var">isNothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(m (Maybe a) -&gt; m Eos)
+-&gt; (Stream (Of a) m () -&gt; m (Maybe a))
+-&gt; Stream (Of a) m ()
+-&gt; m Eos
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m () -&gt; m (Maybe a)
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var">S.head_</span></span><span>
+</span><span id="line-191"></span><span>
+</span><span id="line-192"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-193"></span><span class="hs-comment">-- Tools for turning streams into pages</span><span>
+</span><span id="line-194"></span><span>
+</span><span id="line-195"></span><span class="hs-comment">-- | Create page from a non-empty stream that is a non-blocking finite prefix of</span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- a possibly blocking infinite stream.</span><span>
+</span><span id="line-197"></span><span class="hs-comment">--</span><span>
+</span><span id="line-198"></span><span class="hs-comment">-- If the given stream contains more items than requested by the caller an</span><span>
+</span><span id="line-199"></span><span class="hs-comment">-- 'Inclusive' cursor is added to the page. Otherwise the last item of the</span><span>
+</span><span id="line-200"></span><span class="hs-comment">-- stream is added as 'Exclusive' cursor.</span><span>
+</span><span id="line-201"></span><span class="hs-comment">--</span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- If the input stream is empty we assume that it is because of a limiting</span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- filter that results in a query for a finite stream. No cursor is returned.</span><span>
+</span><span id="line-204"></span><span class="hs-comment">--</span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- For an empty input we can't return a next cursor. We can't return just</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- 'Nothing' because that is used in a 'Page' to signal the end of the stream,</span><span>
+</span><span id="line-207"></span><span class="hs-comment">-- which contradicts the assumption that the input stream is the prefix of an</span><span>
+</span><span id="line-208"></span><span class="hs-comment">-- infinite stream. So, when we see an empty stream we assume that it's empty</span><span>
+</span><span id="line-209"></span><span class="hs-comment">-- because of some filter and return 'Nothing'</span><span>
+</span><span id="line-210"></span><span class="hs-comment">--</span><span>
+</span><span id="line-211"></span><span id="local-6989586621681471066"><span id="local-6989586621681471067"><span id="local-6989586621681471068"><span class="annot"><a href="Chainweb.Utils.Paging.html#finitePrefixOfInfiniteStreamToPage"><span class="hs-identifier hs-type">finitePrefixOfInfiniteStreamToPage</span></a></span><span>
+</span><span id="line-212"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681471068"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-213"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681471067"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471066"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span><span>
+</span><span id="line-215"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681471067"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471068"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471068"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471066"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471067"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-217"></span><span id="finitePrefixOfInfiniteStreamToPage"><span class="annot"><span class="annottext">finitePrefixOfInfiniteStreamToPage :: (a -&gt; k)
+-&gt; Maybe Limit -&gt; Stream (Of a) m () -&gt; m (Page (NextItem k) a)
+</span><a href="Chainweb.Utils.Paging.html#finitePrefixOfInfiniteStreamToPage"><span class="hs-identifier hs-var hs-var">finitePrefixOfInfiniteStreamToPage</span></a></span></span><span> </span><span id="local-6989586621681471065"><span class="annot"><span class="annottext">k :: a -&gt; k
+</span><a href="#local-6989586621681471065"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621681471064"><span class="annot"><span class="annottext">limit :: Maybe Limit
+</span><a href="#local-6989586621681471064"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681471063"><span class="annot"><span class="annottext">s :: Stream (Of a) m ()
+</span><a href="#local-6989586621681471063"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-218"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681471062"><span class="annot"><span class="annottext">items' :: [a]
+</span><a href="#local-6989586621681471062"><span class="hs-identifier hs-var">items'</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span id="local-6989586621681471060"><span class="annot"><span class="annottext">limit' :: Int
+</span><a href="#local-6989586621681471060"><span class="hs-identifier hs-var">limit'</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span id="local-6989586621681471059"><span class="annot"><span class="annottext">lastKey :: Maybe a
+</span><a href="#local-6989586621681471059"><span class="hs-identifier hs-var">lastKey</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span id="local-6989586621681471058"><span class="annot"><span class="annottext">tailStream :: Stream (Of a) m ()
+</span><a href="#local-6989586621681471058"><span class="hs-identifier hs-var">tailStream</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m (Of Int (Of (Maybe a) (Stream (Of a) m ())))
+-&gt; m (Of [a] (Of Int (Of (Maybe a) (Stream (Of a) m ()))))
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Of [a] r)
+</span><span class="hs-identifier hs-var">S.toList</span></span><span>
+</span><span id="line-219"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) m (Of Int (Of (Maybe a) (Stream (Of a) m ())))
+ -&gt; m (Of [a] (Of Int (Of (Maybe a) (Stream (Of a) m ())))))
+-&gt; (Stream (Of a) m ()
+    -&gt; Stream (Of a) m (Of Int (Of (Maybe a) (Stream (Of a) m ()))))
+-&gt; Stream (Of a) m ()
+-&gt; m (Of [a] (Of Int (Of (Maybe a) (Stream (Of a) m ()))))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) (Stream (Of a) m) (Of (Maybe a) (Stream (Of a) m ()))
+-&gt; Stream (Of a) m (Of Int (Of (Maybe a) (Stream (Of a) m ())))
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Of Int r)
+</span><span class="hs-identifier hs-var">S.length</span></span><span>
+</span><span id="line-220"></span><span>        </span><span class="annot"><span class="annottext">(Stream
+   (Of a) (Stream (Of a) m) (Of (Maybe a) (Stream (Of a) m ()))
+ -&gt; Stream (Of a) m (Of Int (Of (Maybe a) (Stream (Of a) m ()))))
+-&gt; (Stream (Of a) m ()
+    -&gt; Stream
+         (Of a) (Stream (Of a) m) (Of (Maybe a) (Stream (Of a) m ())))
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) m (Of Int (Of (Maybe a) (Stream (Of a) m ())))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m (Of (Maybe a) (Stream (Of a) m ()))
+-&gt; Stream
+     (Of a) (Stream (Of a) m) (Of (Maybe a) (Stream (Of a) m ()))
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; Stream (Of a) (Stream (Of a) m) r
+</span><span class="hs-identifier hs-var">S.copy</span></span><span>
+</span><span id="line-221"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) m (Of (Maybe a) (Stream (Of a) m ()))
+ -&gt; Stream
+      (Of a) (Stream (Of a) m) (Of (Maybe a) (Stream (Of a) m ())))
+-&gt; (Stream (Of a) m ()
+    -&gt; Stream (Of a) m (Of (Maybe a) (Stream (Of a) m ())))
+-&gt; Stream (Of a) m ()
+-&gt; Stream
+     (Of a) (Stream (Of a) m) (Of (Maybe a) (Stream (Of a) m ()))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+-&gt; Stream (Of a) m (Of (Maybe a) (Stream (Of a) m ()))
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Of (Maybe a) r)
+</span><span class="hs-identifier hs-var">S.last</span></span><span>
+</span><span id="line-222"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+ -&gt; Stream (Of a) m (Of (Maybe a) (Stream (Of a) m ())))
+-&gt; (Stream (Of a) m ()
+    -&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ()))
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) m (Of (Maybe a) (Stream (Of a) m ()))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m (Stream (Of a) m ())
+-&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; Stream (Of a) (Stream (Of a) m) r
+</span><span class="hs-identifier hs-var">S.copy</span></span><span>
+</span><span id="line-223"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) m (Stream (Of a) m ())
+ -&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ()))
+-&gt; (Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ()))
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ()))
+-&gt; (Limit
+    -&gt; Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ()))
+-&gt; Maybe Limit
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) m (Stream (Of a) m ())
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Stream (Of a) m ()
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m ()
+-&gt; Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ())
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681471051"><span class="annot"><span class="annottext">n :: Limit
+</span><a href="#local-6989586621681471051"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ())
+forall (m :: * -&gt; *) (f :: * -&gt; *) r.
+(Monad m, Functor f) =&gt;
+Int -&gt; Stream f m r -&gt; Stream f m (Stream f m r)
+</span><span class="hs-identifier hs-var">S.splitAt</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Int) -&gt; Natural -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; Natural
+</span><a href="Chainweb.Utils.Paging.html#_getLimit"><span class="hs-identifier hs-var hs-var">_getLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471051"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+</span><a href="#local-6989586621681471064"><span class="hs-identifier hs-var">limit</span></a></span><span>
+</span><span id="line-224"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) m ()
+ -&gt; m (Of [a] (Of Int (Of (Maybe a) (Stream (Of a) m ())))))
+-&gt; Stream (Of a) m ()
+-&gt; m (Of [a] (Of Int (Of (Maybe a) (Stream (Of a) m ()))))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m ()
+</span><a href="#local-6989586621681471063"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-225"></span><span>    </span><span id="local-6989586621681471048"><span class="annot"><span class="annottext">Maybe k
+</span><a href="#local-6989586621681471048"><span class="hs-identifier hs-var">maybeNext</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(a -&gt; k) -&gt; Maybe a -&gt; Maybe k
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; k
+</span><a href="#local-6989586621681471065"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe a -&gt; Maybe k) -&gt; m (Maybe a) -&gt; m (Maybe k)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m () -&gt; m (Maybe a)
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var">S.head_</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m ()
+</span><a href="#local-6989586621681471058"><span class="hs-identifier hs-var">tailStream</span></a></span><span>
+</span><span id="line-226"></span><span>
+</span><span id="line-227"></span><span>    </span><span class="annot"><span class="annottext">Page (NextItem k) a -&gt; m (Page (NextItem k) a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Page (NextItem k) a -&gt; m (Page (NextItem k) a))
+-&gt; Page (NextItem k) a -&gt; m (Page (NextItem k) a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; [a] -&gt; Maybe (NextItem k) -&gt; Page (NextItem k) a
+forall k a. Limit -&gt; [a] -&gt; Maybe k -&gt; Page k a
+</span><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-var">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Limit
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681471060"><span class="hs-identifier hs-var">limit'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621681471062"><span class="hs-identifier hs-var">items'</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (NextItem k) -&gt; Page (NextItem k) a)
+-&gt; Maybe (NextItem k) -&gt; Page (NextItem k) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe k
+</span><a href="#local-6989586621681471048"><span class="hs-identifier hs-var">maybeNext</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-228"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><a href="#local-6989586621681471059"><span class="hs-identifier hs-var">lastKey</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-229"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem k)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-230"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681471047"><span class="annot"><span class="annottext">l :: a
+</span><a href="#local-6989586621681471047"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NextItem k -&gt; Maybe (NextItem k)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">k -&gt; NextItem k
+forall k. k -&gt; NextItem k
+</span><a href="Chainweb.Utils.Paging.html#Exclusive"><span class="hs-identifier hs-var">Exclusive</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; NextItem k) -&gt; k -&gt; NextItem k
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; k
+</span><a href="#local-6989586621681471065"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681471047"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-231"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681471046"><span class="annot"><span class="annottext">next :: k
+</span><a href="#local-6989586621681471046"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NextItem k -&gt; Maybe (NextItem k)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">k -&gt; NextItem k
+forall k. k -&gt; NextItem k
+</span><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-var">Inclusive</span></a></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681471046"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-232"></span><span>
+</span><span id="line-233"></span><span class="hs-comment">-- | Create 'Page' from a (possibly empty) prefix of a non-blocking finite</span><span>
+</span><span id="line-234"></span><span class="hs-comment">-- stream. If the input stream has more than the requested number of items</span><span>
+</span><span id="line-235"></span><span class="hs-comment">-- an 'Inclusive' cursor is added. Otherwise it is assumed that the stream</span><span>
+</span><span id="line-236"></span><span class="hs-comment">-- has ended and 'Nothing' is returned as cursor.</span><span>
+</span><span id="line-237"></span><span class="hs-comment">--</span><span>
+</span><span id="line-238"></span><span id="local-6989586621681471499"><span id="local-6989586621681471500"><span id="local-6989586621681471501"><span class="annot"><a href="Chainweb.Utils.Paging.html#finiteStreamToPage"><span class="hs-identifier hs-type">finiteStreamToPage</span></a></span><span>
+</span><span id="line-239"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681471501"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-240"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681471500"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471499"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-241"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span><span>
+</span><span id="line-242"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681471500"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471501"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-243"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471501"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471499"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471500"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-244"></span><span id="finiteStreamToPage"><span class="annot"><span class="annottext">finiteStreamToPage :: (a -&gt; k)
+-&gt; Maybe Limit -&gt; Stream (Of a) m () -&gt; m (Page (NextItem k) a)
+</span><a href="Chainweb.Utils.Paging.html#finiteStreamToPage"><span class="hs-identifier hs-var hs-var">finiteStreamToPage</span></a></span></span><span> </span><span id="local-6989586621681471045"><span class="annot"><span class="annottext">k :: a -&gt; k
+</span><a href="#local-6989586621681471045"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621681471044"><span class="annot"><span class="annottext">limit :: Maybe Limit
+</span><a href="#local-6989586621681471044"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681471043"><span class="annot"><span class="annottext">s :: Stream (Of a) m ()
+</span><a href="#local-6989586621681471043"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-245"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681471042"><span class="annot"><span class="annottext">items' :: [a]
+</span><a href="#local-6989586621681471042"><span class="hs-identifier hs-var">items'</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span id="local-6989586621681471041"><span class="annot"><span class="annottext">limit' :: Int
+</span><a href="#local-6989586621681471041"><span class="hs-identifier hs-var">limit'</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span id="local-6989586621681471040"><span class="annot"><span class="annottext">tailStream :: Stream (Of a) m ()
+</span><a href="#local-6989586621681471040"><span class="hs-identifier hs-var">tailStream</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m (Of Int (Stream (Of a) m ()))
+-&gt; m (Of [a] (Of Int (Stream (Of a) m ())))
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Of [a] r)
+</span><span class="hs-identifier hs-var">S.toList</span></span><span>
+</span><span id="line-246"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) m (Of Int (Stream (Of a) m ()))
+ -&gt; m (Of [a] (Of Int (Stream (Of a) m ()))))
+-&gt; (Stream (Of a) m ()
+    -&gt; Stream (Of a) m (Of Int (Stream (Of a) m ())))
+-&gt; Stream (Of a) m ()
+-&gt; m (Of [a] (Of Int (Stream (Of a) m ())))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+-&gt; Stream (Of a) m (Of Int (Stream (Of a) m ()))
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Of Int r)
+</span><span class="hs-identifier hs-var">S.length</span></span><span>
+</span><span id="line-247"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+ -&gt; Stream (Of a) m (Of Int (Stream (Of a) m ())))
+-&gt; (Stream (Of a) m ()
+    -&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ()))
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) m (Of Int (Stream (Of a) m ()))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m (Stream (Of a) m ())
+-&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; Stream (Of a) (Stream (Of a) m) r
+</span><span class="hs-identifier hs-var">S.copy</span></span><span>
+</span><span id="line-248"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) m (Stream (Of a) m ())
+ -&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ()))
+-&gt; (Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ()))
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) (Stream (Of a) m) (Stream (Of a) m ())
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ()))
+-&gt; (Limit
+    -&gt; Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ()))
+-&gt; Maybe Limit
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) m (Stream (Of a) m ())
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Stream (Of a) m ()
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m ()
+-&gt; Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ())
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681471039"><span class="annot"><span class="annottext">n :: Limit
+</span><a href="#local-6989586621681471039"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Stream (Of a) m () -&gt; Stream (Of a) m (Stream (Of a) m ())
+forall (m :: * -&gt; *) (f :: * -&gt; *) r.
+(Monad m, Functor f) =&gt;
+Int -&gt; Stream f m r -&gt; Stream f m (Stream f m r)
+</span><span class="hs-identifier hs-var">S.splitAt</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Int) -&gt; Natural -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; Natural
+</span><a href="Chainweb.Utils.Paging.html#_getLimit"><span class="hs-identifier hs-var hs-var">_getLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471039"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+</span><a href="#local-6989586621681471044"><span class="hs-identifier hs-var">limit</span></a></span><span>
+</span><span id="line-249"></span><span>        </span><span class="annot"><span class="annottext">(Stream (Of a) m () -&gt; m (Of [a] (Of Int (Stream (Of a) m ()))))
+-&gt; Stream (Of a) m () -&gt; m (Of [a] (Of Int (Stream (Of a) m ())))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m ()
+</span><a href="#local-6989586621681471043"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-250"></span><span>    </span><span id="local-6989586621681471038"><span class="annot"><span class="annottext">Maybe (NextItem k)
+</span><a href="#local-6989586621681471038"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(a -&gt; NextItem k) -&gt; Maybe a -&gt; Maybe (NextItem k)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">k -&gt; NextItem k
+forall k. k -&gt; NextItem k
+</span><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-var">Inclusive</span></a></span><span> </span><span class="annot"><span class="annottext">(k -&gt; NextItem k) -&gt; (a -&gt; k) -&gt; a -&gt; NextItem k
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; k
+</span><a href="#local-6989586621681471045"><span class="hs-identifier hs-var">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Maybe a -&gt; Maybe (NextItem k))
+-&gt; m (Maybe a) -&gt; m (Maybe (NextItem k))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m () -&gt; m (Maybe a)
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var">S.head_</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m ()
+</span><a href="#local-6989586621681471040"><span class="hs-identifier hs-var">tailStream</span></a></span><span>
+</span><span id="line-251"></span><span>    </span><span class="annot"><span class="annottext">Page (NextItem k) a -&gt; m (Page (NextItem k) a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Page (NextItem k) a -&gt; m (Page (NextItem k) a))
+-&gt; Page (NextItem k) a -&gt; m (Page (NextItem k) a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; [a] -&gt; Maybe (NextItem k) -&gt; Page (NextItem k) a
+forall k a. Limit -&gt; [a] -&gt; Maybe k -&gt; Page k a
+</span><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-var">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Limit
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681471041"><span class="hs-identifier hs-var">limit'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621681471042"><span class="hs-identifier hs-var">items'</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem k)
+</span><a href="#local-6989586621681471038"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-252"></span><span>
+</span><span id="line-253"></span><span class="hs-comment">-- | Quick and dirty pagin implementation. Usage should be avoided.</span><span>
+</span><span id="line-254"></span><span class="hs-comment">--</span><span>
+</span><span id="line-255"></span><span id="local-6989586621681471035"><span id="local-6989586621681471036"><span id="local-6989586621681471037"><span class="annot"><a href="Chainweb.Utils.Paging.html#seekFiniteStreamToPage"><span class="hs-identifier hs-type">seekFiniteStreamToPage</span></a></span><span>
+</span><span id="line-256"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681471037"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-257"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="#local-6989586621681471036"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-258"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681471035"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471036"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-259"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471036"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-260"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span><span>
+</span><span id="line-261"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681471035"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471037"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-262"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681471037"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681471036"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681471035"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-263"></span><span id="seekFiniteStreamToPage"><span class="annot"><span class="annottext">seekFiniteStreamToPage :: (a -&gt; k)
+-&gt; Maybe (NextItem k)
+-&gt; Maybe Limit
+-&gt; Stream (Of a) m ()
+-&gt; m (Page (NextItem k) a)
+</span><a href="Chainweb.Utils.Paging.html#seekFiniteStreamToPage"><span class="hs-identifier hs-var hs-var">seekFiniteStreamToPage</span></a></span></span><span> </span><span id="local-6989586621681471034"><span class="annot"><span class="annottext">k :: a -&gt; k
+</span><a href="#local-6989586621681471034"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621681471033"><span class="annot"><span class="annottext">next :: Maybe (NextItem k)
+</span><a href="#local-6989586621681471033"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621681471032"><span class="annot"><span class="annottext">limit :: Maybe Limit
+</span><a href="#local-6989586621681471032"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; k)
+-&gt; Maybe Limit -&gt; Stream (Of a) m () -&gt; m (Page (NextItem k) a)
+forall (m :: * -&gt; *) a k.
+Monad m =&gt;
+(a -&gt; k)
+-&gt; Maybe Limit -&gt; Stream (Of a) m () -&gt; m (Page (NextItem k) a)
+</span><a href="Chainweb.Utils.Paging.html#finiteStreamToPage"><span class="hs-identifier hs-var">finiteStreamToPage</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; k
+</span><a href="#local-6989586621681471034"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+</span><a href="#local-6989586621681471032"><span class="hs-identifier hs-var">limit</span></a></span><span>
+</span><span id="line-264"></span><span>    </span><span class="annot"><span class="annottext">(Stream (Of a) m () -&gt; m (Page (NextItem k) a))
+-&gt; (Stream (Of a) m () -&gt; Stream (Of a) m ())
+-&gt; Stream (Of a) m ()
+-&gt; m (Page (NextItem k) a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem k)
+</span><a href="#local-6989586621681471033"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-265"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m () -&gt; Stream (Of a) m ()
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-266"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Exclusive"><span class="hs-identifier hs-type">Exclusive</span></a></span><span> </span><span id="local-6989586621681471030"><span class="annot"><span class="annottext">n :: k
+</span><a href="#local-6989586621681471030"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Stream (Of a) m () -&gt; Stream (Of a) m ()
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Int -&gt; Stream (Of a) m r -&gt; Stream (Of a) m r
+</span><span class="hs-identifier hs-var">S.drop</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">(Stream (Of a) m () -&gt; Stream (Of a) m ())
+-&gt; (Stream (Of a) m () -&gt; Stream (Of a) m ())
+-&gt; Stream (Of a) m ()
+-&gt; Stream (Of a) m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Bool) -&gt; Stream (Of a) m () -&gt; Stream (Of a) m ()
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+(a -&gt; Bool) -&gt; Stream (Of a) m r -&gt; Stream (Of a) m r
+</span><span class="hs-identifier hs-var">S.dropWhile</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681471027"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621681471027"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; k
+</span><a href="#local-6989586621681471034"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681471027"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">k -&gt; k -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681471030"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-267"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-type">Inclusive</span></a></span><span> </span><span id="local-6989586621681471025"><span class="annot"><span class="annottext">n :: k
+</span><a href="#local-6989586621681471025"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Bool) -&gt; Stream (Of a) m () -&gt; Stream (Of a) m ()
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+(a -&gt; Bool) -&gt; Stream (Of a) m r -&gt; Stream (Of a) m r
+</span><span class="hs-identifier hs-var">S.dropWhile</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681471024"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621681471024"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; k
+</span><a href="#local-6989586621681471034"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681471024"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">k -&gt; k -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621681471025"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-268"></span><span>
+</span><span id="line-269"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-270"></span><span class="hs-comment">-- Properties</span><span>
+</span><span id="line-271"></span><span>
+</span><span id="line-272"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#prop_streamToPage_limit"><span class="hs-identifier hs-type">prop_streamToPage_limit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
+</span><span id="line-273"></span><span id="prop_streamToPage_limit"><span class="annot"><span class="annottext">prop_streamToPage_limit :: [Int] -&gt; Limit -&gt; Property
+</span><a href="Chainweb.Utils.Paging.html#prop_streamToPage_limit"><span class="hs-identifier hs-var hs-var">prop_streamToPage_limit</span></a></span></span><span> </span><span id="local-6989586621681471022"><span class="annot"><span class="annottext">l :: [Int]
+</span><a href="#local-6989586621681471022"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span id="local-6989586621681471021"><span class="annot"><span class="annottext">i :: Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; Limit -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; Limit
+forall a b. Integral a =&gt; [b] -&gt; a
+</span><a href="Chainweb.Utils.html#len"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471022"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property -&gt; Property
+forall prop. Testable prop =&gt; Bool -&gt; prop -&gt; Property
+</span><span class="hs-operator hs-var">==&gt;</span></span><span> </span><span class="annot"><span class="annottext">Page (NextItem Int) Int
+</span><a href="#local-6989586621681471017"><span class="hs-identifier hs-var">actual</span></a></span><span> </span><span class="annot"><span class="annottext">Page (NextItem Int) Int -&gt; Page (NextItem Int) Int -&gt; Property
+forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
+</span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">Page (NextItem Int) Int
+</span><a href="#local-6989586621681471015"><span class="hs-identifier hs-var">expected</span></a></span><span>
+</span><span id="line-274"></span><span>    </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Bool -&gt; String -&gt; Property -&gt; Property
+forall prop.
+Testable prop =&gt;
+Double -&gt; Bool -&gt; String -&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; Limit -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; Limit
+forall a b. Integral a =&gt; [b] -&gt; a
+</span><a href="Chainweb.Utils.html#len"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471022"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;limit == length of stream&quot;</span></span><span>
+</span><span id="line-275"></span><span>    </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Bool -&gt; String -&gt; Property -&gt; Property
+forall prop.
+Testable prop =&gt;
+Double -&gt; Bool -&gt; String -&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Limit -&gt; Limit -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;limit == 0&quot;</span></span><span>
+</span><span id="line-276"></span><span>    </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Bool -&gt; String -&gt; Property -&gt; Property
+forall prop.
+Testable prop =&gt;
+Double -&gt; Bool -&gt; String -&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471022"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;length of stream == 0&quot;</span></span><span>
+</span><span id="line-277"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-278"></span><span>    </span><span id="local-6989586621681471011"><span class="annot"><span class="annottext">s :: Stream (Of Int) Identity ()
+</span><a href="#local-6989586621681471011"><span class="hs-identifier hs-var hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; Stream (Of Int) Identity ()
+forall (m :: * -&gt; *) (f :: * -&gt; *) a.
+(Monad m, Foldable f) =&gt;
+f a -&gt; Stream (Of a) m ()
+</span><span class="hs-identifier hs-var">S.each</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471022"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-279"></span><span>    </span><span id="local-6989586621681471009"><span class="annot"><span class="annottext">is :: [Int]
+</span><a href="#local-6989586621681471009"><span class="hs-identifier hs-var hs-var">is</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; [Int] -&gt; [Int]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">take</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Limit -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471022"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-280"></span><span>    </span><span id="local-6989586621681471017"><span class="annot"><span class="annottext">actual :: Page (NextItem Int) Int
+</span><a href="#local-6989586621681471017"><span class="hs-identifier hs-var hs-var">actual</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity (Page (NextItem Int) Int) -&gt; Page (NextItem Int) Int
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity (Page (NextItem Int) Int) -&gt; Page (NextItem Int) Int)
+-&gt; Identity (Page (NextItem Int) Int) -&gt; Page (NextItem Int) Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Int)
+-&gt; Maybe Limit
+-&gt; Stream (Of Int) Identity ()
+-&gt; Identity (Page (NextItem Int) Int)
+forall (m :: * -&gt; *) a k.
+Monad m =&gt;
+(a -&gt; k)
+-&gt; Maybe Limit -&gt; Stream (Of a) m () -&gt; m (Page (NextItem k) a)
+</span><a href="Chainweb.Utils.Paging.html#finiteStreamToPage"><span class="hs-identifier hs-var">finiteStreamToPage</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Limit -&gt; Maybe Limit
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Stream (Of Int) Identity ()
+</span><a href="#local-6989586621681471011"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-281"></span><span>    </span><span id="local-6989586621681471015"><span class="annot"><span class="annottext">expected :: Page (NextItem Int) Int
+</span><a href="#local-6989586621681471015"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Limit -&gt; [Int] -&gt; Maybe (NextItem Int) -&gt; Page (NextItem Int) Int
+forall k a. Limit -&gt; [a] -&gt; Maybe k -&gt; Page k a
+</span><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-var">Page</span></a></span><span> </span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471009"><span class="hs-identifier hs-var">is</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; NextItem Int
+forall k. k -&gt; NextItem k
+</span><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-var">Inclusive</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; NextItem Int) -&gt; Maybe Int -&gt; Maybe (NextItem Int)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; Maybe Int
+forall a. [a] -&gt; Maybe a
+</span><span class="hs-identifier hs-var">listToMaybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [Int] -&gt; [Int]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">drop</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Limit -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Limit
+</span><a href="#local-6989586621681471021"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471022"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-282"></span><span>
+</span><span id="line-283"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#prop_streamToPage_id"><span class="hs-identifier hs-type">prop_streamToPage_id</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
+</span><span id="line-284"></span><span id="prop_streamToPage_id"><span class="annot"><span class="annottext">prop_streamToPage_id :: [Int] -&gt; Property
+</span><a href="Chainweb.Utils.Paging.html#prop_streamToPage_id"><span class="hs-identifier hs-var hs-var">prop_streamToPage_id</span></a></span></span><span> </span><span id="local-6989586621681471003"><span class="annot"><span class="annottext">l :: [Int]
+</span><a href="#local-6989586621681471003"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Page (NextItem Int) Int
+</span><a href="#local-6989586621681471002"><span class="hs-identifier hs-var">actual</span></a></span><span> </span><span class="annot"><span class="annottext">Page (NextItem Int) Int -&gt; Page (NextItem Int) Int -&gt; Property
+forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
+</span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">Page (NextItem Int) Int
+forall k. Page k Int
+</span><a href="#local-6989586621681471001"><span class="hs-identifier hs-var">expected</span></a></span><span>
+</span><span id="line-285"></span><span>    </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Bool -&gt; String -&gt; Property -&gt; Property
+forall prop.
+Testable prop =&gt;
+Double -&gt; Bool -&gt; String -&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471003"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;len l == 0&quot;</span></span><span>
+</span><span id="line-286"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-287"></span><span>    </span><span id="local-6989586621681471000"><span class="annot"><span class="annottext">s :: Stream (Of Int) Identity ()
+</span><a href="#local-6989586621681471000"><span class="hs-identifier hs-var hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; Stream (Of Int) Identity ()
+forall (m :: * -&gt; *) (f :: * -&gt; *) a.
+(Monad m, Foldable f) =&gt;
+f a -&gt; Stream (Of a) m ()
+</span><span class="hs-identifier hs-var">S.each</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471003"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-288"></span><span>    </span><span id="local-6989586621681471002"><span class="annot"><span class="annottext">actual :: Page (NextItem Int) Int
+</span><a href="#local-6989586621681471002"><span class="hs-identifier hs-var hs-var">actual</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity (Page (NextItem Int) Int) -&gt; Page (NextItem Int) Int
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity (Page (NextItem Int) Int) -&gt; Page (NextItem Int) Int)
+-&gt; Identity (Page (NextItem Int) Int) -&gt; Page (NextItem Int) Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Int)
+-&gt; Maybe Limit
+-&gt; Stream (Of Int) Identity ()
+-&gt; Identity (Page (NextItem Int) Int)
+forall (m :: * -&gt; *) a k.
+Monad m =&gt;
+(a -&gt; k)
+-&gt; Maybe Limit -&gt; Stream (Of a) m () -&gt; m (Page (NextItem k) a)
+</span><a href="Chainweb.Utils.Paging.html#finiteStreamToPage"><span class="hs-identifier hs-var">finiteStreamToPage</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of Int) Identity ()
+</span><a href="#local-6989586621681471000"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-289"></span><span>    </span><span id="local-6989586621681471001"><span class="annot"><span class="annottext">expected :: Page k Int
+</span><a href="#local-6989586621681471001"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Limit -&gt; [Int] -&gt; Maybe k -&gt; Page k Int
+forall k a. Limit -&gt; [a] -&gt; Maybe k -&gt; Page k a
+</span><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-var">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Int] -&gt; Limit
+forall a b. Integral a =&gt; [b] -&gt; a
+</span><a href="Chainweb.Utils.html#len"><span class="hs-identifier hs-var">len</span></a></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471003"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681471003"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe k
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-290"></span><span>
+</span><span id="line-291"></span><span class="annot"><a href="Chainweb.Utils.Paging.html#properties"><span class="hs-identifier hs-type">properties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-292"></span><span id="properties"><span class="annot"><span class="annottext">properties :: [(String, Property)]
+</span><a href="Chainweb.Utils.Paging.html#properties"><span class="hs-identifier hs-var hs-var">properties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-293"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;streamToPage_limit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">([Int] -&gt; Limit -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; Limit -&gt; Property
+</span><a href="Chainweb.Utils.Paging.html#prop_streamToPage_limit"><span class="hs-identifier hs-var">prop_streamToPage_limit</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-294"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;streamToPage_id&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">([Int] -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; Property
+</span><a href="Chainweb.Utils.Paging.html#prop_streamToPage_id"><span class="hs-identifier hs-var">prop_streamToPage_id</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-295"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-296"></span></pre></body></html>

@@ -1,0 +1,722 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE MultiWayIf #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Module: P2P.TaskQueue.Test</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">P2P.TaskQueue.Test</span><span>
+</span><span id="line-14"></span><span class="hs-special">(</span><span>
+</span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- * Test Task Runner</span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><a href="P2P.TaskQueue.Test.html#TestRunnerException"><span class="hs-identifier">TestRunnerException</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier">testRunner</span></a></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="annot"><span class="hs-comment">-- * Test Properties</span></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.Test.html#properties"><span class="hs-identifier">properties</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.List</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">L</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Monadic</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.PQueue.html"><span class="hs-identifier">Data.PQueue</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html"><span class="hs-identifier">P2P.TaskQueue</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- Test Task Runner</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">newtype</span><span> </span><span id="TestRunnerException"><span class="annot"><a href="P2P.TaskQueue.Test.html#TestRunnerException"><span class="hs-identifier hs-var">TestRunnerException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TestRunnerException"><span class="annot"><a href="P2P.TaskQueue.Test.html#TestRunnerException"><span class="hs-identifier hs-var">TestRunnerException</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681501030"><span id="local-6989586621681501032"><span id="local-6989586621681501034"><span class="annot"><span class="annottext">Int -&gt; TestRunnerException -&gt; ShowS
+[TestRunnerException] -&gt; ShowS
+TestRunnerException -&gt; String
+(Int -&gt; TestRunnerException -&gt; ShowS)
+-&gt; (TestRunnerException -&gt; String)
+-&gt; ([TestRunnerException] -&gt; ShowS)
+-&gt; Show TestRunnerException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TestRunnerException] -&gt; ShowS
+$cshowList :: [TestRunnerException] -&gt; ShowS
+show :: TestRunnerException -&gt; String
+$cshow :: TestRunnerException -&gt; String
+showsPrec :: Int -&gt; TestRunnerException -&gt; ShowS
+$cshowsPrec :: Int -&gt; TestRunnerException -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681501021"><span id="local-6989586621681501023"><span id="local-6989586621681501025"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="P2P.TaskQueue.Test.html#TestRunnerException"><span class="hs-identifier hs-type">TestRunnerException</span></a></span></span></span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621681501084"><span class="annot"><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-type">testRunner</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier hs-type">AttemptsCount</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><a href="#local-6989586621681501084"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-51"></span><span id="testRunner"><span class="annot"><span class="annottext">testRunner :: AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-var hs-var">testRunner</span></a></span></span><span> </span><span id="local-6989586621681501019"><span class="annot"><span class="annottext">limit :: AttemptsCount
+</span><a href="#local-6989586621681501019"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681501018"><span class="annot"><span class="annottext">q :: PQueue (Task Int a)
+</span><a href="#local-6989586621681501018"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO Bool) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><span class="hs-identifier hs-var">forM_</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO Bool) -&gt; IO ()) -&gt; (Int -&gt; IO Bool) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+-&gt; PQueue (Task Int a) -&gt; LogFunction -&gt; Int -&gt; IO Bool
+forall env a.
+AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; IO Bool
+</span><a href="P2P.TaskQueue.html#session_"><span class="hs-identifier hs-var">session_</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+</span><a href="#local-6989586621681501019"><span class="hs-identifier hs-var">limit</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int a)
+</span><a href="#local-6989586621681501018"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><span class="hs-identifier hs-var">yield</span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-comment">-- session limit q (\_ m -&gt; T.putStrLn $ logText m)</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- Tests</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="annot"><a href="P2P.TaskQueue.Test.html#test1"><span class="hs-identifier hs-type">test1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-58"></span><span id="test1"><span class="annot"><span class="annottext">test1 :: Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test1"><span class="hs-identifier hs-var hs-var">test1</span></a></span></span><span> </span><span id="local-6989586621681501013"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681501013"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-59"></span><span>    </span><span id="local-6989586621681501012"><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681501012"><span class="hs-identifier hs-var">tasks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><span class="hs-identifier hs-var">forM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681501013"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int])
+-&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681501010"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681501010"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-60"></span><span>        </span><span class="annot"><span class="annottext">TaskId -&gt; Priority -&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall env a.
+TaskId -&gt; Priority -&gt; TaskAction env a -&gt; IO (Task env a)
+</span><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-var">newTask</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; TaskId) -&gt; Text -&gt; TaskId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681501010"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Priority
+</span><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681501010"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TaskAction Int Int -&gt; IO (Task Int Int))
+-&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-61"></span><span>    </span><span id="local-6989586621681501005"><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681501005"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task Int Int))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttemptsCount -&gt; PQueue (Task Int Int) -&gt; IO ()
+forall a. AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-var">testRunner</span></a></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681501005"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async () -&gt; IO Bool) -&gt; IO Bool)
+-&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-63"></span><span>        </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO ()) -&gt; [Task Int Int] -&gt; IO ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PQueue (Task Int Int) -&gt; Task Int Int -&gt; IO ()
+forall a. Ord a =&gt; PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var">pQueueInsert</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681501005"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681501012"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-64"></span><span>        </span><span id="local-6989586621681501000"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681501000"><span class="hs-identifier hs-var">results</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO Int) -&gt; [Task Int Int] -&gt; IO [Int]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Task Int Int -&gt; IO Int
+forall env a. Task env a -&gt; IO a
+</span><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-var">awaitTask</span></a></span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681501012"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-65"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; IO Bool) -&gt; Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681501000"><span class="hs-identifier hs-var">results</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681501013"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="annot"><a href="P2P.TaskQueue.Test.html#test2a"><span class="hs-identifier hs-type">test2a</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-68"></span><span id="test2a"><span class="annot"><span class="annottext">test2a :: Positive Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test2a"><span class="hs-identifier hs-var hs-var">test2a</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621681500995"><span class="annot"><span class="annottext">n_ :: Int
+</span><a href="#local-6989586621681500995"><span class="hs-identifier hs-var">n_</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-69"></span><span>    </span><span id="local-6989586621681500994"><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500994"><span class="hs-identifier hs-var">tasks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><span class="hs-identifier hs-var">forM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">10</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500993"><span class="hs-identifier hs-var">n</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span class="annot"><span class="hs-number">10</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int])
+-&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681500991"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681500991"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-70"></span><span>        </span><span class="annot"><span class="annottext">TaskId -&gt; Priority -&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall env a.
+TaskId -&gt; Priority -&gt; TaskAction env a -&gt; IO (Task env a)
+</span><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-var">newTask</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; TaskId) -&gt; Text -&gt; TaskId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500991"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Priority
+</span><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500993"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500991"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TaskAction Int Int -&gt; IO (Task Int Int))
+-&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-71"></span><span>    </span><span id="local-6989586621681500990"><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500990"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task Int Int))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttemptsCount -&gt; PQueue (Task Int Int) -&gt; IO ()
+forall a. AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-var">testRunner</span></a></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500990"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async () -&gt; IO Bool) -&gt; IO Bool)
+-&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-73"></span><span>        </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO ()) -&gt; [Task Int Int] -&gt; IO ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PQueue (Task Int Int) -&gt; Task Int Int -&gt; IO ()
+forall a. Ord a =&gt; PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var">pQueueInsert</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500990"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500994"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-74"></span><span>        </span><span id="local-6989586621681500989"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500989"><span class="hs-identifier hs-var">results</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO Int) -&gt; [Task Int Int] -&gt; IO [Int]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Task Int Int -&gt; IO Int
+forall env a. Task env a -&gt; IO a
+</span><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-var">awaitTask</span></a></span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500994"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-75"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; IO Bool) -&gt; Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500989"><span class="hs-identifier hs-var">results</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">10</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500993"><span class="hs-identifier hs-var">n</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span class="annot"><span class="hs-number">10</span></span><span class="hs-special">]</span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621681500993"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681500993"><span class="hs-identifier hs-var hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500995"><span class="hs-identifier hs-var">n_</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="hs-number">10</span></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="annot"><a href="P2P.TaskQueue.Test.html#test2b"><span class="hs-identifier hs-type">test2b</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-80"></span><span id="test2b"><span class="annot"><span class="annottext">test2b :: Positive Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test2b"><span class="hs-identifier hs-var hs-var">test2b</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621681500986"><span class="annot"><span class="annottext">n_ :: Int
+</span><a href="#local-6989586621681500986"><span class="hs-identifier hs-var">n_</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-81"></span><span>    </span><span id="local-6989586621681500985"><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500985"><span class="hs-identifier hs-var">tasks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><span class="hs-identifier hs-var">forM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500984"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int])
+-&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681500983"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681500983"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-82"></span><span>        </span><span class="annot"><span class="annottext">TaskId -&gt; Priority -&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall env a.
+TaskId -&gt; Priority -&gt; TaskAction env a -&gt; IO (Task env a)
+</span><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-var">newTask</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; TaskId) -&gt; Text -&gt; TaskId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500983"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Priority
+</span><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500984"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500983"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TaskAction Int Int -&gt; IO (Task Int Int))
+-&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681500982"><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500982"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task Int Int))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttemptsCount -&gt; PQueue (Task Int Int) -&gt; IO ()
+forall a. AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-var">testRunner</span></a></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500982"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async () -&gt; IO Bool) -&gt; IO Bool)
+-&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-85"></span><span>        </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO ()) -&gt; [Task Int Int] -&gt; IO ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PQueue (Task Int Int) -&gt; Task Int Int -&gt; IO ()
+forall a. Ord a =&gt; PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var">pQueueInsert</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500982"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500985"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-86"></span><span>        </span><span id="local-6989586621681500981"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500981"><span class="hs-identifier hs-var">results</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO Int) -&gt; [Task Int Int] -&gt; IO [Int]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Task Int Int -&gt; IO Int
+forall env a. Task env a -&gt; IO a
+</span><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-var">awaitTask</span></a></span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500985"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-87"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; IO Bool) -&gt; Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int]
+forall a. Ord a =&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">L.sort</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500981"><span class="hs-identifier hs-var">results</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500984"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-89"></span><span>    </span><span id="local-6989586621681500984"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681500984"><span class="hs-identifier hs-var hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500986"><span class="hs-identifier hs-var">n_</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="hs-number">10</span></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="annot"><a href="P2P.TaskQueue.Test.html#test3"><span class="hs-identifier hs-type">test3</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-92"></span><span id="test3"><span class="annot"><span class="annottext">test3 :: Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test3"><span class="hs-identifier hs-var hs-var">test3</span></a></span></span><span> </span><span id="local-6989586621681500978"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681500978"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-93"></span><span>    </span><span id="local-6989586621681500977"><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500977"><span class="hs-identifier hs-var">tasks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><span class="hs-identifier hs-var">forM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500978"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int])
+-&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681500976"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681500976"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-94"></span><span>        </span><span class="annot"><span class="annottext">TaskId -&gt; Priority -&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall env a.
+TaskId -&gt; Priority -&gt; TaskAction env a -&gt; IO (Task env a)
+</span><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-var">newTask</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; TaskId) -&gt; Text -&gt; TaskId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500976"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Priority
+</span><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500976"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TaskAction Int Int -&gt; IO (Task Int Int))
+-&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-95"></span><span>    </span><span id="local-6989586621681500975"><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500975"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task Int Int))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-96"></span><span>    </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO ()) -&gt; [Task Int Int] -&gt; IO ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PQueue (Task Int Int) -&gt; Task Int Int -&gt; IO ()
+forall a. Ord a =&gt; PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var">pQueueInsert</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500975"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500977"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttemptsCount -&gt; PQueue (Task Int Int) -&gt; IO ()
+forall a. AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-var">testRunner</span></a></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500975"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async () -&gt; IO Bool) -&gt; IO Bool)
+-&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>        </span><span id="local-6989586621681500974"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500974"><span class="hs-identifier hs-var">results</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO Int) -&gt; [Task Int Int] -&gt; IO [Int]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Task Int Int -&gt; IO Int
+forall env a. Task env a -&gt; IO a
+</span><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-var">awaitTask</span></a></span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500977"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-99"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; IO Bool) -&gt; Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500974"><span class="hs-identifier hs-var">results</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500978"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span class="annot"><a href="P2P.TaskQueue.Test.html#test4"><span class="hs-identifier hs-type">test4</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-102"></span><span id="test4"><span class="annot"><span class="annottext">test4 :: Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test4"><span class="hs-identifier hs-var hs-var">test4</span></a></span></span><span> </span><span id="local-6989586621681500972"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681500972"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-103"></span><span>    </span><span id="local-6989586621681500971"><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500971"><span class="hs-identifier hs-var">tasks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><span class="hs-identifier hs-var">forM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500972"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int])
+-&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681500970"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681500970"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-104"></span><span>        </span><span class="annot"><span class="annottext">TaskId -&gt; Priority -&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall env a.
+TaskId -&gt; Priority -&gt; TaskAction env a -&gt; IO (Task env a)
+</span><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-var">newTask</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; TaskId) -&gt; Text -&gt; TaskId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500970"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Priority
+</span><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500972"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500970"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TaskAction Int Int -&gt; IO (Task Int Int))
+-&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621681500969"><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500969"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task Int Int))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO ()) -&gt; [Task Int Int] -&gt; IO ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PQueue (Task Int Int) -&gt; Task Int Int -&gt; IO ()
+forall a. Ord a =&gt; PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var">pQueueInsert</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500969"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500971"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttemptsCount -&gt; PQueue (Task Int Int) -&gt; IO ()
+forall a. AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-var">testRunner</span></a></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500969"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async () -&gt; IO Bool) -&gt; IO Bool)
+-&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-108"></span><span>        </span><span id="local-6989586621681500968"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500968"><span class="hs-identifier hs-var">results</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO Int) -&gt; [Task Int Int] -&gt; IO [Int]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Task Int Int -&gt; IO Int
+forall env a. Task env a -&gt; IO a
+</span><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-var">awaitTask</span></a></span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500971"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-109"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; IO Bool) -&gt; Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500968"><span class="hs-identifier hs-var">results</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int]
+forall a. [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">reverse</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500972"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="P2P.TaskQueue.Test.html#test5"><span class="hs-identifier hs-type">test5</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-112"></span><span id="test5"><span class="annot"><span class="annottext">test5 :: Positive Int -&gt; Positive Int -&gt; Positive Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test5"><span class="hs-identifier hs-var hs-var">test5</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621681500965"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681500965"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621681500964"><span class="annot"><span class="annottext">m :: Int
+</span><a href="#local-6989586621681500964"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621681500963"><span class="annot"><span class="annottext">a :: Int
+</span><a href="#local-6989586621681500963"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500963"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500964"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO Bool
+</span><a href="#local-6989586621681500962"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool -&gt; IO Bool
+forall (f :: * -&gt; *) a b. Functor f =&gt; a -&gt; f b -&gt; f a
+</span><span class="hs-operator hs-var">&lt;$</span></span><span> </span><span class="annot"><span class="annottext">IO Bool
+</span><a href="#local-6989586621681500962"><span class="hs-identifier hs-var">go</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>        </span><span class="annot"><span class="annottext">IO Bool -&gt; (TaskException -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) e a.
+(MonadCatch m, Exception e, NFData a) =&gt;
+m a -&gt; (e -&gt; m a) -&gt; m a
+</span><a href="Chainweb.Utils.html#catchSynchronous"><span class="hs-operator hs-var">`catchSynchronous`</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#TaskFailed"><span class="hs-identifier hs-type">TaskFailed</span></a></span><span> </span><span id="local-6989586621681500958"><span class="annot"><span class="annottext">l :: [SomeException]
+</span><a href="#local-6989586621681500958"><span class="hs-identifier hs-var">l</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[SomeException] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">[SomeException]
+</span><a href="#local-6989586621681500958"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500963"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-117"></span><span>    </span><span id="local-6989586621681500962"><span class="annot"><span class="annottext">go :: IO Bool
+</span><a href="#local-6989586621681500962"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-118"></span><span>        </span><span id="local-6989586621681500956"><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500956"><span class="hs-identifier hs-var">tasks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m (t b)
+</span><span class="hs-identifier hs-var">forM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500965"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int])
+-&gt; (Int -&gt; IO (Task Int Int)) -&gt; IO [Task Int Int]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681500955"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681500955"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-119"></span><span>            </span><span class="annot"><span class="annottext">TaskId -&gt; Priority -&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall env a.
+TaskId -&gt; Priority -&gt; TaskAction env a -&gt; IO (Task env a)
+</span><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-var">newTask</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; TaskId) -&gt; Text -&gt; TaskId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500955"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Priority
+</span><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500955"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TaskAction Int Int -&gt; IO (Task Int Int))
+-&gt; TaskAction Int Int -&gt; IO (Task Int Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681500954"><span class="annot"><span class="annottext">e :: Int
+</span><a href="#local-6989586621681500954"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">if</span><span>
+</span><span id="line-120"></span><span>                </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500954"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`mod`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500964"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500954"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-121"></span><span>                </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TestRunnerException -&gt; IO Int
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(TestRunnerException -&gt; IO Int) -&gt; TestRunnerException -&gt; IO Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; TestRunnerException
+</span><a href="P2P.TaskQueue.Test.html#TestRunnerException"><span class="hs-identifier hs-var">TestRunnerException</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500954"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-122"></span><span>        </span><span id="local-6989586621681500951"><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500951"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task Int Int))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-123"></span><span>        </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO ()) -&gt; [Task Int Int] -&gt; IO ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><span class="hs-identifier hs-var">traverse_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PQueue (Task Int Int) -&gt; Task Int Int -&gt; IO ()
+forall a. Ord a =&gt; PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var">pQueueInsert</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500951"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500956"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-124"></span><span>        </span><span class="annot"><span class="annottext">IO () -&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttemptsCount -&gt; PQueue (Task Int Int) -&gt; IO ()
+forall a. AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="P2P.TaskQueue.Test.html#testRunner"><span class="hs-identifier hs-var">testRunner</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; AttemptsCount
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500963"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int Int)
+</span><a href="#local-6989586621681500951"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async () -&gt; IO Bool) -&gt; IO Bool)
+-&gt; (Async () -&gt; IO Bool) -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-125"></span><span>            </span><span id="local-6989586621681500949"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500949"><span class="hs-identifier hs-var">results</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Task Int Int -&gt; IO Int) -&gt; [Task Int Int] -&gt; IO [Int]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Task Int Int -&gt; IO Int
+forall env a. Task env a -&gt; IO a
+</span><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-var">awaitTask</span></a></span><span> </span><span class="annot"><span class="annottext">[Task Int Int]
+</span><a href="#local-6989586621681500956"><span class="hs-identifier hs-var">tasks</span></a></span><span>
+</span><span id="line-126"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; IO Bool) -&gt; Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621681500949"><span class="hs-identifier hs-var">results</span></a></span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500964"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-glyph">..</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500965"><span class="hs-identifier hs-var">n</span></a></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681500964"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="annot"><a href="P2P.TaskQueue.Test.html#properties"><span class="hs-identifier hs-type">properties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-129"></span><span id="properties"><span class="annot"><span class="annottext">properties :: [(String, Property)]
+</span><a href="P2P.TaskQueue.Test.html#properties"><span class="hs-identifier hs-var hs-var">properties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;TaskQueue.Test.test1&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; Property) -&gt; Property) -&gt; (Int -&gt; Property) -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PropertyM IO Bool -&gt; Property
+forall a. Testable a =&gt; PropertyM IO a -&gt; Property
+</span><span class="hs-identifier hs-var">monadicIO</span></span><span> </span><span class="annot"><span class="annottext">(PropertyM IO Bool -&gt; Property)
+-&gt; (Int -&gt; PropertyM IO Bool) -&gt; Int -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; PropertyM IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; PropertyM IO Bool)
+-&gt; (Int -&gt; IO Bool) -&gt; Int -&gt; PropertyM IO Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test1"><span class="hs-identifier hs-var">test1</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;TaskQueue.Test.test2a&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Positive Int -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">((Positive Int -&gt; Property) -&gt; Property)
+-&gt; (Positive Int -&gt; Property) -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PropertyM IO Bool -&gt; Property
+forall a. Testable a =&gt; PropertyM IO a -&gt; Property
+</span><span class="hs-identifier hs-var">monadicIO</span></span><span> </span><span class="annot"><span class="annottext">(PropertyM IO Bool -&gt; Property)
+-&gt; (Positive Int -&gt; PropertyM IO Bool) -&gt; Positive Int -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; PropertyM IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; PropertyM IO Bool)
+-&gt; (Positive Int -&gt; IO Bool) -&gt; Positive Int -&gt; PropertyM IO Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Positive Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test2a"><span class="hs-identifier hs-var">test2a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;TaskQueue.Test.test2b&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Positive Int -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">((Positive Int -&gt; Property) -&gt; Property)
+-&gt; (Positive Int -&gt; Property) -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PropertyM IO Bool -&gt; Property
+forall a. Testable a =&gt; PropertyM IO a -&gt; Property
+</span><span class="hs-identifier hs-var">monadicIO</span></span><span> </span><span class="annot"><span class="annottext">(PropertyM IO Bool -&gt; Property)
+-&gt; (Positive Int -&gt; PropertyM IO Bool) -&gt; Positive Int -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; PropertyM IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; PropertyM IO Bool)
+-&gt; (Positive Int -&gt; IO Bool) -&gt; Positive Int -&gt; PropertyM IO Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Positive Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test2b"><span class="hs-identifier hs-var">test2b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;TaskQueue.Test.test3&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; Property) -&gt; Property) -&gt; (Int -&gt; Property) -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PropertyM IO Bool -&gt; Property
+forall a. Testable a =&gt; PropertyM IO a -&gt; Property
+</span><span class="hs-identifier hs-var">monadicIO</span></span><span> </span><span class="annot"><span class="annottext">(PropertyM IO Bool -&gt; Property)
+-&gt; (Int -&gt; PropertyM IO Bool) -&gt; Int -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; PropertyM IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; PropertyM IO Bool)
+-&gt; (Int -&gt; IO Bool) -&gt; Int -&gt; PropertyM IO Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test3"><span class="hs-identifier hs-var">test3</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;TaskQueue.Test.test4&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; Property) -&gt; Property) -&gt; (Int -&gt; Property) -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PropertyM IO Bool -&gt; Property
+forall a. Testable a =&gt; PropertyM IO a -&gt; Property
+</span><span class="hs-identifier hs-var">monadicIO</span></span><span> </span><span class="annot"><span class="annottext">(PropertyM IO Bool -&gt; Property)
+-&gt; (Int -&gt; PropertyM IO Bool) -&gt; Int -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; PropertyM IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; PropertyM IO Bool)
+-&gt; (Int -&gt; IO Bool) -&gt; Int -&gt; PropertyM IO Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test4"><span class="hs-identifier hs-var">test4</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;TaskQueue.Test.test5&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Positive Int -&gt; Positive Int -&gt; Positive Int -&gt; Property)
+-&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">((Positive Int -&gt; Positive Int -&gt; Positive Int -&gt; Property)
+ -&gt; Property)
+-&gt; (Positive Int -&gt; Positive Int -&gt; Positive Int -&gt; Property)
+-&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681500943"><span class="annot"><span class="annottext">a :: Positive Int
+</span><a href="#local-6989586621681500943"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681500942"><span class="annot"><span class="annottext">b :: Positive Int
+</span><a href="#local-6989586621681500942"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PropertyM IO Bool -&gt; Property
+forall a. Testable a =&gt; PropertyM IO a -&gt; Property
+</span><span class="hs-identifier hs-var">monadicIO</span></span><span> </span><span class="annot"><span class="annottext">(PropertyM IO Bool -&gt; Property)
+-&gt; (Positive Int -&gt; PropertyM IO Bool) -&gt; Positive Int -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; PropertyM IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; PropertyM IO Bool)
+-&gt; (Positive Int -&gt; IO Bool) -&gt; Positive Int -&gt; PropertyM IO Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Positive Int -&gt; Positive Int -&gt; Positive Int -&gt; IO Bool
+</span><a href="P2P.TaskQueue.Test.html#test5"><span class="hs-identifier hs-var">test5</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Int
+</span><a href="#local-6989586621681500943"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Int
+</span><a href="#local-6989586621681500942"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-137"></span><span>
+</span><span id="line-138"></span></pre></body></html>

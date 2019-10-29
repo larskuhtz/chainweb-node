@@ -1,0 +1,831 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Module: P2P.Node.Configuration</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">P2P.Node.Configuration</span><span>
+</span><span id="line-21"></span><span class="hs-special">(</span><span>
+</span><span id="line-22"></span><span class="annot"><span class="hs-comment">-- * P2P Configuration</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier">P2pConfiguration</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#p2pConfigPeer"><span class="hs-identifier">p2pConfigPeer</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#p2pConfigMaxSessionCount"><span class="hs-identifier">p2pConfigMaxSessionCount</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#p2pConfigMaxPeerCount"><span class="hs-identifier">p2pConfigMaxPeerCount</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#p2pConfigSessionTimeout"><span class="hs-identifier">p2pConfigSessionTimeout</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#p2pConfigKnownPeers"><span class="hs-identifier">p2pConfigKnownPeers</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#p2pConfigPeerDbFilePath"><span class="hs-identifier">p2pConfigPeerDbFilePath</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#p2pConfigIgnoreBootstrapNodes"><span class="hs-identifier">p2pConfigIgnoreBootstrapNodes</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#defaultP2pConfiguration"><span class="hs-identifier">defaultP2pConfiguration</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#pP2pConfiguration"><span class="hs-identifier">pP2pConfiguration</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Configuration.Utils</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Instances</span></span><span> </span><span class="hs-special">(</span><span class="hs-comment">{- Arbitrary V4.UUID -}</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- Internal imports</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html"><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span></a></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Time.html"><span class="hs-identifier">Chainweb.Time</span></a></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#check"><span class="hs-identifier">check</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Peer.html"><span class="hs-identifier">P2P.Peer</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- P2P Configuration</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Configuration of the Network</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- TODO: add ChainwebVersion?</span><span>
+</span><span id="line-63"></span><span class="hs-comment">--</span><span>
+</span><span id="line-64"></span><span id="local-6989586621681494267"><span id="local-6989586621681494268"></span></span><span class="hs-keyword">data</span><span> </span><span id="P2pConfiguration"><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-var">P2pConfiguration</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="P2pConfiguration"><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-var">P2pConfiguration</span></a></span></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_p2pConfigPeer"><span class="annot"><span class="annottext">P2pConfiguration -&gt; PeerConfig
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeer"><span class="hs-identifier hs-var hs-var">_p2pConfigPeer</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.Peer.html#PeerConfig"><span class="hs-identifier hs-type">PeerConfig</span></a></span><span>
+</span><span id="line-66"></span><span>        </span><span class="hs-comment">-- ^ the local peer.</span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_p2pConfigMaxSessionCount"><span class="annot"><span class="annottext">P2pConfiguration -&gt; Natural
+</span><a href="P2P.Node.Configuration.html#_p2pConfigMaxSessionCount"><span class="hs-identifier hs-var hs-var">_p2pConfigMaxSessionCount</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-69"></span><span>        </span><span class="hs-comment">-- ^ the number of active peers.</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_p2pConfigMaxPeerCount"><span class="annot"><span class="annottext">P2pConfiguration -&gt; Natural
+</span><a href="P2P.Node.Configuration.html#_p2pConfigMaxPeerCount"><span class="hs-identifier hs-var hs-var">_p2pConfigMaxPeerCount</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-72"></span><span>        </span><span class="hs-comment">-- ^ total number of peers</span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_p2pConfigSessionTimeout"><span class="annot"><span class="annottext">P2pConfiguration -&gt; Seconds
+</span><a href="P2P.Node.Configuration.html#_p2pConfigSessionTimeout"><span class="hs-identifier hs-var hs-var">_p2pConfigSessionTimeout</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Time.html#Seconds"><span class="hs-identifier hs-type">Seconds</span></a></span><span>
+</span><span id="line-75"></span><span>        </span><span class="hs-comment">-- ^ interval at which peers are rotated out of the active set</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_p2pConfigKnownPeers"><span class="annot"><span class="annottext">P2pConfiguration -&gt; [PeerInfo]
+</span><a href="P2P.Node.Configuration.html#_p2pConfigKnownPeers"><span class="hs-identifier hs-var hs-var">_p2pConfigKnownPeers</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="annot"><a href="P2P.Peer.html#PeerInfo"><span class="hs-identifier hs-type">PeerInfo</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-78"></span><span>        </span><span class="hs-comment">-- ^ List of known peers. Must not be empty.</span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_p2pConfigPeerDbFilePath"><span class="annot"><span class="annottext">P2pConfiguration -&gt; Maybe FilePath
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeerDbFilePath"><span class="hs-identifier hs-var hs-var">_p2pConfigPeerDbFilePath</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>        </span><span class="hs-comment">-- ^ the path where the peer database is persisted</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_p2pConfigIgnoreBootstrapNodes"><span class="annot"><span class="annottext">P2pConfiguration -&gt; Bool
+</span><a href="P2P.Node.Configuration.html#_p2pConfigIgnoreBootstrapNodes"><span class="hs-identifier hs-var hs-var">_p2pConfigIgnoreBootstrapNodes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681494253"><span id="local-6989586621681494255"><span id="local-6989586621681494257"><span class="annot"><span class="annottext">Int -&gt; P2pConfiguration -&gt; ShowS
+[P2pConfiguration] -&gt; ShowS
+P2pConfiguration -&gt; FilePath
+(Int -&gt; P2pConfiguration -&gt; ShowS)
+-&gt; (P2pConfiguration -&gt; FilePath)
+-&gt; ([P2pConfiguration] -&gt; ShowS)
+-&gt; Show P2pConfiguration
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; FilePath) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [P2pConfiguration] -&gt; ShowS
+$cshowList :: [P2pConfiguration] -&gt; ShowS
+show :: P2pConfiguration -&gt; FilePath
+$cshow :: P2pConfiguration -&gt; FilePath
+showsPrec :: Int -&gt; P2pConfiguration -&gt; ShowS
+$cshowsPrec :: Int -&gt; P2pConfiguration -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681494248"><span id="local-6989586621681494250"><span class="annot"><span class="annottext">P2pConfiguration -&gt; P2pConfiguration -&gt; Bool
+(P2pConfiguration -&gt; P2pConfiguration -&gt; Bool)
+-&gt; (P2pConfiguration -&gt; P2pConfiguration -&gt; Bool)
+-&gt; Eq P2pConfiguration
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: P2pConfiguration -&gt; P2pConfiguration -&gt; Bool
+$c/= :: P2pConfiguration -&gt; P2pConfiguration -&gt; Bool
+== :: P2pConfiguration -&gt; P2pConfiguration -&gt; Bool
+$c== :: P2pConfiguration -&gt; P2pConfiguration -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. P2pConfiguration -&gt; Rep P2pConfiguration x)
+-&gt; (forall x. Rep P2pConfiguration x -&gt; P2pConfiguration)
+-&gt; Generic P2pConfiguration
+forall x. Rep P2pConfiguration x -&gt; P2pConfiguration
+forall x. P2pConfiguration -&gt; Rep P2pConfiguration x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep P2pConfiguration x -&gt; P2pConfiguration
+$cfrom :: forall x. P2pConfiguration -&gt; Rep P2pConfiguration x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span id="p2pConfigIgnoreBootstrapNodes"><span id="p2pConfigPeerDbFilePath"><span id="p2pConfigKnownPeers"><span id="p2pConfigSessionTimeout"><span id="p2pConfigMaxPeerCount"><span id="p2pConfigMaxSessionCount"><span id="p2pConfigPeer"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">P2pConfiguration</span></span></span></span></span></span></span></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494241"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-90"></span><span>    </span><span id="local-6989586621681494239"><span class="annot"><span class="annottext">arbitrary :: Gen P2pConfiguration
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerConfig
+-&gt; Natural
+-&gt; Natural
+-&gt; Seconds
+-&gt; [PeerInfo]
+-&gt; Maybe FilePath
+-&gt; Bool
+-&gt; P2pConfiguration
+</span><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-var">P2pConfiguration</span></a></span><span>
+</span><span id="line-91"></span><span>        </span><span class="annot"><span class="annottext">(PeerConfig
+ -&gt; Natural
+ -&gt; Natural
+ -&gt; Seconds
+ -&gt; [PeerInfo]
+ -&gt; Maybe FilePath
+ -&gt; Bool
+ -&gt; P2pConfiguration)
+-&gt; Gen PeerConfig
+-&gt; Gen
+     (Natural
+      -&gt; Natural
+      -&gt; Seconds
+      -&gt; [PeerInfo]
+      -&gt; Maybe FilePath
+      -&gt; Bool
+      -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen PeerConfig
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen
+  (Natural
+   -&gt; Natural
+   -&gt; Seconds
+   -&gt; [PeerInfo]
+   -&gt; Maybe FilePath
+   -&gt; Bool
+   -&gt; P2pConfiguration)
+-&gt; Gen Natural
+-&gt; Gen
+     (Natural
+      -&gt; Seconds
+      -&gt; [PeerInfo]
+      -&gt; Maybe FilePath
+      -&gt; Bool
+      -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen Natural
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen
+  (Natural
+   -&gt; Seconds
+   -&gt; [PeerInfo]
+   -&gt; Maybe FilePath
+   -&gt; Bool
+   -&gt; P2pConfiguration)
+-&gt; Gen Natural
+-&gt; Gen
+     (Seconds
+      -&gt; [PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen Natural
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-92"></span><span>        </span><span class="annot"><span class="annottext">Gen
+  (Seconds
+   -&gt; [PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+-&gt; Gen Seconds
+-&gt; Gen ([PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen Seconds
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen ([PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+-&gt; Gen [PeerInfo]
+-&gt; Gen (Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen [PeerInfo]
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen (Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+-&gt; Gen (Maybe FilePath) -&gt; Gen (Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen (Maybe FilePath)
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-93"></span><span>        </span><span class="annot"><span class="annottext">Gen (Bool -&gt; P2pConfiguration) -&gt; Gen Bool -&gt; Gen P2pConfiguration
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen Bool
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- | These are acceptable values for both test and production chainwebs.</span><span>
+</span><span id="line-96"></span><span class="hs-comment">--</span><span>
+</span><span id="line-97"></span><span class="annot"><a href="P2P.Node.Configuration.html#defaultP2pConfiguration"><span class="hs-identifier hs-type">defaultP2pConfiguration</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span>
+</span><span id="line-98"></span><span id="defaultP2pConfiguration"><span class="annot"><span class="annottext">defaultP2pConfiguration :: P2pConfiguration
+</span><a href="P2P.Node.Configuration.html#defaultP2pConfiguration"><span class="hs-identifier hs-var hs-var">defaultP2pConfiguration</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WP2pConfiguration :: PeerConfig
+-&gt; Natural
+-&gt; Natural
+-&gt; Seconds
+-&gt; [PeerInfo]
+-&gt; Maybe FilePath
+-&gt; Bool
+-&gt; P2pConfiguration
+</span><a href="P2P.Node.Configuration.html#%24WP2pConfiguration"><span class="hs-identifier hs-type hs-type">P2pConfiguration</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_p2pConfigPeer :: PeerConfig
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeer"><span class="hs-identifier hs-var">_p2pConfigPeer</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerConfig
+</span><a href="P2P.Peer.html#defaultPeerConfig"><span class="hs-identifier hs-var">defaultPeerConfig</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_p2pConfigMaxSessionCount :: Natural
+</span><a href="P2P.Node.Configuration.html#_p2pConfigMaxSessionCount"><span class="hs-identifier hs-var">_p2pConfigMaxSessionCount</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">10</span></span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_p2pConfigMaxPeerCount :: Natural
+</span><a href="P2P.Node.Configuration.html#_p2pConfigMaxPeerCount"><span class="hs-identifier hs-var">_p2pConfigMaxPeerCount</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">50</span></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_p2pConfigSessionTimeout :: Seconds
+</span><a href="P2P.Node.Configuration.html#_p2pConfigSessionTimeout"><span class="hs-identifier hs-var">_p2pConfigSessionTimeout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">60</span></span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_p2pConfigKnownPeers :: [PeerInfo]
+</span><a href="P2P.Node.Configuration.html#_p2pConfigKnownPeers"><span class="hs-identifier hs-var">_p2pConfigKnownPeers</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[PeerInfo]
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-104"></span><span>        </span><span class="hs-comment">-- by default we start with an empty list. The hard-coded bootstrap peer</span><span>
+</span><span id="line-105"></span><span>        </span><span class="hs-comment">-- infos depend on the chainweb version which may change depending on</span><span>
+</span><span id="line-106"></span><span>        </span><span class="hs-comment">-- the configuration. So we have to wait until all configuration parsing</span><span>
+</span><span id="line-107"></span><span>        </span><span class="hs-comment">-- is complete</span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_p2pConfigPeerDbFilePath :: Maybe FilePath
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeerDbFilePath"><span class="hs-identifier hs-var">_p2pConfigPeerDbFilePath</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_p2pConfigIgnoreBootstrapNodes :: Bool
+</span><a href="P2P.Node.Configuration.html#_p2pConfigIgnoreBootstrapNodes"><span class="hs-identifier hs-var">_p2pConfigIgnoreBootstrapNodes</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494228"><span id="local-6989586621681494230"><span id="local-6989586621681494232"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-114"></span><span>    </span><span id="local-6989586621681494226"><span class="annot"><span class="annottext">toJSON :: P2pConfiguration -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span id="local-6989586621681494224"><span class="annot"><span class="annottext">o :: P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-115"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;peer&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; PeerConfig -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; PeerConfig
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeer"><span class="hs-identifier hs-var hs-var">_p2pConfigPeer</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-116"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;maxSessionCount&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; Natural
+</span><a href="P2P.Node.Configuration.html#_p2pConfigMaxSessionCount"><span class="hs-identifier hs-var hs-var">_p2pConfigMaxSessionCount</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;maxPeerCount&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; Natural
+</span><a href="P2P.Node.Configuration.html#_p2pConfigMaxPeerCount"><span class="hs-identifier hs-var hs-var">_p2pConfigMaxPeerCount</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-118"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;sessionTimeout&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Seconds -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; Seconds
+</span><a href="P2P.Node.Configuration.html#_p2pConfigSessionTimeout"><span class="hs-identifier hs-var hs-var">_p2pConfigSessionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-119"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;peers&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [PeerInfo] -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; [PeerInfo]
+</span><a href="P2P.Node.Configuration.html#_p2pConfigKnownPeers"><span class="hs-identifier hs-var hs-var">_p2pConfigKnownPeers</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-120"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;peerDbFilePath&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe FilePath -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; Maybe FilePath
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeerDbFilePath"><span class="hs-identifier hs-var hs-var">_p2pConfigPeerDbFilePath</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-121"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;ignoreBootstrapNodes&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; Bool
+</span><a href="P2P.Node.Configuration.html#_p2pConfigIgnoreBootstrapNodes"><span class="hs-identifier hs-var hs-var">_p2pConfigIgnoreBootstrapNodes</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681494224"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-122"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494219"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>    </span><span id="local-6989586621681494217"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+-&gt; (Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Value
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a. FilePath -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;P2pConfiguration&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+ -&gt; Value -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; (Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Value
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681494214"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; P2pConfiguration
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-126"></span><span>        </span><span class="annot"><span class="annottext">(P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) b c a.
+Functor f =&gt;
+(b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;$&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration PeerConfig
+</span><a href="P2P.Node.Configuration.html#p2pConfigPeer"><span class="hs-identifier hs-var">p2pConfigPeer</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration PeerConfig
+-&gt; Text -&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall b a.
+FromJSON (b -&gt; b) =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">%.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;peer&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-127"></span><span>        </span><span class="annot"><span class="annottext">Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+</span><a href="P2P.Node.Configuration.html#p2pConfigMaxSessionCount"><span class="hs-identifier hs-var">p2pConfigMaxSessionCount</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+-&gt; Text -&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;maxSessionCount&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-128"></span><span>        </span><span class="annot"><span class="annottext">Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+</span><a href="P2P.Node.Configuration.html#p2pConfigMaxPeerCount"><span class="hs-identifier hs-var">p2pConfigMaxPeerCount</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+-&gt; Text -&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;maxPeerCount&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-129"></span><span>        </span><span class="annot"><span class="annottext">Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Seconds
+</span><a href="P2P.Node.Configuration.html#p2pConfigSessionTimeout"><span class="hs-identifier hs-var">p2pConfigSessionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Seconds
+-&gt; Text -&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;sessionTimeout&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-130"></span><span>        </span><span class="annot"><span class="annottext">Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">([PeerInfo] -&gt; f [PeerInfo])
+-&gt; P2pConfiguration -&gt; f P2pConfiguration
+Lens' P2pConfiguration [PeerInfo]
+</span><a href="P2P.Node.Configuration.html#p2pConfigKnownPeers"><span class="hs-identifier hs-var">p2pConfigKnownPeers</span></a></span><span> </span><span class="annot"><span class="annottext">(([PeerInfo] -&gt; f [PeerInfo])
+ -&gt; P2pConfiguration -&gt; f P2pConfiguration)
+-&gt; ((LeftMonoidalUpdate [PeerInfo]
+     -&gt; f (LeftMonoidalUpdate [PeerInfo]))
+    -&gt; [PeerInfo] -&gt; f [PeerInfo])
+-&gt; (LeftMonoidalUpdate [PeerInfo]
+    -&gt; f (LeftMonoidalUpdate [PeerInfo]))
+-&gt; P2pConfiguration
+-&gt; f P2pConfiguration
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">AnIso
+  (LeftMonoidalUpdate [PeerInfo])
+  (LeftMonoidalUpdate [PeerInfo])
+  [PeerInfo]
+  [PeerInfo]
+-&gt; Iso
+     [PeerInfo]
+     [PeerInfo]
+     (LeftMonoidalUpdate [PeerInfo])
+     (LeftMonoidalUpdate [PeerInfo])
+forall s t a b. AnIso s t a b -&gt; Iso b a t s
+</span><span class="hs-identifier hs-var">from</span></span><span> </span><span class="annot"><span class="annottext">AnIso
+  (LeftMonoidalUpdate [PeerInfo])
+  (LeftMonoidalUpdate [PeerInfo])
+  [PeerInfo]
+  [PeerInfo]
+forall a b. Iso (LeftMonoidalUpdate a) (LeftMonoidalUpdate b) a b
+</span><span class="hs-identifier hs-var">leftMonoidalUpdate</span></span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+ Functor f =&gt;
+ (LeftMonoidalUpdate [PeerInfo]
+  -&gt; f (LeftMonoidalUpdate [PeerInfo]))
+ -&gt; P2pConfiguration -&gt; f P2pConfiguration)
+-&gt; Text -&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall b a.
+FromJSON (b -&gt; b) =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">%.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;peers&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-131"></span><span>        </span><span class="annot"><span class="annottext">Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration (Maybe FilePath)
+</span><a href="P2P.Node.Configuration.html#p2pConfigPeerDbFilePath"><span class="hs-identifier hs-var">p2pConfigPeerDbFilePath</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration (Maybe FilePath)
+-&gt; Text -&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;peerDbFilePath&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-132"></span><span>        </span><span class="annot"><span class="annottext">Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+-&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Bool
+</span><a href="P2P.Node.Configuration.html#p2pConfigIgnoreBootstrapNodes"><span class="hs-identifier hs-var">p2pConfigIgnoreBootstrapNodes</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Bool
+-&gt; Text -&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;ignoreBootstrapNodes&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration))
+-&gt; Object -&gt; Parser (P2pConfiguration -&gt; P2pConfiguration)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494214"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494202"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-135"></span><span>    </span><span id="local-6989586621681494201"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser P2pConfiguration
+</span><a href="#local-6989586621681494201"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+-&gt; (Object -&gt; Parser P2pConfiguration)
+-&gt; Value
+-&gt; Parser P2pConfiguration
+forall a. FilePath -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;P2pExampleConfig&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser P2pConfiguration)
+ -&gt; Value -&gt; Parser P2pConfiguration)
+-&gt; (Object -&gt; Parser P2pConfiguration)
+-&gt; Value
+-&gt; Parser P2pConfiguration
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681494200"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PeerConfig
+-&gt; Natural
+-&gt; Natural
+-&gt; Seconds
+-&gt; [PeerInfo]
+-&gt; Maybe FilePath
+-&gt; Bool
+-&gt; P2pConfiguration
+</span><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-var">P2pConfiguration</span></a></span><span>
+</span><span id="line-136"></span><span>        </span><span class="annot"><span class="annottext">(PeerConfig
+ -&gt; Natural
+ -&gt; Natural
+ -&gt; Seconds
+ -&gt; [PeerInfo]
+ -&gt; Maybe FilePath
+ -&gt; Bool
+ -&gt; P2pConfiguration)
+-&gt; Parser PeerConfig
+-&gt; Parser
+     (Natural
+      -&gt; Natural
+      -&gt; Seconds
+      -&gt; [PeerInfo]
+      -&gt; Maybe FilePath
+      -&gt; Bool
+      -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser PeerConfig
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;peer&quot;</span></span><span>
+</span><span id="line-137"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (Natural
+   -&gt; Natural
+   -&gt; Seconds
+   -&gt; [PeerInfo]
+   -&gt; Maybe FilePath
+   -&gt; Bool
+   -&gt; P2pConfiguration)
+-&gt; Parser Natural
+-&gt; Parser
+     (Natural
+      -&gt; Seconds
+      -&gt; [PeerInfo]
+      -&gt; Maybe FilePath
+      -&gt; Bool
+      -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Natural
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;maxSessionCount&quot;</span></span><span>
+</span><span id="line-138"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (Natural
+   -&gt; Seconds
+   -&gt; [PeerInfo]
+   -&gt; Maybe FilePath
+   -&gt; Bool
+   -&gt; P2pConfiguration)
+-&gt; Parser Natural
+-&gt; Parser
+     (Seconds
+      -&gt; [PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Natural
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;maxPeerCount&quot;</span></span><span>
+</span><span id="line-139"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (Seconds
+   -&gt; [PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+-&gt; Parser Seconds
+-&gt; Parser
+     ([PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Seconds
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;sessionTimeout&quot;</span></span><span>
+</span><span id="line-140"></span><span>        </span><span class="annot"><span class="annottext">Parser ([PeerInfo] -&gt; Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+-&gt; Parser [PeerInfo]
+-&gt; Parser (Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser [PeerInfo]
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;peers&quot;</span></span><span>
+</span><span id="line-141"></span><span>        </span><span class="annot"><span class="annottext">Parser (Maybe FilePath -&gt; Bool -&gt; P2pConfiguration)
+-&gt; Parser (Maybe FilePath) -&gt; Parser (Bool -&gt; P2pConfiguration)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser (Maybe FilePath)
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;peerDbFilePath&quot;</span></span><span>
+</span><span id="line-142"></span><span>        </span><span class="annot"><span class="annottext">Parser (Bool -&gt; P2pConfiguration)
+-&gt; Parser Bool -&gt; Parser P2pConfiguration
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494200"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser Bool
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;ignoreBootstrapNodes&quot;</span></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="annot"><a href="P2P.Node.Configuration.html#pP2pConfiguration"><span class="hs-identifier hs-type">pP2pConfiguration</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MParser</span></span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span>
+</span><span id="line-145"></span><span id="pP2pConfiguration"><span class="annot"><span class="annottext">pP2pConfiguration :: Maybe NetworkId -&gt; MParser P2pConfiguration
+</span><a href="P2P.Node.Configuration.html#pP2pConfiguration"><span class="hs-identifier hs-var hs-var">pP2pConfiguration</span></a></span></span><span> </span><span id="local-6989586621681494198"><span class="annot"><span class="annottext">networkId :: Maybe NetworkId
+</span><a href="#local-6989586621681494198"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; P2pConfiguration
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-146"></span><span>    </span><span class="annot"><span class="annottext">(P2pConfiguration -&gt; P2pConfiguration)
+-&gt; MParser P2pConfiguration -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) b c a.
+Functor f =&gt;
+(b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;$&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration PeerConfig
+</span><a href="P2P.Node.Configuration.html#p2pConfigPeer"><span class="hs-identifier hs-var">p2pConfigPeer</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration PeerConfig
+-&gt; Parser (PeerConfig -&gt; PeerConfig) -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f (b -&gt; b) -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">%::</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; Parser (PeerConfig -&gt; PeerConfig)
+</span><a href="P2P.Peer.html#pPeerConfig"><span class="hs-identifier hs-var">pPeerConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; FilePath
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; FilePath) -&gt; (NetworkId -&gt; Text) -&gt; NetworkId -&gt; FilePath
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span> </span><span class="annot"><span class="annottext">(NetworkId -&gt; FilePath) -&gt; Maybe NetworkId -&gt; Maybe FilePath
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe NetworkId
+</span><a href="#local-6989586621681494198"><span class="hs-identifier hs-var">networkId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>    </span><span class="annot"><span class="annottext">MParser P2pConfiguration
+-&gt; MParser P2pConfiguration -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+</span><a href="P2P.Node.Configuration.html#p2pConfigMaxSessionCount"><span class="hs-identifier hs-var">p2pConfigMaxSessionCount</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+-&gt; Parser Natural -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">ReadM Natural -&gt; Mod OptionFields Natural -&gt; Parser Natural
+forall a. ReadM a -&gt; Mod OptionFields a -&gt; Parser a
+</span><span class="hs-identifier hs-var">option</span></span><span> </span><span class="annot"><span class="annottext">ReadM Natural
+forall a. Read a =&gt; ReadM a
+</span><span class="hs-identifier hs-var">auto</span></span><span>
+</span><span id="line-148"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields Natural -&gt; Parser Natural)
+-&gt; Mod OptionFields Natural -&gt; Parser Natural
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields Natural
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;p2p-max-session-count&quot;</span></span><span>
+</span><span id="line-149"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields Natural
+-&gt; Mod OptionFields Natural -&gt; Mod OptionFields Natural
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields Natural
+forall (f :: * -&gt; *) a. Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#suffixHelp"><span class="hs-identifier hs-var">suffixHelp</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;maximum number of sessions that are active at any time&quot;</span></span><span>
+</span><span id="line-150"></span><span>    </span><span class="annot"><span class="annottext">MParser P2pConfiguration
+-&gt; MParser P2pConfiguration -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+</span><a href="P2P.Node.Configuration.html#p2pConfigMaxPeerCount"><span class="hs-identifier hs-var">p2pConfigMaxPeerCount</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Natural
+-&gt; Parser Natural -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">ReadM Natural -&gt; Mod OptionFields Natural -&gt; Parser Natural
+forall a. ReadM a -&gt; Mod OptionFields a -&gt; Parser a
+</span><span class="hs-identifier hs-var">option</span></span><span> </span><span class="annot"><span class="annottext">ReadM Natural
+forall a. Read a =&gt; ReadM a
+</span><span class="hs-identifier hs-var">auto</span></span><span>
+</span><span id="line-151"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields Natural -&gt; Parser Natural)
+-&gt; Mod OptionFields Natural -&gt; Parser Natural
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields Natural
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;p2p-max-peer-count&quot;</span></span><span>
+</span><span id="line-152"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields Natural
+-&gt; Mod OptionFields Natural -&gt; Mod OptionFields Natural
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields Natural
+forall (f :: * -&gt; *) a. Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#suffixHelp"><span class="hs-identifier hs-var">suffixHelp</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;maximum number of entries in the peer database&quot;</span></span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><span class="annottext">MParser P2pConfiguration
+-&gt; MParser P2pConfiguration -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Seconds
+</span><a href="P2P.Node.Configuration.html#p2pConfigSessionTimeout"><span class="hs-identifier hs-var">p2pConfigSessionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Seconds
+-&gt; Parser Seconds -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields Seconds -&gt; Parser Seconds
+forall a. HasTextRepresentation a =&gt; Mod OptionFields a -&gt; Parser a
+</span><a href="Chainweb.Utils.html#textOption"><span class="hs-identifier hs-var">textOption</span></a></span><span>
+</span><span id="line-154"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields Seconds -&gt; Parser Seconds)
+-&gt; Mod OptionFields Seconds -&gt; Parser Seconds
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields Seconds
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;p2p-session-timeout&quot;</span></span><span>
+</span><span id="line-155"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields Seconds
+-&gt; Mod OptionFields Seconds -&gt; Mod OptionFields Seconds
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields Seconds
+forall (f :: * -&gt; *) a. Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#suffixHelp"><span class="hs-identifier hs-var">suffixHelp</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;timeout for sessions in seconds&quot;</span></span><span>
+</span><span id="line-156"></span><span>    </span><span class="annot"><span class="annottext">MParser P2pConfiguration
+-&gt; MParser P2pConfiguration -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration [PeerInfo]
+</span><a href="P2P.Node.Configuration.html#p2pConfigKnownPeers"><span class="hs-identifier hs-var">p2pConfigKnownPeers</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration [PeerInfo]
+-&gt; Parser ([PeerInfo] -&gt; [PeerInfo]) -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f (b -&gt; b) -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">%::</span></span><span> </span><span class="annot"><span class="annottext">Parser [PeerInfo] -&gt; Parser ([PeerInfo] -&gt; [PeerInfo])
+forall a. Monoid a =&gt; Parser a -&gt; MParser a
+</span><span class="hs-identifier hs-var">pLeftMonoidalUpdate</span></span><span>
+</span><span id="line-157"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PeerInfo -&gt; [PeerInfo]
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(PeerInfo -&gt; [PeerInfo]) -&gt; Parser PeerInfo -&gt; Parser [PeerInfo]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Parser PeerInfo
+</span><a href="#local-6989586621681494185"><span class="hs-identifier hs-var">pKnownPeerInfo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>    </span><span class="annot"><span class="annottext">MParser P2pConfiguration
+-&gt; MParser P2pConfiguration -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration (Maybe FilePath)
+</span><a href="P2P.Node.Configuration.html#p2pConfigPeerDbFilePath"><span class="hs-identifier hs-var">p2pConfigPeerDbFilePath</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration (Maybe FilePath)
+-&gt; Parser (Maybe FilePath) -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; Maybe FilePath)
+-&gt; Parser FilePath -&gt; Parser (Maybe FilePath)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Maybe FilePath
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Parser FilePath -&gt; Parser (Maybe FilePath))
+-&gt; Parser FilePath -&gt; Parser (Maybe FilePath)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields FilePath -&gt; Parser FilePath
+</span><span class="hs-identifier hs-var">fileOption</span></span><span>
+</span><span id="line-159"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields FilePath -&gt; Parser FilePath)
+-&gt; Mod OptionFields FilePath -&gt; Parser FilePath
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields FilePath
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;p2p-peer-database-filepath&quot;</span></span><span>
+</span><span id="line-160"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields FilePath
+-&gt; Mod OptionFields FilePath -&gt; Mod OptionFields FilePath
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields FilePath
+forall (f :: * -&gt; *) a. Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#suffixHelp"><span class="hs-identifier hs-var">suffixHelp</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;file where the peer database is stored&quot;</span></span><span>
+</span><span id="line-161"></span><span>    </span><span class="annot"><span class="annottext">MParser P2pConfiguration
+-&gt; MParser P2pConfiguration -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Bool
+</span><a href="P2P.Node.Configuration.html#p2pConfigIgnoreBootstrapNodes"><span class="hs-identifier hs-var">p2pConfigIgnoreBootstrapNodes</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' P2pConfiguration Bool
+-&gt; Parser Bool -&gt; MParser P2pConfiguration
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">Mod FlagFields Bool -&gt; Parser Bool
+</span><span class="hs-identifier hs-var">enableDisableFlag</span></span><span>
+</span><span id="line-162"></span><span>        </span><span class="annot"><span class="annottext">(Mod FlagFields Bool -&gt; Parser Bool)
+-&gt; Mod FlagFields Bool -&gt; Parser Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod FlagFields Bool
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;ignore-bootstrap-nodes&quot;</span></span><span>
+</span><span id="line-163"></span><span>        </span><span class="annot"><span class="annottext">Mod FlagFields Bool -&gt; Mod FlagFields Bool -&gt; Mod FlagFields Bool
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Mod FlagFields Bool
+forall (f :: * -&gt; *) a. FilePath -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;when enabled the hard-coded bootstrap nodes for network are ignored&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-165"></span><span>    </span><span id="local-6989586621681494189"><span class="annot"><span class="annottext">net :: Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var hs-var">net</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; FilePath
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; FilePath) -&gt; (NetworkId -&gt; Text) -&gt; NetworkId -&gt; FilePath
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Text
+</span><a href="Chainweb.RestAPI.NetworkID.html#networkIdToText"><span class="hs-identifier hs-var">networkIdToText</span></a></span><span> </span><span class="annot"><span class="annottext">(NetworkId -&gt; FilePath) -&gt; Maybe NetworkId -&gt; Maybe FilePath
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe NetworkId
+</span><a href="#local-6989586621681494198"><span class="hs-identifier hs-var">networkId</span></a></span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span>    </span><span id="local-6989586621681494185"><span class="annot"><span class="annottext">pKnownPeerInfo :: Parser PeerInfo
+</span><a href="#local-6989586621681494185"><span class="hs-identifier hs-var hs-var">pKnownPeerInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Mod OptionFields PeerInfo -&gt; Parser PeerInfo
+forall a. HasTextRepresentation a =&gt; Mod OptionFields a -&gt; Parser a
+</span><a href="Chainweb.Utils.html#textOption"><span class="hs-identifier hs-var">textOption</span></a></span><span>
+</span><span id="line-168"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields PeerInfo -&gt; Parser PeerInfo)
+-&gt; Mod OptionFields PeerInfo -&gt; Parser PeerInfo
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields PeerInfo
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;known-peer-info&quot;</span></span><span>
+</span><span id="line-169"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields PeerInfo
+-&gt; Mod OptionFields PeerInfo -&gt; Mod OptionFields PeerInfo
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; FilePath -&gt; Mod OptionFields PeerInfo
+forall (f :: * -&gt; *) a. Maybe FilePath -&gt; FilePath -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#suffixHelp"><span class="hs-identifier hs-var">suffixHelp</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681494189"><span class="hs-identifier hs-var">net</span></a></span><span>
+</span><span id="line-170"></span><span>            </span><span class="annot"><span class="hs-string">&quot;peer info that is added to the list of known peers. This option can be used multiple times.&quot;</span></span><span>
+</span><span id="line-171"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields PeerInfo
+-&gt; Mod OptionFields PeerInfo -&gt; Mod OptionFields PeerInfo
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Mod OptionFields PeerInfo
+forall (f :: * -&gt; *) a. HasMetavar f =&gt; FilePath -&gt; Mod f a
+</span><span class="hs-identifier hs-var">metavar</span></span><span> </span><span class="annot"><span class="hs-string">&quot;[&lt;PEERID&gt;@]&lt;HOSTADDRESS&gt;&quot;</span></span><span>
+</span><span id="line-172"></span></pre></body></html>

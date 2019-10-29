@@ -1,0 +1,1035 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ConstraintKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Module: Chainweb.Cut.CutHashes</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Cut.CutHashes</span><span>
+</span><span id="line-23"></span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span class="annot"><span class="hs-comment">-- * Cut Id</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier">CutId</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdBytes"><span class="hs-identifier">cutIdBytes</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#encodeCutId"><span class="hs-identifier">encodeCutId</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#decodeCutId"><span class="hs-identifier">decodeCutId</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdToText"><span class="hs-identifier">cutIdToText</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdFromText"><span class="hs-identifier">cutIdFromText</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdToTextShort"><span class="hs-identifier">cutIdToTextShort</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><span class="hs-comment">-- * HasCutId</span></span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#HasCutId"><span class="hs-identifier">HasCutId</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="annot"><span class="hs-comment">-- * CutHashes</span></span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier">CutHashes</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutHashes"><span class="hs-identifier">cutHashes</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutHashesChainwebVersion"><span class="hs-identifier">cutHashesChainwebVersion</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutHashesId"><span class="hs-identifier">cutHashesId</span></a></span><span>
+</span><span id="line-41"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutOrigin"><span class="hs-identifier">cutOrigin</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutHashesWeight"><span class="hs-identifier">cutHashesWeight</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutHashesHeight"><span class="hs-identifier">cutHashesHeight</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutHashesHeaders"><span class="hs-identifier">cutHashesHeaders</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutHashesPayloads"><span class="hs-identifier">cutHashesPayloads</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutToCutHashes"><span class="hs-identifier">cutToCutHashes</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashesCas"><span class="hs-identifier">CutHashesCas</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Applicative</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Getter</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Lens'</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">makeLenses</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">to</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">view</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(&lt;$!&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">C</span></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.Algorithms</span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bits</span></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteArray</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BA</span></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Get</span></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Put</span></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Short</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">SB</span></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Function</span></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Storable</span></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.TypeNats</span></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO.Unsafe</span></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span>
+</span><span id="line-85"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-86"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-87"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Cut.html"><span class="hs-identifier">Chainweb.Cut</span></a></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-89"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Peer.html"><span class="hs-identifier">P2P.Peer</span></a></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- CutId</span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span class="hs-keyword">type</span><span> </span><span id="CutIdBytesCount"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutIdBytesCount"><span class="hs-identifier hs-var">CutIdBytesCount</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">32</span></span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdBytesCount"><span class="hs-identifier hs-type">cutIdBytesCount</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-103"></span><span id="cutIdBytesCount"><span class="annot"><span class="annottext">cutIdBytesCount :: Natural
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdBytesCount"><span class="hs-identifier hs-var hs-var">cutIdBytesCount</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy CutIdBytesCount -&gt; Natural
+forall (n :: Nat) (proxy :: Nat -&gt; *).
+KnownNat n =&gt;
+proxy n -&gt; Natural
+</span><span class="hs-identifier hs-var">natVal</span></span><span> </span><span class="annot"><span class="annottext">(Proxy CutIdBytesCount -&gt; Natural)
+-&gt; Proxy CutIdBytesCount -&gt; Natural
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy CutIdBytesCount
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutIdBytesCount"><span class="hs-identifier hs-type">CutIdBytesCount</span></a></span><span>
+</span><span id="line-104"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdBytesCount"><span class="hs-pragma hs-type">cutIdBytesCount</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- | This is used to uniquly identify a cut.</span><span>
+</span><span id="line-107"></span><span class="hs-comment">--</span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- TODO: should we use a MerkelHash for this, that that we could proof</span><span>
+</span><span id="line-109"></span><span class="hs-comment">-- in clusion of a block header in a cut?</span><span>
+</span><span id="line-110"></span><span class="hs-comment">--</span><span>
+</span><span id="line-111"></span><span id="local-6989586621681494622"><span id="local-6989586621681494623"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="CutId"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-var">CutId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CutId"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-var">CutId</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SB.ShortByteString</span></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681494617"><span id="local-6989586621681494619"><span class="annot"><span class="annottext">CutId -&gt; CutId -&gt; Bool
+(CutId -&gt; CutId -&gt; Bool) -&gt; (CutId -&gt; CutId -&gt; Bool) -&gt; Eq CutId
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: CutId -&gt; CutId -&gt; Bool
+$c/= :: CutId -&gt; CutId -&gt; Bool
+== :: CutId -&gt; CutId -&gt; Bool
+$c== :: CutId -&gt; CutId -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681494601"><span id="local-6989586621681494603"><span id="local-6989586621681494605"><span id="local-6989586621681494607"><span id="local-6989586621681494609"><span id="local-6989586621681494611"><span id="local-6989586621681494613"><span class="annot"><span class="annottext">Eq CutId
+Eq CutId =&gt;
+(CutId -&gt; CutId -&gt; Ordering)
+-&gt; (CutId -&gt; CutId -&gt; Bool)
+-&gt; (CutId -&gt; CutId -&gt; Bool)
+-&gt; (CutId -&gt; CutId -&gt; Bool)
+-&gt; (CutId -&gt; CutId -&gt; Bool)
+-&gt; (CutId -&gt; CutId -&gt; CutId)
+-&gt; (CutId -&gt; CutId -&gt; CutId)
+-&gt; Ord CutId
+CutId -&gt; CutId -&gt; Bool
+CutId -&gt; CutId -&gt; Ordering
+CutId -&gt; CutId -&gt; CutId
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: CutId -&gt; CutId -&gt; CutId
+$cmin :: CutId -&gt; CutId -&gt; CutId
+max :: CutId -&gt; CutId -&gt; CutId
+$cmax :: CutId -&gt; CutId -&gt; CutId
+&gt;= :: CutId -&gt; CutId -&gt; Bool
+$c&gt;= :: CutId -&gt; CutId -&gt; Bool
+&gt; :: CutId -&gt; CutId -&gt; Bool
+$c&gt; :: CutId -&gt; CutId -&gt; Bool
+&lt;= :: CutId -&gt; CutId -&gt; Bool
+$c&lt;= :: CutId -&gt; CutId -&gt; Bool
+&lt; :: CutId -&gt; CutId -&gt; Bool
+$c&lt; :: CutId -&gt; CutId -&gt; Bool
+compare :: CutId -&gt; CutId -&gt; Ordering
+$ccompare :: CutId -&gt; CutId -&gt; Ordering
+$cp1Ord :: Eq CutId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. CutId -&gt; Rep CutId x)
+-&gt; (forall x. Rep CutId x -&gt; CutId) -&gt; Generic CutId
+forall x. Rep CutId x -&gt; CutId
+forall x. CutId -&gt; Rep CutId x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep CutId x -&gt; CutId
+$cfrom :: forall x. CutId -&gt; Rep CutId x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681494595"><span class="annot"><span class="annottext">CutId -&gt; ()
+(CutId -&gt; ()) -&gt; NFData CutId
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: CutId -&gt; ()
+$crnf :: CutId -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494589"><span id="local-6989586621681494592"><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-116"></span><span>    </span><span id="local-6989586621681494587"><span class="annot"><span class="annottext">show :: CutId -&gt; String
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String) -&gt; (CutId -&gt; Text) -&gt; CutId -&gt; String
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">CutId -&gt; Text
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdToText"><span class="hs-identifier hs-var">cutIdToText</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">show</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span id="local-6989586621681494788"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#encodeCutId"><span class="hs-identifier hs-type">encodeCutId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPut</span></span><span> </span><span class="annot"><a href="#local-6989586621681494788"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681494788"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-120"></span><span id="encodeCutId"><span class="annot"><span class="annottext">encodeCutId :: CutId -&gt; m ()
+</span><a href="Chainweb.Cut.CutHashes.html#encodeCutId"><span class="hs-identifier hs-var hs-var">encodeCutId</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span id="local-6989586621681494583"><span class="annot"><span class="annottext">w :: ShortByteString
+</span><a href="#local-6989586621681494583"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; ByteString -&gt; m ()
+</span><span class="hs-identifier hs-var">putByteString</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; m ()) -&gt; ByteString -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">SB.fromShort</span></span><span> </span><span class="annot"><span class="annottext">ShortByteString
+</span><a href="#local-6989586621681494583"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-121"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#encodeCutId"><span class="hs-pragma hs-type">encodeCutId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdBytes"><span class="hs-identifier hs-type">cutIdBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SB.ShortByteString</span></span><span>
+</span><span id="line-124"></span><span id="cutIdBytes"><span class="annot"><span class="annottext">cutIdBytes :: CutId -&gt; ShortByteString
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdBytes"><span class="hs-identifier hs-var hs-var">cutIdBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span id="local-6989586621681494580"><span class="annot"><span class="annottext">bytes :: ShortByteString
+</span><a href="#local-6989586621681494580"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShortByteString
+</span><a href="#local-6989586621681494580"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-125"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdBytes"><span class="hs-pragma hs-type">cutIdBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span id="local-6989586621681494769"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#decodeCutId"><span class="hs-identifier hs-type">decodeCutId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadGet</span></span><span> </span><span class="annot"><a href="#local-6989586621681494769"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681494769"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span></span><span>
+</span><span id="line-128"></span><span id="decodeCutId"><span class="annot"><span class="annottext">decodeCutId :: m CutId
+</span><a href="Chainweb.Cut.CutHashes.html#decodeCutId"><span class="hs-identifier hs-var hs-var">decodeCutId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-var">CutId</span></a></span><span> </span><span class="annot"><span class="annottext">(ShortByteString -&gt; CutId)
+-&gt; (ByteString -&gt; ShortByteString) -&gt; ByteString -&gt; CutId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ShortByteString
+</span><span class="hs-identifier hs-var">SB.toShort</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; CutId) -&gt; m ByteString -&gt; m CutId
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; m ByteString
+forall (m :: * -&gt; *). MonadGet m =&gt; Int -&gt; m ByteString
+</span><span class="hs-identifier hs-var">getBytes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdBytesCount"><span class="hs-identifier hs-var">cutIdBytesCount</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#decodeCutId"><span class="hs-pragma hs-type">decodeCutId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494574"><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-132"></span><span>    </span><span id="local-6989586621681494572"><span class="annot"><span class="annottext">hashWithSalt :: Int -&gt; CutId -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">hashWithSalt</span></span></span><span> </span><span id="local-6989586621681494570"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621681494570"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span id="local-6989586621681494569"><span class="annot"><span class="annottext">bytes :: ShortByteString
+</span><a href="#local-6989586621681494569"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Bits a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">xor</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681494570"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-133"></span><span>        </span><span class="annot"><span class="annottext">(Int -&gt; Int) -&gt; (IO Int -&gt; Int) -&gt; IO Int -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int
+forall a. IO a -&gt; a
+</span><span class="hs-identifier hs-var">unsafePerformIO</span></span><span>
+</span><span id="line-134"></span><span>        </span><span class="annot"><span class="annottext">(IO Int -&gt; Int) -&gt; IO Int -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (Ptr Int -&gt; IO Int) -&gt; IO Int
+forall ba p a. ByteArrayAccess ba =&gt; ba -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">BA.withByteArray</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShortByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">SB.fromShort</span></span><span> </span><span class="annot"><span class="annottext">ShortByteString
+</span><a href="#local-6989586621681494569"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Storable Int =&gt; Ptr Int -&gt; IO Int
+forall a. Storable a =&gt; Ptr a -&gt; IO a
+</span><span class="hs-identifier hs-var">peek</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-comment">-- CutIds are already cryptographically strong hashes</span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-comment">-- that include the chain id.</span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">hashWithSalt</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494558"><span id="local-6989586621681494560"><span id="local-6989586621681494562"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-140"></span><span>    </span><span id="local-6989586621681494556"><span class="annot"><span class="annottext">toJSON :: CutId -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Value) -&gt; (CutId -&gt; Text) -&gt; CutId -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">CutId -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSON</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494551"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-144"></span><span>    </span><span id="local-6989586621681494549"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser CutId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Value -&gt; Parser CutId
+forall a. HasTextRepresentation a =&gt; String -&gt; Value -&gt; Parser a
+</span><a href="Chainweb.Utils.html#parseJsonFromText"><span class="hs-identifier hs-var">parseJsonFromText</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;CutId&quot;</span></span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">parseJSON</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdToText"><span class="hs-identifier hs-type">cutIdToText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-148"></span><span id="cutIdToText"><span class="annot"><span class="annottext">cutIdToText :: CutId -&gt; Text
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdToText"><span class="hs-identifier hs-var hs-var">cutIdToText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="Chainweb.Utils.html#encodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">encodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; (CutId -&gt; ByteString) -&gt; CutId -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><span class="hs-identifier hs-var">runPutS</span></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString) -&gt; (CutId -&gt; Put) -&gt; CutId -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">CutId -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; CutId -&gt; m ()
+</span><a href="Chainweb.Cut.CutHashes.html#encodeCutId"><span class="hs-identifier hs-var">encodeCutId</span></a></span><span>
+</span><span id="line-149"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdToText"><span class="hs-pragma hs-type">cutIdToText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span id="local-6989586621681494544"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdFromText"><span class="hs-identifier hs-type">cutIdFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681494544"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681494544"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span></span><span>
+</span><span id="line-152"></span><span id="cutIdFromText"><span class="annot"><span class="annottext">cutIdFromText :: Text -&gt; m CutId
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdFromText"><span class="hs-identifier hs-var hs-var">cutIdFromText</span></a></span></span><span> </span><span id="local-6989586621681494543"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681494543"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(SomeException -&gt; m CutId)
+-&gt; (CutId -&gt; m CutId) -&gt; Either SomeException CutId -&gt; m CutId
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EncodingException -&gt; m CutId
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m CutId)
+-&gt; (SomeException -&gt; EncodingException) -&gt; SomeException -&gt; m CutId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#TextFormatException"><span class="hs-identifier hs-var">TextFormatException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; EncodingException)
+-&gt; (SomeException -&gt; Text) -&gt; SomeException -&gt; EncodingException
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CutId -&gt; m CutId
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><span class="annottext">(Either SomeException CutId -&gt; m CutId)
+-&gt; Either SomeException CutId -&gt; m CutId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Get CutId -&gt; ByteString -&gt; Either SomeException CutId
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Get a -&gt; ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#runGet"><span class="hs-identifier hs-var">runGet</span></a></span><span> </span><span class="annot"><span class="annottext">Get CutId
+forall (m :: * -&gt; *). MonadGet m =&gt; m CutId
+</span><a href="Chainweb.Cut.CutHashes.html#decodeCutId"><span class="hs-identifier hs-var">decodeCutId</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either SomeException CutId)
+-&gt; Either SomeException ByteString -&gt; Either SomeException CutId
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either SomeException ByteString
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ByteString
+</span><a href="Chainweb.Utils.html#decodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">decodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681494543"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-154"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdFromText"><span class="hs-pragma hs-type">cutIdFromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-157"></span><span>    </span><span id="local-6989586621681494532"><span class="annot"><span class="annottext">toText :: CutId -&gt; Text
+</span><a href="#local-6989586621681494532"><span class="hs-identifier hs-var hs-var hs-var hs-var">toText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutId -&gt; Text
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdToText"><span class="hs-identifier hs-var">cutIdToText</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#toText"><span class="hs-pragma hs-type">toText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-159"></span><span>    </span><span id="local-6989586621681494531"><span class="annot"><span class="annottext">fromText :: Text -&gt; m CutId
+</span><a href="Chainweb.Utils.html#fromText"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m CutId
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m CutId
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdFromText"><span class="hs-identifier hs-var">cutIdFromText</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#fromText"><span class="hs-pragma hs-type">fromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdToTextShort"><span class="hs-identifier hs-type">cutIdToTextShort</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-163"></span><span id="cutIdToTextShort"><span class="annot"><span class="annottext">cutIdToTextShort :: CutId -&gt; Text
+</span><a href="Chainweb.Cut.CutHashes.html#cutIdToTextShort"><span class="hs-identifier hs-var hs-var">cutIdToTextShort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">T.take</span></span><span> </span><span class="annot"><span class="hs-number">6</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; (CutId -&gt; Text) -&gt; CutId -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">CutId -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span>
+</span><span id="line-164"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutIdToTextShort"><span class="hs-pragma hs-type">cutIdToTextShort</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- HasCutId Class</span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span class="hs-keyword">class</span><span> </span><span id="HasCutId"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#HasCutId"><span class="hs-identifier hs-var">HasCutId</span></a></span></span><span> </span><span id="local-6989586621681494761"><span class="annot"><a href="#local-6989586621681494761"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-170"></span><span>    </span><span id="_cutId"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-type">_cutId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681494761"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span id="cutId"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutId"><span class="hs-identifier hs-type">cutId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Getter</span></span><span> </span><span class="annot"><a href="#local-6989586621681494761"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span>    </span><span id="local-6989586621681494526"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutId"><span class="hs-identifier hs-var hs-var">cutId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(c -&gt; CutId) -&gt; (CutId -&gt; f CutId) -&gt; c -&gt; f c
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="annot"><span class="annottext">c -&gt; CutId
+forall c. HasCutId c =&gt; c -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-var">_cutId</span></a></span></span><span>
+</span><span id="line-174"></span><span>    </span><span id="local-6989586621681494525"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-var hs-var">_cutId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting CutId c CutId -&gt; c -&gt; CutId
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting CutId c CutId
+forall c. HasCutId c =&gt; Getter c CutId
+</span><a href="Chainweb.Cut.CutHashes.html#cutId"><span class="hs-identifier hs-var">cutId</span></a></span></span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutId"><span class="hs-pragma hs-type">cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-176"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-pragma hs-type">_cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-177"></span><span>
+</span><span id="line-178"></span><span>    </span><span class="hs-pragma">{-# MINIMAL</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutId"><span class="hs-pragma hs-type">cutId</span></a></span><span> </span><span class="hs-pragma">|</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-pragma hs-type">_cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span id="local-6989586621681494524"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494521"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#HasCutId"><span class="hs-identifier hs-type">HasCutId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="#local-6989586621681494524"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-181"></span><span>    </span><span id="local-6989586621681494519"><span class="annot"><span class="annottext">_cutId :: HashMap x BlockHash -&gt; CutId
+</span><a href="#local-6989586621681494519"><span class="hs-identifier hs-var hs-var hs-var hs-var">_cutId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-var">CutId</span></a></span><span>
+</span><span id="line-182"></span><span>        </span><span class="annot"><span class="annottext">(ShortByteString -&gt; CutId)
+-&gt; (HashMap x BlockHash -&gt; ShortByteString)
+-&gt; HashMap x BlockHash
+-&gt; CutId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ShortByteString
+</span><span class="hs-identifier hs-var">SB.toShort</span></span><span>
+</span><span id="line-183"></span><span>        </span><span class="annot"><span class="annottext">(ByteString -&gt; ShortByteString)
+-&gt; (HashMap x BlockHash -&gt; ByteString)
+-&gt; HashMap x BlockHash
+-&gt; ShortByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Digest SHA512t_256 -&gt; ByteString
+forall bin bout.
+(ByteArrayAccess bin, ByteArray bout) =&gt;
+bin -&gt; bout
+</span><span class="hs-identifier hs-var">BA.convert</span></span><span>
+</span><span id="line-184"></span><span>        </span><span class="annot"><span class="annottext">(Digest SHA512t_256 -&gt; ByteString)
+-&gt; (HashMap x BlockHash -&gt; Digest SHA512t_256)
+-&gt; HashMap x BlockHash
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(ByteArrayAccess ByteString, HashAlgorithm SHA512t_256) =&gt;
+ByteString -&gt; Digest SHA512t_256
+forall ba a.
+(ByteArrayAccess ba, HashAlgorithm a) =&gt;
+ba -&gt; Digest a
+</span><span class="hs-identifier hs-var">C.hash</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span>
+</span><span id="line-185"></span><span>        </span><span class="annot"><span class="annottext">(ByteString -&gt; Digest SHA512t_256)
+-&gt; (HashMap x BlockHash -&gt; ByteString)
+-&gt; HashMap x BlockHash
+-&gt; Digest SHA512t_256
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[ByteString] -&gt; ByteString
+forall a. Monoid a =&gt; [a] -&gt; a
+</span><span class="hs-identifier hs-var">mconcat</span></span><span>
+</span><span id="line-186"></span><span>        </span><span class="annot"><span class="annottext">([ByteString] -&gt; ByteString)
+-&gt; (HashMap x BlockHash -&gt; [ByteString])
+-&gt; HashMap x BlockHash
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(BlockHash -&gt; ByteString) -&gt; [BlockHash] -&gt; [ByteString]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><a href="Chainweb.Utils.html#runPut"><span class="hs-identifier hs-var">runPut</span></a></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString)
+-&gt; (BlockHash -&gt; Put) -&gt; BlockHash -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BlockHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; BlockHash -&gt; m ()
+</span><a href="Chainweb.BlockHash.html#encodeBlockHash"><span class="hs-identifier hs-var">encodeBlockHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-187"></span><span>        </span><span class="annot"><span class="annottext">([BlockHash] -&gt; [ByteString])
+-&gt; (HashMap x BlockHash -&gt; [BlockHash])
+-&gt; HashMap x BlockHash
+-&gt; [ByteString]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">HashMap x BlockHash -&gt; [BlockHash]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span>
+</span><span id="line-188"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-pragma hs-type">_cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span id="local-6989586621681494513"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494510"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#HasCutId"><span class="hs-identifier hs-type">HasCutId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="#local-6989586621681494513"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-191"></span><span>    </span><span id="local-6989586621681494509"><span class="annot"><span class="annottext">_cutId :: HashMap x BlockHeader -&gt; CutId
+</span><a href="#local-6989586621681494509"><span class="hs-identifier hs-var hs-var hs-var hs-var">_cutId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap x BlockHash -&gt; CutId
+forall c. HasCutId c =&gt; c -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-var">_cutId</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMap x BlockHash -&gt; CutId)
+-&gt; (HashMap x BlockHeader -&gt; HashMap x BlockHash)
+-&gt; HashMap x BlockHeader
+-&gt; CutId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; BlockHash)
+-&gt; HashMap x BlockHeader -&gt; HashMap x BlockHash
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHash
+</span><a href="Chainweb.BlockHeader.html#_blockHash"><span class="hs-identifier hs-var hs-var">_blockHash</span></a></span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-pragma hs-type">_cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span id="local-6989586621681494506"><span id="local-6989586621681494507"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494503"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#HasCutId"><span class="hs-identifier hs-type">HasCutId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="#local-6989586621681494507"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681494506"><span class="hs-identifier hs-type">y</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-195"></span><span>    </span><span id="local-6989586621681494502"><span class="annot"><span class="annottext">_cutId :: HashMap x (y, BlockHash) -&gt; CutId
+</span><a href="#local-6989586621681494502"><span class="hs-identifier hs-var hs-var hs-var hs-var">_cutId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap x BlockHash -&gt; CutId
+forall c. HasCutId c =&gt; c -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-var">_cutId</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMap x BlockHash -&gt; CutId)
+-&gt; (HashMap x (y, BlockHash) -&gt; HashMap x BlockHash)
+-&gt; HashMap x (y, BlockHash)
+-&gt; CutId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((y, BlockHash) -&gt; BlockHash)
+-&gt; HashMap x (y, BlockHash) -&gt; HashMap x BlockHash
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(y, BlockHash) -&gt; BlockHash
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-pragma hs-type">_cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span></span></span><span>
+</span><span id="line-197"></span><span>
+</span><span id="line-198"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494499"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#HasCutId"><span class="hs-identifier hs-type">HasCutId</span></a></span><span> </span><span class="annot"><a href="Chainweb.Cut.html#Cut"><span class="hs-identifier hs-type">Cut</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-199"></span><span>    </span><span id="local-6989586621681494498"><span class="annot"><span class="annottext">_cutId :: Cut -&gt; CutId
+</span><a href="#local-6989586621681494498"><span class="hs-identifier hs-var hs-var hs-var hs-var">_cutId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap ChainId BlockHeader -&gt; CutId
+forall c. HasCutId c =&gt; c -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-var">_cutId</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMap ChainId BlockHeader -&gt; CutId)
+-&gt; (Cut -&gt; HashMap ChainId BlockHeader) -&gt; Cut -&gt; CutId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Cut -&gt; HashMap ChainId BlockHeader
+</span><a href="Chainweb.Cut.html#_cutMap"><span class="hs-identifier hs-var">_cutMap</span></a></span><span>
+</span><span id="line-200"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-pragma hs-type">_cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- Cut Hashes</span><span>
+</span><span id="line-204"></span><span>
+</span><span id="line-205"></span><span class="hs-comment">-- | This data structure is used to inform other components and chainweb nodes</span><span>
+</span><span id="line-206"></span><span class="hs-comment">-- about new cuts along with some properties of the cut.</span><span>
+</span><span id="line-207"></span><span class="hs-comment">--</span><span>
+</span><span id="line-208"></span><span class="hs-comment">-- Generally, the 'Cut' is represented by providing the 'BlockHash' of the</span><span>
+</span><span id="line-209"></span><span class="hs-comment">-- respective 'BlockHeader' for each chain in the 'Cut'.</span><span>
+</span><span id="line-210"></span><span class="hs-comment">--</span><span>
+</span><span id="line-211"></span><span class="hs-comment">-- Optionally, a node may attach the 'PayloadData' and/or the 'BlockHeader' for</span><span>
+</span><span id="line-212"></span><span class="hs-comment">-- some of the block of the 'Cut'.</span><span>
+</span><span id="line-213"></span><span class="hs-comment">--</span><span>
+</span><span id="line-214"></span><span id="local-6989586621681494495"><span id="local-6989586621681494496"></span></span><span class="hs-keyword">data</span><span> </span><span id="CutHashes"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-var">CutHashes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CutHashes"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-var">CutHashes</span></a></span></span><span>
+</span><span id="line-215"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_cutHashes"><span class="annot"><span class="annottext">CutHashes -&gt; HashMap ChainId (BlockHeight, BlockHash)
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashes"><span class="hs-identifier hs-var hs-var">_cutHashes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutOrigin"><span class="annot"><span class="annottext">CutHashes -&gt; Maybe PeerInfo
+</span><a href="Chainweb.Cut.CutHashes.html#_cutOrigin"><span class="hs-identifier hs-var hs-var">_cutOrigin</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="P2P.Peer.html#PeerInfo"><span class="hs-identifier hs-type">PeerInfo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-217"></span><span>        </span><span class="hs-comment">-- ^ 'Nothing' is used for locally mined Cuts</span><span>
+</span><span id="line-218"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutHashesWeight"><span class="annot"><span class="annottext">CutHashes -&gt; BlockWeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesWeight"><span class="hs-identifier hs-var hs-var">_cutHashesWeight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockWeight"><span class="hs-identifier hs-type">BlockWeight</span></a></span><span>
+</span><span id="line-219"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutHashesHeight"><span class="annot"><span class="annottext">CutHashes -&gt; BlockHeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesHeight"><span class="hs-identifier hs-var hs-var">_cutHashesHeight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span>
+</span><span id="line-220"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutHashesChainwebVersion"><span class="annot"><span class="annottext">CutHashes -&gt; ChainwebVersion
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesChainwebVersion"><span class="hs-identifier hs-var hs-var">_cutHashesChainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-221"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutHashesId"><span class="annot"><span class="annottext">CutHashes -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var hs-var">_cutHashesId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span>
+</span><span id="line-222"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutHashesHeaders"><span class="annot"><span class="annottext">CutHashes -&gt; HashMap BlockHash BlockHeader
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesHeaders"><span class="hs-identifier hs-var hs-var">_cutHashesHeaders</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-223"></span><span>        </span><span class="hs-comment">-- ^ optional block headers</span><span>
+</span><span id="line-224"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutHashesPayloads"><span class="annot"><span class="annottext">CutHashes -&gt; HashMap BlockPayloadHash PayloadData
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesPayloads"><span class="hs-identifier hs-var hs-var">_cutHashesPayloads</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadData"><span class="hs-identifier hs-type">PayloadData</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-225"></span><span>        </span><span class="hs-comment">-- ^ optional block payloads</span><span>
+</span><span id="line-226"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-227"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681494480"><span id="local-6989586621681494482"><span id="local-6989586621681494484"><span class="annot"><span class="annottext">Int -&gt; CutHashes -&gt; ShowS
+[CutHashes] -&gt; ShowS
+CutHashes -&gt; String
+(Int -&gt; CutHashes -&gt; ShowS)
+-&gt; (CutHashes -&gt; String)
+-&gt; ([CutHashes] -&gt; ShowS)
+-&gt; Show CutHashes
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [CutHashes] -&gt; ShowS
+$cshowList :: [CutHashes] -&gt; ShowS
+show :: CutHashes -&gt; String
+$cshow :: CutHashes -&gt; String
+showsPrec :: Int -&gt; CutHashes -&gt; ShowS
+$cshowsPrec :: Int -&gt; CutHashes -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. CutHashes -&gt; Rep CutHashes x)
+-&gt; (forall x. Rep CutHashes x -&gt; CutHashes) -&gt; Generic CutHashes
+forall x. Rep CutHashes x -&gt; CutHashes
+forall x. CutHashes -&gt; Rep CutHashes x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep CutHashes x -&gt; CutHashes
+$cfrom :: forall x. CutHashes -&gt; Rep CutHashes x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-228"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681494476"><span class="annot"><span class="annottext">CutHashes -&gt; ()
+(CutHashes -&gt; ()) -&gt; NFData CutHashes
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: CutHashes -&gt; ()
+$crnf :: CutHashes -&gt; ()
+</span><a href="#local-6989586621681494476"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-229"></span><span>
+</span><span id="line-230"></span><span id="cutHashesPayloads"><span id="cutHashesHeaders"><span id="cutHashesHeight"><span id="cutHashesWeight"><span id="cutOrigin"><span id="cutHashesId"><span id="cutHashesChainwebVersion"><span id="cutHashes"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">CutHashes</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-231"></span><span>
+</span><span id="line-232"></span><span class="hs-comment">-- | The value of 'cutOrigin' is ignored for equality</span><span>
+</span><span id="line-233"></span><span class="hs-comment">--</span><span>
+</span><span id="line-234"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494473"><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-235"></span><span>    </span><span id="local-6989586621681494472"><span class="annot"><span class="annottext">== :: CutHashes -&gt; CutHashes -&gt; Bool
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">(==)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutId -&gt; CutId -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span> </span><span class="annot"><span class="annottext">(CutId -&gt; CutId -&gt; Bool)
+-&gt; (CutHashes -&gt; CutId) -&gt; CutHashes -&gt; CutHashes -&gt; Bool
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var hs-var">_cutHashesId</span></a></span><span>
+</span><span id="line-236"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">==</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-237"></span><span>
+</span><span id="line-238"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494468"><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-239"></span><span>    </span><span id="local-6989586621681494467"><span class="annot"><span class="annottext">hashWithSalt :: Int -&gt; CutHashes -&gt; Int
+</span><a href="#local-6989586621681494467"><span class="hs-identifier hs-var hs-var hs-var hs-var">hashWithSalt</span></a></span></span><span> </span><span id="local-6989586621681494466"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621681494466"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; CutId -&gt; Int
+forall a. Hashable a =&gt; Int -&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">hashWithSalt</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681494466"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">(CutId -&gt; Int) -&gt; (CutHashes -&gt; CutId) -&gt; CutHashes -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var hs-var">_cutHashesId</span></a></span><span>
+</span><span id="line-240"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">hashWithSalt</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-241"></span><span>
+</span><span id="line-242"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494452"><span id="local-6989586621681494454"><span id="local-6989586621681494456"><span id="local-6989586621681494458"><span id="local-6989586621681494460"><span id="local-6989586621681494462"><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-243"></span><span>    </span><span id="local-6989586621681494451"><span class="annot"><span class="annottext">compare :: CutHashes -&gt; CutHashes -&gt; Ordering
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">compare</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(BlockWeight, CutId) -&gt; (BlockWeight, CutId) -&gt; Ordering
+forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
+</span><span class="hs-identifier hs-var">compare</span></span><span> </span><span class="annot"><span class="annottext">((BlockWeight, CutId) -&gt; (BlockWeight, CutId) -&gt; Ordering)
+-&gt; (CutHashes -&gt; (BlockWeight, CutId))
+-&gt; CutHashes
+-&gt; CutHashes
+-&gt; Ordering
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutHashes -&gt; BlockWeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesWeight"><span class="hs-identifier hs-var hs-var">_cutHashesWeight</span></a></span><span> </span><span class="annot"><span class="annottext">(CutHashes -&gt; BlockWeight)
+-&gt; (CutHashes -&gt; CutId) -&gt; CutHashes -&gt; (BlockWeight, CutId)
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var hs-var">_cutHashesId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-244"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">compare</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494442"><span id="local-6989586621681494444"><span id="local-6989586621681494446"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-247"></span><span>    </span><span id="local-6989586621681494441"><span class="annot"><span class="annottext">toJSON :: CutHashes -&gt; Value
+</span><a href="#local-6989586621681494441"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span id="local-6989586621681494440"><span class="annot"><span class="annottext">c :: CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="annot"><span class="annottext">([Pair] -&gt; Value) -&gt; [Pair] -&gt; Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-248"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;hashes&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; HashMap ChainId Value -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockHeight, BlockHash) -&gt; Value
+forall a v. (ToJSON a, ToJSON v) =&gt; (a, v) -&gt; Value
+</span><a href="#local-6989586621681494437"><span class="hs-identifier hs-var">hashWithHeight</span></a></span><span> </span><span class="annot"><span class="annottext">((BlockHeight, BlockHash) -&gt; Value)
+-&gt; HashMap ChainId (BlockHeight, BlockHash)
+-&gt; HashMap ChainId Value
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; HashMap ChainId (BlockHeight, BlockHash)
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashes"><span class="hs-identifier hs-var hs-var">_cutHashes</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-249"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;origin&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe PeerInfo -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; Maybe PeerInfo
+</span><a href="Chainweb.Cut.CutHashes.html#_cutOrigin"><span class="hs-identifier hs-var hs-var">_cutOrigin</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-250"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;weight&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; BlockWeight -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; BlockWeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesWeight"><span class="hs-identifier hs-var hs-var">_cutHashesWeight</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-251"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;height&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; BlockHeight -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; BlockHeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesHeight"><span class="hs-identifier hs-var hs-var">_cutHashesHeight</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-252"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;instance&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ChainwebVersion -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; ChainwebVersion
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesChainwebVersion"><span class="hs-identifier hs-var hs-var">_cutHashesChainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-253"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;id&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; CutId -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var hs-var">_cutHashesId</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-254"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-255"></span><span>        </span><span class="annot"><span class="annottext">[Pair] -&gt; [Pair] -&gt; [Pair]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Lens' CutHashes (HashMap BlockHash BlockHeader) -&gt; [Pair]
+forall k v.
+(ToJSONKey k, ToJSON v) =&gt;
+Text -&gt; Lens' CutHashes (HashMap k v) -&gt; [Pair]
+</span><a href="#local-6989586621681494435"><span class="hs-identifier hs-var">ifNotEmpty</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;headers&quot;</span></span><span> </span><span class="annot"><span class="annottext">Lens' CutHashes (HashMap BlockHash BlockHeader)
+</span><a href="Chainweb.Cut.CutHashes.html#cutHashesHeaders"><span class="hs-identifier hs-var">cutHashesHeaders</span></a></span><span>
+</span><span id="line-256"></span><span>        </span><span class="annot"><span class="annottext">[Pair] -&gt; [Pair] -&gt; [Pair]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+-&gt; Lens' CutHashes (HashMap BlockPayloadHash PayloadData) -&gt; [Pair]
+forall k v.
+(ToJSONKey k, ToJSON v) =&gt;
+Text -&gt; Lens' CutHashes (HashMap k v) -&gt; [Pair]
+</span><a href="#local-6989586621681494435"><span class="hs-identifier hs-var">ifNotEmpty</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;payloads&quot;</span></span><span> </span><span class="annot"><span class="annottext">Lens' CutHashes (HashMap BlockPayloadHash PayloadData)
+</span><a href="Chainweb.Cut.CutHashes.html#cutHashesPayloads"><span class="hs-identifier hs-var">cutHashesPayloads</span></a></span><span>
+</span><span id="line-257"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-258"></span><span>        </span><span id="local-6989586621681494437"><span class="annot"><span class="annottext">hashWithHeight :: (a, v) -&gt; Value
+</span><a href="#local-6989586621681494437"><span class="hs-identifier hs-var hs-var">hashWithHeight</span></a></span></span><span> </span><span id="local-6989586621681494434"><span class="annot"><span class="annottext">h :: (a, v)
+</span><a href="#local-6989586621681494434"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-259"></span><span>            </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;height&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; a -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">(a, v) -&gt; a
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">(a, v)
+</span><a href="#local-6989586621681494434"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-260"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;hash&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; v -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">(a, v) -&gt; v
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">(a, v)
+</span><a href="#local-6989586621681494434"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-261"></span><span>            </span><span class="hs-special">]</span><span>
+</span><span id="line-262"></span><span>
+</span><span id="line-263"></span><span>        </span><span id="local-6989586621681494678"><span id="local-6989586621681494680"><span class="annot"><a href="#local-6989586621681494435"><span class="hs-identifier hs-type">ifNotEmpty</span></a></span><span>
+</span><span id="line-264"></span><span>            </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><a href="#local-6989586621681494680"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-265"></span><span>            </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681494678"><span class="hs-identifier hs-type">v</span></a></span><span>
+</span><span id="line-266"></span><span>            </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-267"></span><span>            </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Lens'</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="#local-6989586621681494680"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681494678"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-268"></span><span>            </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span class="hs-special">)</span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-269"></span><span>        </span><span id="local-6989586621681494435"><span class="annot"><span class="annottext">ifNotEmpty :: Text -&gt; Lens' CutHashes (HashMap k v) -&gt; [Pair]
+</span><a href="#local-6989586621681494435"><span class="hs-identifier hs-var hs-var">ifNotEmpty</span></a></span></span><span> </span><span id="local-6989586621681494433"><span class="annot"><span class="annottext">s :: Text
+</span><a href="#local-6989586621681494433"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681494432"><span class="annot"><span class="annottext">l :: Lens' CutHashes (HashMap k v)
+</span><a href="#local-6989586621681494432"><span class="hs-identifier hs-var">l</span></a></span></span><span>
+</span><span id="line-270"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621681494431"><span class="annot"><span class="annottext">HashMap k v
+</span><a href="#local-6989586621681494431"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Getting (HashMap k v) CutHashes (HashMap k v)
+-&gt; CutHashes -&gt; HashMap k v
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting (HashMap k v) CutHashes (HashMap k v)
+Lens' CutHashes (HashMap k v)
+</span><a href="#local-6989586621681494432"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494440"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashMap k v -&gt; Bool
+forall k v. HashMap k v -&gt; Bool
+</span><span class="hs-identifier hs-var">HM.null</span></span><span> </span><span class="annot"><span class="annottext">HashMap k v
+</span><a href="#local-6989586621681494431"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681494433"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; HashMap k v -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">HashMap k v
+</span><a href="#local-6989586621681494431"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="hs-special">]</span><span>
+</span><span id="line-271"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair]
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-272"></span><span>
+</span><span id="line-273"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494426"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-274"></span><span>    </span><span id="local-6989586621681494425"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser CutHashes
+</span><a href="#local-6989586621681494425"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Object -&gt; Parser CutHashes) -&gt; Value -&gt; Parser CutHashes
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;CutHashes&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser CutHashes) -&gt; Value -&gt; Parser CutHashes)
+-&gt; (Object -&gt; Parser CutHashes) -&gt; Value -&gt; Parser CutHashes
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681494423"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HashMap ChainId (BlockHeight, BlockHash)
+-&gt; Maybe PeerInfo
+-&gt; BlockWeight
+-&gt; BlockHeight
+-&gt; ChainwebVersion
+-&gt; CutId
+-&gt; HashMap BlockHash BlockHeader
+-&gt; HashMap BlockPayloadHash PayloadData
+-&gt; CutHashes
+</span><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-var">CutHashes</span></a></span><span>
+</span><span id="line-275"></span><span>        </span><span class="annot"><span class="annottext">(HashMap ChainId (BlockHeight, BlockHash)
+ -&gt; Maybe PeerInfo
+ -&gt; BlockWeight
+ -&gt; BlockHeight
+ -&gt; ChainwebVersion
+ -&gt; CutId
+ -&gt; HashMap BlockHash BlockHeader
+ -&gt; HashMap BlockPayloadHash PayloadData
+ -&gt; CutHashes)
+-&gt; Parser (HashMap ChainId (BlockHeight, BlockHash))
+-&gt; Parser
+     (Maybe PeerInfo
+      -&gt; BlockWeight
+      -&gt; BlockHeight
+      -&gt; ChainwebVersion
+      -&gt; CutId
+      -&gt; HashMap BlockHash BlockHeader
+      -&gt; HashMap BlockPayloadHash PayloadData
+      -&gt; CutHashes)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser (HashMap ChainId Value)
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;hashes&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (HashMap ChainId Value)
+-&gt; (HashMap ChainId Value
+    -&gt; Parser (HashMap ChainId (BlockHeight, BlockHash)))
+-&gt; Parser (HashMap ChainId (BlockHeight, BlockHash))
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser (BlockHeight, BlockHash))
+-&gt; HashMap ChainId Value
+-&gt; Parser (HashMap ChainId (BlockHeight, BlockHash))
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser (BlockHeight, BlockHash)
+</span><a href="#local-6989586621681494420"><span class="hs-identifier hs-var">hashWithHeight</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-276"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (Maybe PeerInfo
+   -&gt; BlockWeight
+   -&gt; BlockHeight
+   -&gt; ChainwebVersion
+   -&gt; CutId
+   -&gt; HashMap BlockHash BlockHeader
+   -&gt; HashMap BlockPayloadHash PayloadData
+   -&gt; CutHashes)
+-&gt; Parser (Maybe PeerInfo)
+-&gt; Parser
+     (BlockWeight
+      -&gt; BlockHeight
+      -&gt; ChainwebVersion
+      -&gt; CutId
+      -&gt; HashMap BlockHash BlockHeader
+      -&gt; HashMap BlockPayloadHash PayloadData
+      -&gt; CutHashes)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser (Maybe PeerInfo)
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;origin&quot;</span></span><span>
+</span><span id="line-277"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (BlockWeight
+   -&gt; BlockHeight
+   -&gt; ChainwebVersion
+   -&gt; CutId
+   -&gt; HashMap BlockHash BlockHeader
+   -&gt; HashMap BlockPayloadHash PayloadData
+   -&gt; CutHashes)
+-&gt; Parser BlockWeight
+-&gt; Parser
+     (BlockHeight
+      -&gt; ChainwebVersion
+      -&gt; CutId
+      -&gt; HashMap BlockHash BlockHeader
+      -&gt; HashMap BlockPayloadHash PayloadData
+      -&gt; CutHashes)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser BlockWeight
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;weight&quot;</span></span><span>
+</span><span id="line-278"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (BlockHeight
+   -&gt; ChainwebVersion
+   -&gt; CutId
+   -&gt; HashMap BlockHash BlockHeader
+   -&gt; HashMap BlockPayloadHash PayloadData
+   -&gt; CutHashes)
+-&gt; Parser BlockHeight
+-&gt; Parser
+     (ChainwebVersion
+      -&gt; CutId
+      -&gt; HashMap BlockHash BlockHeader
+      -&gt; HashMap BlockPayloadHash PayloadData
+      -&gt; CutHashes)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser BlockHeight
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;height&quot;</span></span><span>
+</span><span id="line-279"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (ChainwebVersion
+   -&gt; CutId
+   -&gt; HashMap BlockHash BlockHeader
+   -&gt; HashMap BlockPayloadHash PayloadData
+   -&gt; CutHashes)
+-&gt; Parser ChainwebVersion
+-&gt; Parser
+     (CutId
+      -&gt; HashMap BlockHash BlockHeader
+      -&gt; HashMap BlockPayloadHash PayloadData
+      -&gt; CutHashes)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser ChainwebVersion
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;instance&quot;</span></span><span>
+</span><span id="line-280"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (CutId
+   -&gt; HashMap BlockHash BlockHeader
+   -&gt; HashMap BlockPayloadHash PayloadData
+   -&gt; CutHashes)
+-&gt; Parser CutId
+-&gt; Parser
+     (HashMap BlockHash BlockHeader
+      -&gt; HashMap BlockPayloadHash PayloadData -&gt; CutHashes)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Parser CutId
+</span><a href="#local-6989586621681494419"><span class="hs-identifier hs-var">hashId</span></a></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-281"></span><span>        </span><span class="annot"><span class="annottext">Parser
+  (HashMap BlockHash BlockHeader
+   -&gt; HashMap BlockPayloadHash PayloadData -&gt; CutHashes)
+-&gt; Parser (HashMap BlockHash BlockHeader)
+-&gt; Parser (HashMap BlockPayloadHash PayloadData -&gt; CutHashes)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser (Maybe (HashMap BlockHash BlockHeader))
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser (Maybe a)
+</span><span class="hs-operator hs-var">.:?</span></span><span> </span><span class="annot"><span class="hs-string">&quot;headers&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (Maybe (HashMap BlockHash BlockHeader))
+-&gt; HashMap BlockHash BlockHeader
+-&gt; Parser (HashMap BlockHash BlockHeader)
+forall a. Parser (Maybe a) -&gt; a -&gt; Parser a
+</span><span class="hs-operator hs-var">.!=</span></span><span> </span><span class="annot"><span class="annottext">HashMap BlockHash BlockHeader
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-282"></span><span>        </span><span class="annot"><span class="annottext">Parser (HashMap BlockPayloadHash PayloadData -&gt; CutHashes)
+-&gt; Parser (HashMap BlockPayloadHash PayloadData)
+-&gt; Parser CutHashes
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494423"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object
+-&gt; Text -&gt; Parser (Maybe (HashMap BlockPayloadHash PayloadData))
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser (Maybe a)
+</span><span class="hs-operator hs-var">.:?</span></span><span> </span><span class="annot"><span class="hs-string">&quot;payloads&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (Maybe (HashMap BlockPayloadHash PayloadData))
+-&gt; HashMap BlockPayloadHash PayloadData
+-&gt; Parser (HashMap BlockPayloadHash PayloadData)
+forall a. Parser (Maybe a) -&gt; a -&gt; Parser a
+</span><span class="hs-operator hs-var">.!=</span></span><span> </span><span class="annot"><span class="annottext">HashMap BlockPayloadHash PayloadData
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-283"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-284"></span><span>        </span><span id="local-6989586621681494420"><span class="annot"><span class="annottext">hashWithHeight :: Value -&gt; Parser (BlockHeight, BlockHash)
+</span><a href="#local-6989586621681494420"><span class="hs-identifier hs-var hs-var">hashWithHeight</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser (BlockHeight, BlockHash))
+-&gt; Value
+-&gt; Parser (BlockHeight, BlockHash)
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;HashWithHeight&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser (BlockHeight, BlockHash))
+ -&gt; Value -&gt; Parser (BlockHeight, BlockHash))
+-&gt; (Object -&gt; Parser (BlockHeight, BlockHash))
+-&gt; Value
+-&gt; Parser (BlockHeight, BlockHash)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681494416"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681494416"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span>
+</span><span id="line-285"></span><span>            </span><span class="annot"><span class="annottext">(BlockHeight -&gt; BlockHash -&gt; (BlockHeight, BlockHash))
+-&gt; Parser BlockHeight
+-&gt; Parser (BlockHash -&gt; (BlockHeight, BlockHash))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494416"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser BlockHeight
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;height&quot;</span></span><span>
+</span><span id="line-286"></span><span>            </span><span class="annot"><span class="annottext">Parser (BlockHash -&gt; (BlockHeight, BlockHash))
+-&gt; Parser BlockHash -&gt; Parser (BlockHeight, BlockHash)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494416"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser BlockHash
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;hash&quot;</span></span><span>
+</span><span id="line-287"></span><span>
+</span><span id="line-288"></span><span>        </span><span class="hs-comment">-- Backward compat code</span><span>
+</span><span id="line-289"></span><span>        </span><span id="local-6989586621681494419"><span class="annot"><span class="annottext">hashId :: Object -&gt; Parser CutId
+</span><a href="#local-6989586621681494419"><span class="hs-identifier hs-var hs-var">hashId</span></a></span></span><span> </span><span id="local-6989586621681494415"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681494415"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494415"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser CutId
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;id&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-290"></span><span>            </span><span class="annot"><span class="annottext">Parser CutId -&gt; Parser CutId -&gt; Parser CutId
+forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
+</span><span class="hs-operator hs-var">&lt;|&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HasCutId (HashMap ChainId (BlockHeight, BlockHash)) =&gt;
+HashMap ChainId (BlockHeight, BlockHash) -&gt; CutId
+forall c. HasCutId c =&gt; c -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-var">_cutId</span></a></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(HashMap ChainId (BlockHeight, BlockHash) -&gt; CutId)
+-&gt; Parser (HashMap ChainId (BlockHeight, BlockHash))
+-&gt; Parser CutId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681494415"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Text -&gt; Parser (HashMap ChainId Value)
+forall a. FromJSON a =&gt; Object -&gt; Text -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;hashes&quot;</span></span><span> </span><span class="annot"><span class="annottext">Parser (HashMap ChainId Value)
+-&gt; (HashMap ChainId Value
+    -&gt; Parser (HashMap ChainId (BlockHeight, BlockHash)))
+-&gt; Parser (HashMap ChainId (BlockHeight, BlockHash))
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser (BlockHeight, BlockHash))
+-&gt; HashMap ChainId Value
+-&gt; Parser (HashMap ChainId (BlockHeight, BlockHash))
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser (BlockHeight, BlockHash)
+</span><a href="#local-6989586621681494420"><span class="hs-identifier hs-var">hashWithHeight</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-291"></span><span>
+</span><span id="line-292"></span><span class="hs-comment">-- | Compute a 'CutHashes' structure from a 'Cut'. The result doesn't include</span><span>
+</span><span id="line-293"></span><span class="hs-comment">-- any block headers or payloads.</span><span>
+</span><span id="line-294"></span><span class="hs-comment">--</span><span>
+</span><span id="line-295"></span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#cutToCutHashes"><span class="hs-identifier hs-type">cutToCutHashes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="P2P.Peer.html#PeerInfo"><span class="hs-identifier hs-type">PeerInfo</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Cut.html#Cut"><span class="hs-identifier hs-type">Cut</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span><span>
+</span><span id="line-296"></span><span id="cutToCutHashes"><span class="annot"><span class="annottext">cutToCutHashes :: Maybe PeerInfo -&gt; Cut -&gt; CutHashes
+</span><a href="Chainweb.Cut.CutHashes.html#cutToCutHashes"><span class="hs-identifier hs-var hs-var">cutToCutHashes</span></a></span></span><span> </span><span id="local-6989586621681494413"><span class="annot"><span class="annottext">p :: Maybe PeerInfo
+</span><a href="#local-6989586621681494413"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621681494412"><span class="annot"><span class="annottext">c :: Cut
+</span><a href="#local-6989586621681494412"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WCutHashes :: HashMap ChainId (BlockHeight, BlockHash)
+-&gt; Maybe PeerInfo
+-&gt; BlockWeight
+-&gt; BlockHeight
+-&gt; ChainwebVersion
+-&gt; CutId
+-&gt; HashMap BlockHash BlockHeader
+-&gt; HashMap BlockPayloadHash PayloadData
+-&gt; CutHashes
+</span><a href="Chainweb.Cut.CutHashes.html#%24WCutHashes"><span class="hs-identifier hs-type hs-type">CutHashes</span></a></span><span>
+</span><span id="line-297"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_cutHashes :: HashMap ChainId (BlockHeight, BlockHash)
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashes"><span class="hs-identifier hs-var">_cutHashes</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHeight
+</span><a href="Chainweb.BlockHeader.html#_blockHeight"><span class="hs-identifier hs-var hs-var">_blockHeight</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; BlockHeight)
+-&gt; (BlockHeader -&gt; BlockHash)
+-&gt; BlockHeader
+-&gt; (BlockHeight, BlockHash)
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockHash
+</span><a href="Chainweb.BlockHeader.html#_blockHash"><span class="hs-identifier hs-var hs-var">_blockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(BlockHeader -&gt; (BlockHeight, BlockHash))
+-&gt; HashMap ChainId BlockHeader
+-&gt; HashMap ChainId (BlockHeight, BlockHash)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Cut -&gt; HashMap ChainId BlockHeader
+</span><a href="Chainweb.Cut.html#_cutMap"><span class="hs-identifier hs-var">_cutMap</span></a></span><span> </span><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681494412"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-298"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutOrigin :: Maybe PeerInfo
+</span><a href="Chainweb.Cut.CutHashes.html#_cutOrigin"><span class="hs-identifier hs-var">_cutOrigin</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe PeerInfo
+</span><a href="#local-6989586621681494413"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-299"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutHashesWeight :: BlockWeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesWeight"><span class="hs-identifier hs-var">_cutHashesWeight</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Cut -&gt; BlockWeight
+</span><a href="Chainweb.Cut.html#_cutWeight"><span class="hs-identifier hs-var">_cutWeight</span></a></span><span> </span><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681494412"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-300"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutHashesHeight :: BlockHeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesHeight"><span class="hs-identifier hs-var">_cutHashesHeight</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Cut -&gt; BlockHeight
+</span><a href="Chainweb.Cut.html#_cutHeight"><span class="hs-identifier hs-var">_cutHeight</span></a></span><span> </span><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681494412"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-301"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutHashesChainwebVersion :: ChainwebVersion
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesChainwebVersion"><span class="hs-identifier hs-var">_cutHashesChainwebVersion</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Cut -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681494412"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-302"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutHashesId :: CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var">_cutHashesId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Cut -&gt; CutId
+forall c. HasCutId c =&gt; c -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-identifier hs-var">_cutId</span></a></span><span> </span><span class="annot"><span class="annottext">Cut
+</span><a href="#local-6989586621681494412"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-303"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutHashesHeaders :: HashMap BlockHash BlockHeader
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesHeaders"><span class="hs-identifier hs-var">_cutHashesHeaders</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap BlockHash BlockHeader
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-304"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutHashesPayloads :: HashMap BlockPayloadHash PayloadData
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesPayloads"><span class="hs-identifier hs-var">_cutHashesPayloads</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashMap BlockPayloadHash PayloadData
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-305"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-306"></span><span>
+</span><span id="line-307"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681494404"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#HasCutId"><span class="hs-identifier hs-type">HasCutId</span></a></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-308"></span><span>    </span><span id="local-6989586621681494403"><span class="annot"><span class="annottext">_cutId :: CutHashes -&gt; CutId
+</span><a href="#local-6989586621681494403"><span class="hs-identifier hs-var hs-var hs-var hs-var">_cutId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var hs-var">_cutHashesId</span></a></span><span>
+</span><span id="line-309"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#_cutId"><span class="hs-pragma hs-type">_cutId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-310"></span><span>
+</span><span id="line-311"></span><span class="hs-comment">-- Note that this instance ignores the value of '_cutOrigin'</span><span>
+</span><span id="line-312"></span><span class="hs-comment">--</span><span>
+</span><span id="line-313"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCasValue</span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-314"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="CasKeyType"><span class="annot"><span class="hs-identifier hs-var">CasKeyType</span></span></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockWeight"><span class="hs-identifier hs-type">BlockWeight</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutId"><span class="hs-identifier hs-type">CutId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-315"></span><span>    </span><span id="local-6989586621681494399"><span class="annot"><span class="annottext">casKey :: CutHashes -&gt; CasKeyType CutHashes
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">casKey</span></span></span><span> </span><span id="local-6989586621681494397"><span class="annot"><span class="annottext">c :: CutHashes
+</span><a href="#local-6989586621681494397"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CutHashes -&gt; BlockHeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesHeight"><span class="hs-identifier hs-var hs-var">_cutHashesHeight</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494397"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; BlockWeight
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesWeight"><span class="hs-identifier hs-var hs-var">_cutHashesWeight</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494397"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CutHashes -&gt; CutId
+</span><a href="Chainweb.Cut.CutHashes.html#_cutHashesId"><span class="hs-identifier hs-var hs-var">_cutHashesId</span></a></span><span> </span><span class="annot"><span class="annottext">CutHashes
+</span><a href="#local-6989586621681494397"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-316"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">casKey</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-317"></span><span>
+</span><span id="line-318"></span><span class="hs-keyword">type</span><span> </span><span id="CutHashesCas"><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashesCas"><span class="hs-identifier hs-var">CutHashesCas</span></a></span></span><span> </span><span id="local-6989586621681494396"><span class="annot"><a href="#local-6989586621681494396"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681494396"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Cut.CutHashes.html#CutHashes"><span class="hs-identifier hs-type">CutHashes</span></a></span><span>
+</span><span id="line-319"></span><span>
+</span><span id="line-320"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-321"></span><span class="hs-comment">--</span><span>
+</span><span id="line-322"></span><span class="hs-comment">-- encodeCutHashes :: MonadPut m =&gt; CutHashes -&gt; m ()</span><span>
+</span><span id="line-323"></span><span class="hs-comment">-- encodeCutHashes = error &quot;encodeCodeHashes: TODO&quot;</span><span>
+</span><span id="line-324"></span><span class="hs-comment">-- {-# INLINE encodeCutHashes #-}</span><span>
+</span><span id="line-325"></span><span class="hs-comment">--</span><span>
+</span><span id="line-326"></span><span class="hs-comment">-- decodeCutHashes :: MonadGet m =&gt; m CutId</span><span>
+</span><span id="line-327"></span><span class="hs-comment">-- decodeCutHashes = error &quot;decodeCutHashes: TODO&quot;</span><span>
+</span><span id="line-328"></span><span class="hs-comment">-- {-# INLINE decodeCutHashes #-}</span><span>
+</span><span id="line-329"></span></pre></body></html>

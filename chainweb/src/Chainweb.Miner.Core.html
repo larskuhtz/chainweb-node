@@ -1,0 +1,886 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Module: Chainweb.Miner.Core</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Maintainer: Colin Woodbury &lt;colin@kadena.io&gt;</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Miner.Core</span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier">HeaderBytes</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier">TargetBytes</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier">ChainBytes</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier">WorkBytes</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#workBytes"><span class="hs-identifier">workBytes</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#unWorkBytes"><span class="hs-identifier">unWorkBytes</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#MiningResult"><span class="hs-identifier">MiningResult</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier">usePowHash</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#mine"><span class="hs-identifier">mine</span></a></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#fastCheckTarget"><span class="hs-identifier">fastCheckTarget</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#injectNonce"><span class="hs-identifier">injectNonce</span></a></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#callExternalMiner"><span class="hs-identifier">callExternalMiner</span></a></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Async</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Except</span></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.Algorithms</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Blake2s_256</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.IO</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bifunctor</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">second</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteArray</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BA</span></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Base16</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B16</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Char</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">isSpace</span></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">newIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">writeIORef</span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Proxy</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Tuple.Strict</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">T2</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">T3</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word64</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Word8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Marshal.Alloc</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">allocaBytes</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Ptr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Ptr</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">castPtr</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Storable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">peekElemOff</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">poke</span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.API</span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Exit</span></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">hClose</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Path</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Process</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">P</span></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier">Nonce</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier">ChainwebVersion</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-comment">---</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- | Encoding of @ChainId + HashTarget + BlockHeader@ to be consumed by a remote</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- Mining API.</span><span>
+</span><span id="line-68"></span><span class="hs-comment">--</span><span>
+</span><span id="line-69"></span><span class="hs-keyword">newtype</span><span> </span><span id="WorkBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-var">WorkBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="WorkBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-var">WorkBytes</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_workBytes"><span class="annot"><span class="annottext">WorkBytes -&gt; ByteString
+</span><a href="Chainweb.Miner.Core.html#_workBytes"><span class="hs-identifier hs-var hs-var">_workBytes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482846"><span class="annot"><span class="hs-identifier hs-type">MimeRender</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">OctetStream</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482840"><span id="local-6989586621681482842"><span class="annot"><span class="hs-identifier hs-type">MimeUnrender</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">OctetStream</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- | The encoded form of a `BlockHeader`.</span><span>
+</span><span id="line-73"></span><span class="hs-comment">--</span><span>
+</span><span id="line-74"></span><span class="hs-keyword">newtype</span><span> </span><span id="HeaderBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-var">HeaderBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="HeaderBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-var">HeaderBytes</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_headerBytes"><span class="annot"><span class="annottext">HeaderBytes -&gt; ByteString
+</span><a href="Chainweb.Miner.Core.html#_headerBytes"><span class="hs-identifier hs-var hs-var">_headerBytes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482833"><span id="local-6989586621681482835"><span class="annot"><span class="annottext">HeaderBytes -&gt; HeaderBytes -&gt; Bool
+(HeaderBytes -&gt; HeaderBytes -&gt; Bool)
+-&gt; (HeaderBytes -&gt; HeaderBytes -&gt; Bool) -&gt; Eq HeaderBytes
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: HeaderBytes -&gt; HeaderBytes -&gt; Bool
+$c/= :: HeaderBytes -&gt; HeaderBytes -&gt; Bool
+== :: HeaderBytes -&gt; HeaderBytes -&gt; Bool
+$c== :: HeaderBytes -&gt; HeaderBytes -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482826"><span id="local-6989586621681482828"><span id="local-6989586621681482830"><span class="annot"><span class="annottext">Int -&gt; HeaderBytes -&gt; ShowS
+[HeaderBytes] -&gt; ShowS
+HeaderBytes -&gt; String
+(Int -&gt; HeaderBytes -&gt; ShowS)
+-&gt; (HeaderBytes -&gt; String)
+-&gt; ([HeaderBytes] -&gt; ShowS)
+-&gt; Show HeaderBytes
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [HeaderBytes] -&gt; ShowS
+$cshowList :: [HeaderBytes] -&gt; ShowS
+show :: HeaderBytes -&gt; String
+$cshow :: HeaderBytes -&gt; String
+showsPrec :: Int -&gt; HeaderBytes -&gt; ShowS
+$cshowsPrec :: Int -&gt; HeaderBytes -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482822"><span class="annot"><span class="hs-identifier hs-type">MimeRender</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">OctetStream</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482817"><span id="local-6989586621681482819"><span class="annot"><span class="hs-identifier hs-type">MimeUnrender</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">OctetStream</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | The encoded form of a `HashTarget`.</span><span>
+</span><span id="line-79"></span><span class="hs-comment">--</span><span>
+</span><span id="line-80"></span><span class="hs-keyword">newtype</span><span> </span><span id="TargetBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-var">TargetBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TargetBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-var">TargetBytes</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_targetBytes"><span class="annot"><span class="annottext">TargetBytes -&gt; ByteString
+</span><a href="Chainweb.Miner.Core.html#_targetBytes"><span class="hs-identifier hs-var hs-var">_targetBytes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482811"><span id="local-6989586621681482813"><span class="annot"><span class="annottext">TargetBytes -&gt; TargetBytes -&gt; Bool
+(TargetBytes -&gt; TargetBytes -&gt; Bool)
+-&gt; (TargetBytes -&gt; TargetBytes -&gt; Bool) -&gt; Eq TargetBytes
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TargetBytes -&gt; TargetBytes -&gt; Bool
+$c/= :: TargetBytes -&gt; TargetBytes -&gt; Bool
+== :: TargetBytes -&gt; TargetBytes -&gt; Bool
+$c== :: TargetBytes -&gt; TargetBytes -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482805"><span id="local-6989586621681482807"><span id="local-6989586621681482809"><span class="annot"><span class="annottext">Int -&gt; TargetBytes -&gt; ShowS
+[TargetBytes] -&gt; ShowS
+TargetBytes -&gt; String
+(Int -&gt; TargetBytes -&gt; ShowS)
+-&gt; (TargetBytes -&gt; String)
+-&gt; ([TargetBytes] -&gt; ShowS)
+-&gt; Show TargetBytes
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TargetBytes] -&gt; ShowS
+$cshowList :: [TargetBytes] -&gt; ShowS
+show :: TargetBytes -&gt; String
+$cshow :: TargetBytes -&gt; String
+showsPrec :: Int -&gt; TargetBytes -&gt; ShowS
+$cshowsPrec :: Int -&gt; TargetBytes -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- | The encoded form of a `ChainId`.</span><span>
+</span><span id="line-84"></span><span class="hs-comment">--</span><span>
+</span><span id="line-85"></span><span class="hs-keyword">newtype</span><span> </span><span id="ChainBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier hs-var">ChainBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ChainBytes"><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier hs-var">ChainBytes</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="_chainBytes"><span class="annot"><span class="annottext">ChainBytes -&gt; ByteString
+</span><a href="Chainweb.Miner.Core.html#_chainBytes"><span class="hs-identifier hs-var hs-var">_chainBytes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482799"><span id="local-6989586621681482801"><span class="annot"><span class="annottext">ChainBytes -&gt; ChainBytes -&gt; Bool
+(ChainBytes -&gt; ChainBytes -&gt; Bool)
+-&gt; (ChainBytes -&gt; ChainBytes -&gt; Bool) -&gt; Eq ChainBytes
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: ChainBytes -&gt; ChainBytes -&gt; Bool
+$c/= :: ChainBytes -&gt; ChainBytes -&gt; Bool
+== :: ChainBytes -&gt; ChainBytes -&gt; Bool
+$c== :: ChainBytes -&gt; ChainBytes -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482793"><span id="local-6989586621681482795"><span id="local-6989586621681482797"><span class="annot"><span class="annottext">Int -&gt; ChainBytes -&gt; ShowS
+[ChainBytes] -&gt; ShowS
+ChainBytes -&gt; String
+(Int -&gt; ChainBytes -&gt; ShowS)
+-&gt; (ChainBytes -&gt; String)
+-&gt; ([ChainBytes] -&gt; ShowS)
+-&gt; Show ChainBytes
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [ChainBytes] -&gt; ShowS
+$cshowList :: [ChainBytes] -&gt; ShowS
+show :: ChainBytes -&gt; String
+$cshow :: ChainBytes -&gt; String
+showsPrec :: Int -&gt; ChainBytes -&gt; ShowS
+$cshowsPrec :: Int -&gt; ChainBytes -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482790"><span class="annot"><span class="hs-identifier hs-type">MimeRender</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">OctetStream</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482785"><span id="local-6989586621681482787"><span class="annot"><span class="hs-identifier hs-type">MimeUnrender</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">OctetStream</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- | Combine `ChainBytes`, `TargetBytes` and `HeaderBytes` in such a way that</span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- can be later undone by `unWorkBytes`.</span><span>
+</span><span id="line-91"></span><span class="hs-comment">--</span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Chainweb.Miner.Core.html#workBytes"><span class="hs-identifier hs-type">workBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier hs-type">ChainBytes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-type">TargetBytes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-type">WorkBytes</span></a></span><span>
+</span><span id="line-93"></span><span id="workBytes"><span class="annot"><span class="annottext">workBytes :: ChainBytes -&gt; TargetBytes -&gt; HeaderBytes -&gt; WorkBytes
+</span><a href="Chainweb.Miner.Core.html#workBytes"><span class="hs-identifier hs-var hs-var">workBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier hs-type">ChainBytes</span></a></span><span> </span><span id="local-6989586621681482784"><span class="annot"><span class="annottext">c :: ByteString
+</span><a href="#local-6989586621681482784"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-type">TargetBytes</span></a></span><span> </span><span id="local-6989586621681482783"><span class="annot"><span class="annottext">t :: ByteString
+</span><a href="#local-6989586621681482783"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span> </span><span id="local-6989586621681482782"><span class="annot"><span class="annottext">h :: ByteString
+</span><a href="#local-6989586621681482782"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; WorkBytes
+</span><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-var">WorkBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; WorkBytes) -&gt; ByteString -&gt; WorkBytes
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482784"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482783"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482782"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- | NOTE: This makes a low-level assumption about the encoded size of</span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- `HashTarget` and `ChainId`!</span><span>
+</span><span id="line-97"></span><span class="hs-comment">--</span><span>
+</span><span id="line-98"></span><span class="annot"><a href="Chainweb.Miner.Core.html#unWorkBytes"><span class="hs-identifier hs-type">unWorkBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-type">WorkBytes</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T3</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier hs-type">ChainBytes</span></a></span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-type">TargetBytes</span></a></span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span>
+</span><span id="line-99"></span><span id="unWorkBytes"><span class="annot"><span class="annottext">unWorkBytes :: WorkBytes -&gt; T3 ChainBytes TargetBytes HeaderBytes
+</span><a href="Chainweb.Miner.Core.html#unWorkBytes"><span class="hs-identifier hs-var hs-var">unWorkBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#WorkBytes"><span class="hs-identifier hs-type">WorkBytes</span></a></span><span> </span><span id="local-6989586621681482781"><span class="annot"><span class="annottext">w :: ByteString
+</span><a href="#local-6989586621681482781"><span class="hs-identifier hs-var">w</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainBytes
+-&gt; TargetBytes
+-&gt; HeaderBytes
+-&gt; T3 ChainBytes TargetBytes HeaderBytes
+forall a b c. a -&gt; b -&gt; c -&gt; T3 a b c
+</span><span class="hs-identifier hs-var">T3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ChainBytes
+</span><a href="Chainweb.Miner.Core.html#ChainBytes"><span class="hs-identifier hs-var">ChainBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482779"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; TargetBytes
+</span><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-var">TargetBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482778"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; HeaderBytes
+</span><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-var">HeaderBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482777"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681482779"><span class="annot"><span class="annottext">c :: ByteString
+</span><a href="#local-6989586621681482779"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482778"><span class="annot"><span class="annottext">t :: ByteString
+</span><a href="#local-6989586621681482778"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482777"><span class="annot"><span class="annottext">h :: ByteString
+</span><a href="#local-6989586621681482777"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; (ByteString, ByteString))
+-&gt; (ByteString, ByteString)
+-&gt; (ByteString, (ByteString, ByteString))
+forall (p :: * -&gt; * -&gt; *) b c a.
+Bifunctor p =&gt;
+(b -&gt; c) -&gt; p a b -&gt; p a c
+</span><span class="hs-identifier hs-var">second</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; (ByteString, ByteString)
+</span><span class="hs-identifier hs-var">B.splitAt</span></span><span> </span><span class="annot"><span class="hs-number">32</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((ByteString, ByteString)
+ -&gt; (ByteString, (ByteString, ByteString)))
+-&gt; (ByteString, ByteString)
+-&gt; (ByteString, (ByteString, ByteString))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; (ByteString, ByteString)
+</span><span class="hs-identifier hs-var">B.splitAt</span></span><span> </span><span class="annot"><span class="hs-number">4</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482781"><span class="hs-identifier hs-var">w</span></a></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- | Select a hashing algorithm.</span><span>
+</span><span id="line-104"></span><span class="hs-comment">--</span><span>
+</span><span id="line-105"></span><span id="local-6989586621681482775"><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-type">usePowHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681482962"><span class="annot"><a href="#local-6989586621681482962"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashAlgorithm</span></span><span> </span><span class="annot"><a href="#local-6989586621681482962"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681482962"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681482775"><span class="hs-identifier hs-type">f</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681482775"><span class="hs-identifier hs-type">f</span></a></span></span><span>
+</span><span id="line-106"></span><span id="usePowHash"><span class="annot"><span class="annottext">usePowHash :: ChainwebVersion -&gt; (forall a. HashAlgorithm a =&gt; Proxy a -&gt; f) -&gt; f
+</span><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var hs-var">usePowHash</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Test"><span class="hs-identifier hs-type">Test</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span id="local-6989586621681482773"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482773"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482773"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-107"></span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var">usePowHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#TimedConsensus"><span class="hs-identifier hs-type">TimedConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span id="local-6989586621681482770"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482770"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482770"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-108"></span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var">usePowHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#PowConsensus"><span class="hs-identifier hs-type">PowConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span id="local-6989586621681482768"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482768"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482768"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-109"></span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var">usePowHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#TimedCPM"><span class="hs-identifier hs-type">TimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span id="local-6989586621681482766"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482766"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482766"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-110"></span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var">usePowHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#FastTimedCPM"><span class="hs-identifier hs-type">FastTimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span id="local-6989586621681482764"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482764"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482764"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var">usePowHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Development"><span class="hs-identifier hs-type">Development</span></a></span><span> </span><span id="local-6989586621681482762"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482762"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482762"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-112"></span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var">usePowHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Testnet02"><span class="hs-identifier hs-type">Testnet02</span></a></span><span> </span><span id="local-6989586621681482760"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482760"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482760"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Chainweb.Miner.Core.html#usePowHash"><span class="hs-identifier hs-var">usePowHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Version.html#Mainnet01"><span class="hs-identifier hs-type">Mainnet01</span></a></span><span> </span><span id="local-6989586621681482758"><span class="annot"><span class="annottext">f :: forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482758"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256 -&gt; f
+forall a. HashAlgorithm a =&gt; Proxy a -&gt; f
+</span><a href="#local-6989586621681482758"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy Blake2s_256 -&gt; f) -&gt; Proxy Blake2s_256 -&gt; f
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Blake2s_256
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Blake2s_256</span></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="hs-comment">-- | This Miner makes low-level assumptions about the chainweb protocol. It may</span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- break if the protocol changes.</span><span>
+</span><span id="line-117"></span><span class="hs-comment">--</span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- TODO: Check the chainweb version to make sure this function can handle the</span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- respective version.</span><span>
+</span><span id="line-120"></span><span class="hs-comment">--</span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- TODO: Remove the `Proxy`?</span><span>
+</span><span id="line-122"></span><span class="hs-comment">--</span><span>
+</span><span id="line-123"></span><span class="annot"><a href="Chainweb.Miner.Core.html#mine"><span class="hs-identifier hs-type">mine</span></a></span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681482757"><span class="annot"><a href="#local-6989586621681482757"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HashAlgorithm</span></span><span> </span><span class="annot"><a href="#local-6989586621681482757"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-125"></span><span>  </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681482757"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-126"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-type">Nonce</span></a></span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-type">TargetBytes</span></a></span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span>
+</span><span id="line-129"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T2</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span id="mine"><span class="annot"><span class="annottext">mine :: Proxy a
+-&gt; Nonce
+-&gt; TargetBytes
+-&gt; HeaderBytes
+-&gt; IO (T2 HeaderBytes Word64)
+</span><a href="Chainweb.Miner.Core.html#mine"><span class="hs-identifier hs-var hs-var">mine</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681482756"><span class="annot"><span class="annottext">orig :: Nonce
+</span><a href="#local-6989586621681482756"><span class="hs-identifier hs-var">orig</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-type">Nonce</span></a></span><span> </span><span id="local-6989586621681482754"><span class="annot"><span class="annottext">o :: Word64
+</span><a href="#local-6989586621681482754"><span class="hs-identifier hs-var">o</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#TargetBytes"><span class="hs-identifier hs-type">TargetBytes</span></a></span><span> </span><span id="local-6989586621681482753"><span class="annot"><span class="annottext">tbytes :: ByteString
+</span><a href="#local-6989586621681482753"><span class="hs-identifier hs-var">tbytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-type">HeaderBytes</span></a></span><span> </span><span id="local-6989586621681482752"><span class="annot"><span class="annottext">hbytes :: ByteString
+</span><a href="#local-6989586621681482752"><span class="hs-identifier hs-var">hbytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-131"></span><span>    </span><span id="local-6989586621681482751"><span class="annot"><span class="annottext">IORef Word64
+</span><a href="#local-6989586621681482751"><span class="hs-identifier hs-var">nonces</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; IO (IORef Word64)
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-132"></span><span>    </span><span class="annot"><span class="annottext">ByteString
+-&gt; (Ptr Word64 -&gt; IO (T2 HeaderBytes Word64))
+-&gt; IO (T2 HeaderBytes Word64)
+forall ba p a. ByteArrayAccess ba =&gt; ba -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">BA.withByteArray</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482753"><span class="hs-identifier hs-var">tbytes</span></a></span><span> </span><span class="annot"><span class="annottext">((Ptr Word64 -&gt; IO (T2 HeaderBytes Word64))
+ -&gt; IO (T2 HeaderBytes Word64))
+-&gt; (Ptr Word64 -&gt; IO (T2 HeaderBytes Word64))
+-&gt; IO (T2 HeaderBytes Word64)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681482749"><span class="annot"><span class="annottext">trgPtr :: Ptr Word64
+</span><a href="#local-6989586621681482749"><span class="hs-identifier hs-var">trgPtr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-133"></span><span>      </span><span class="hs-glyph">!</span><span id="local-6989586621681482748"><span class="annot"><span class="annottext">MutableContext a
+</span><a href="#local-6989586621681482748"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashAlgorithm a =&gt; IO (MutableContext a)
+forall alg. HashAlgorithm alg =&gt; IO (MutableContext alg)
+</span><span class="hs-identifier hs-var">hashMutableInit</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681482757"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-134"></span><span>      </span><span id="local-6989586621681482746"><span class="annot"><span class="annottext">HeaderBytes
+</span><a href="#local-6989586621681482746"><span class="hs-identifier hs-var">new</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; HeaderBytes) -&gt; IO ByteString -&gt; IO HeaderBytes
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeaderBytes
+</span><a href="Chainweb.Miner.Core.html#HeaderBytes"><span class="hs-identifier hs-var">HeaderBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(IO ByteString -&gt; IO HeaderBytes)
+-&gt; ((Ptr Word8 -&gt; IO ()) -&gt; IO ByteString)
+-&gt; (Ptr Word8 -&gt; IO ())
+-&gt; IO HeaderBytes
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (Ptr Word8 -&gt; IO ()) -&gt; IO ByteString
+forall bs1 bs2 p.
+(ByteArrayAccess bs1, ByteArray bs2) =&gt;
+bs1 -&gt; (Ptr p -&gt; IO ()) -&gt; IO bs2
+</span><span class="hs-identifier hs-var">BA.copy</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482752"><span class="hs-identifier hs-var">hbytes</span></a></span><span> </span><span class="annot"><span class="annottext">((Ptr Word8 -&gt; IO ()) -&gt; IO HeaderBytes)
+-&gt; (Ptr Word8 -&gt; IO ()) -&gt; IO HeaderBytes
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681482743"><span class="annot"><span class="annottext">buf :: Ptr Word8
+</span><a href="#local-6989586621681482743"><span class="hs-identifier hs-var">buf</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-135"></span><span>          </span><span class="annot"><span class="annottext">Int -&gt; (Ptr Word8 -&gt; IO ()) -&gt; IO ()
+forall a b. Int -&gt; (Ptr a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">allocaBytes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681482742"><span class="hs-identifier hs-var">powSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Ptr Word8 -&gt; IO ()) -&gt; IO ()) -&gt; (Ptr Word8 -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681482741"><span class="annot"><span class="annottext">pow :: Ptr Word8
+</span><a href="#local-6989586621681482741"><span class="hs-identifier hs-var">pow</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span>              </span><span class="hs-comment">-- inner mining loop</span><span>
+</span><span id="line-138"></span><span>              </span><span class="hs-comment">--</span><span>
+</span><span id="line-139"></span><span>              </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681482740"><span class="annot"><span class="annottext">go :: Nonce -&gt; IO ()
+</span><a href="#local-6989586621681482740"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681482739"><span class="annot"><span class="annottext">n :: Nonce
+</span><a href="#local-6989586621681482739"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-type">Nonce</span></a></span><span> </span><span id="local-6989586621681482738"><span class="annot"><span class="annottext">nv :: Word64
+</span><a href="#local-6989586621681482738"><span class="hs-identifier hs-var">nv</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-140"></span><span>                      </span><span class="hs-comment">-- Compute POW hash for the nonce</span><span>
+</span><span id="line-141"></span><span>                      </span><span class="annot"><span class="annottext">Nonce -&gt; Ptr Word8 -&gt; IO ()
+</span><a href="Chainweb.Miner.Core.html#injectNonce"><span class="hs-identifier hs-var">injectNonce</span></a></span><span> </span><span class="annot"><span class="annottext">Nonce
+</span><a href="#local-6989586621681482739"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621681482743"><span class="hs-identifier hs-var">buf</span></a></span><span>
+</span><span id="line-142"></span><span>                      </span><span class="annot"><span class="annottext">MutableContext a -&gt; Ptr Word8 -&gt; Ptr Word8 -&gt; IO ()
+</span><a href="#local-6989586621681482737"><span class="hs-identifier hs-var">hash</span></a></span><span> </span><span class="annot"><span class="annottext">MutableContext a
+</span><a href="#local-6989586621681482748"><span class="hs-identifier hs-var">ctx</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621681482743"><span class="hs-identifier hs-var">buf</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621681482741"><span class="hs-identifier hs-var">pow</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span>                      </span><span class="hs-comment">-- check whether the nonce meets the target</span><span>
+</span><span id="line-145"></span><span>                      </span><span class="annot"><span class="annottext">Ptr Word64 -&gt; Ptr Word64 -&gt; IO Bool
+</span><a href="Chainweb.Miner.Core.html#fastCheckTarget"><span class="hs-identifier hs-var">fastCheckTarget</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482749"><span class="hs-identifier hs-var">trgPtr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Ptr Word64
+forall a b. Ptr a -&gt; Ptr b
+</span><span class="hs-identifier hs-var">castPtr</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621681482741"><span class="hs-identifier hs-var">pow</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; (Bool -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-146"></span><span>                          </span><span class="annot"><span class="hs-identifier hs-type">True</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IORef Word64 -&gt; Word64 -&gt; IO ()
+forall a. IORef a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">writeIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Word64
+</span><a href="#local-6989586621681482751"><span class="hs-identifier hs-var">nonces</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482738"><span class="hs-identifier hs-var">nv</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482754"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>                          </span><span class="annot"><span class="hs-identifier hs-type">False</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Nonce -&gt; IO ()
+</span><a href="#local-6989586621681482740"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word64 -&gt; Nonce
+</span><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-var">Nonce</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; Nonce) -&gt; Word64 -&gt; Nonce
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482738"><span class="hs-identifier hs-var">nv</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word64
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span>              </span><span class="hs-comment">-- Start inner mining loop</span><span>
+</span><span id="line-150"></span><span>              </span><span class="annot"><span class="annottext">Nonce -&gt; IO ()
+</span><a href="#local-6989586621681482740"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Nonce
+</span><a href="#local-6989586621681482756"><span class="hs-identifier hs-var">orig</span></a></span><span>
+</span><span id="line-151"></span><span>      </span><span class="annot"><span class="annottext">HeaderBytes -&gt; Word64 -&gt; T2 HeaderBytes Word64
+forall a b. a -&gt; b -&gt; T2 a b
+</span><span class="hs-identifier hs-var">T2</span></span><span> </span><span class="annot"><span class="annottext">HeaderBytes
+</span><a href="#local-6989586621681482746"><span class="hs-identifier hs-var">new</span></a></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; T2 HeaderBytes Word64)
+-&gt; IO Word64 -&gt; IO (T2 HeaderBytes Word64)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IORef Word64 -&gt; IO Word64
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Word64
+</span><a href="#local-6989586621681482751"><span class="hs-identifier hs-var">nonces</span></a></span><span>
+</span><span id="line-152"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><a href="#local-6989586621681482733"><span class="hs-identifier hs-type">bufSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681482733"><span class="annot"><span class="annottext">bufSize :: Int
+</span><a href="#local-6989586621681482733"><span class="hs-identifier hs-var hs-var">bufSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">B.length</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482752"><span class="hs-identifier hs-var">hbytes</span></a></span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span>    </span><span class="annot"><a href="#local-6989586621681482742"><span class="hs-identifier hs-type">powSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681482742"><span class="annot"><span class="annottext">powSize :: Int
+</span><a href="#local-6989586621681482742"><span class="hs-identifier hs-var hs-var">powSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Int
+forall a. HashAlgorithm a =&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">hashDigestSize</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681482757"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="annottext">a
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-comment">--  Compute POW hash</span><span>
+</span><span id="line-160"></span><span>    </span><span class="annot"><a href="#local-6989586621681482737"><span class="hs-identifier hs-type">hash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MutableContext</span></span><span> </span><span class="annot"><a href="#local-6989586621681482757"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>    </span><span id="local-6989586621681482737"><span class="annot"><span class="annottext">hash :: MutableContext a -&gt; Ptr Word8 -&gt; Ptr Word8 -&gt; IO ()
+</span><a href="#local-6989586621681482737"><span class="hs-identifier hs-var hs-var">hash</span></a></span></span><span> </span><span id="local-6989586621681482729"><span class="annot"><span class="annottext">ctx :: MutableContext a
+</span><a href="#local-6989586621681482729"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span id="local-6989586621681482728"><span class="annot"><span class="annottext">buf :: Ptr Word8
+</span><a href="#local-6989586621681482728"><span class="hs-identifier hs-var">buf</span></a></span></span><span> </span><span id="local-6989586621681482727"><span class="annot"><span class="annottext">pow :: Ptr Word8
+</span><a href="#local-6989586621681482727"><span class="hs-identifier hs-var">pow</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-162"></span><span>        </span><span class="annot"><span class="annottext">MutableContext a -&gt; IO ()
+forall a. HashAlgorithm a =&gt; MutableContext a -&gt; IO ()
+</span><span class="hs-identifier hs-var">hashMutableReset</span></span><span> </span><span class="annot"><span class="annottext">MutableContext a
+</span><a href="#local-6989586621681482729"><span class="hs-identifier hs-var">ctx</span></a></span><span>
+</span><span id="line-163"></span><span>        </span><span class="annot"><span class="annottext">MutableContext a -&gt; (Ptr (Context a) -&gt; IO ()) -&gt; IO ()
+forall ba p a. ByteArrayAccess ba =&gt; ba -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">BA.withByteArray</span></span><span> </span><span class="annot"><span class="annottext">MutableContext a
+</span><a href="#local-6989586621681482729"><span class="hs-identifier hs-var">ctx</span></a></span><span> </span><span class="annot"><span class="annottext">((Ptr (Context a) -&gt; IO ()) -&gt; IO ())
+-&gt; (Ptr (Context a) -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681482725"><span class="annot"><span class="annottext">ctxPtr :: Ptr (Context a)
+</span><a href="#local-6989586621681482725"><span class="hs-identifier hs-var">ctxPtr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-164"></span><span>            </span><span class="annot"><span class="annottext">Ptr (Context a) -&gt; Ptr Word8 -&gt; Word32 -&gt; IO ()
+forall a.
+HashAlgorithm a =&gt;
+Ptr (Context a) -&gt; Ptr Word8 -&gt; Word32 -&gt; IO ()
+</span><span class="hs-identifier hs-var">hashInternalUpdate</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681482757"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr (Context a)
+</span><a href="#local-6989586621681482725"><span class="hs-identifier hs-var">ctxPtr</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621681482728"><span class="hs-identifier hs-var">buf</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; IO ()) -&gt; Word32 -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word32
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681482733"><span class="hs-identifier hs-var">bufSize</span></a></span><span>
+</span><span id="line-165"></span><span>            </span><span class="annot"><span class="annottext">Ptr (Context a) -&gt; Ptr (Digest a) -&gt; IO ()
+forall a.
+HashAlgorithm a =&gt;
+Ptr (Context a) -&gt; Ptr (Digest a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">hashInternalFinalize</span></span><span> </span><span class="annot"><span class="annottext">Ptr (Context a)
+</span><a href="#local-6989586621681482725"><span class="hs-identifier hs-var">ctxPtr</span></a></span><span> </span><span class="annot"><span class="annottext">(Ptr (Digest a) -&gt; IO ()) -&gt; Ptr (Digest a) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Ptr (Digest a)
+forall a b. Ptr a -&gt; Ptr b
+</span><span class="hs-identifier hs-var">castPtr</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621681482727"><span class="hs-identifier hs-var">pow</span></a></span><span>
+</span><span id="line-166"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="#local-6989586621681482737"><span class="hs-pragma hs-type">hash</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- | `injectNonce` makes low-level assumptions about the byte layout of a</span><span>
+</span><span id="line-169"></span><span class="hs-comment">-- hashed `BlockHeader`. If that layout changes, this functions need to be</span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- updated. The assumption allows us to iterate on new nonces quickly.</span><span>
+</span><span id="line-171"></span><span class="hs-comment">--</span><span>
+</span><span id="line-172"></span><span class="annot"><a href="Chainweb.Miner.Core.html#injectNonce"><span class="hs-identifier hs-type">injectNonce</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-type">Nonce</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span id="injectNonce"><span class="annot"><span class="annottext">injectNonce :: Nonce -&gt; Ptr Word8 -&gt; IO ()
+</span><a href="Chainweb.Miner.Core.html#injectNonce"><span class="hs-identifier hs-var hs-var">injectNonce</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#Nonce"><span class="hs-identifier hs-type">Nonce</span></a></span><span> </span><span id="local-6989586621681482722"><span class="annot"><span class="annottext">n :: Word64
+</span><a href="#local-6989586621681482722"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681482721"><span class="annot"><span class="annottext">buf :: Ptr Word8
+</span><a href="#local-6989586621681482721"><span class="hs-identifier hs-var">buf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ptr Word64 -&gt; Word64 -&gt; IO ()
+forall a. Storable a =&gt; Ptr a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">poke</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ptr Word8 -&gt; Ptr Word64
+forall a b. Ptr a -&gt; Ptr b
+</span><span class="hs-identifier hs-var">castPtr</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word8
+</span><a href="#local-6989586621681482721"><span class="hs-identifier hs-var">buf</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482722"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-174"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#injectNonce"><span class="hs-pragma hs-type">injectNonce</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- | `PowHashNat` interprets POW hashes as unsigned 256 bit integral numbers in</span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- little endian encoding, hence we compare against the target from the end of</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- the bytes first, then move toward the front 8 bytes at a time.</span><span>
+</span><span id="line-180"></span><span class="annot"><a href="Chainweb.Miner.Core.html#fastCheckTarget"><span class="hs-identifier hs-type">fastCheckTarget</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-181"></span><span id="fastCheckTarget"><span class="annot"><span class="annottext">fastCheckTarget :: Ptr Word64 -&gt; Ptr Word64 -&gt; IO Bool
+</span><a href="Chainweb.Miner.Core.html#fastCheckTarget"><span class="hs-identifier hs-var hs-var">fastCheckTarget</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681482720"><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482720"><span class="hs-identifier hs-var">trgPtr</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681482719"><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482719"><span class="hs-identifier hs-var">powPtr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-182"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; Ptr Word64 -&gt; Ptr Word64 -&gt; IO Ordering
+</span><a href="Chainweb.Miner.Core.html#fastCheckTargetN"><span class="hs-identifier hs-var">fastCheckTargetN</span></a></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482720"><span class="hs-identifier hs-var">trgPtr</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482719"><span class="hs-identifier hs-var">powPtr</span></a></span><span> </span><span class="annot"><span class="annottext">IO Ordering -&gt; (Ordering -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-183"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">LT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-184"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">GT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-185"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">EQ</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Ptr Word64 -&gt; Ptr Word64 -&gt; IO Ordering
+</span><a href="Chainweb.Miner.Core.html#fastCheckTargetN"><span class="hs-identifier hs-var">fastCheckTargetN</span></a></span><span> </span><span class="annot"><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482720"><span class="hs-identifier hs-var">trgPtr</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482719"><span class="hs-identifier hs-var">powPtr</span></a></span><span> </span><span class="annot"><span class="annottext">IO Ordering -&gt; (Ordering -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-186"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">LT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-187"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">GT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-188"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">EQ</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Ptr Word64 -&gt; Ptr Word64 -&gt; IO Ordering
+</span><a href="Chainweb.Miner.Core.html#fastCheckTargetN"><span class="hs-identifier hs-var">fastCheckTargetN</span></a></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482720"><span class="hs-identifier hs-var">trgPtr</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482719"><span class="hs-identifier hs-var">powPtr</span></a></span><span> </span><span class="annot"><span class="annottext">IO Ordering -&gt; (Ordering -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-189"></span><span>                </span><span class="annot"><span class="hs-identifier hs-type">LT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-190"></span><span>                </span><span class="annot"><span class="hs-identifier hs-type">GT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-191"></span><span>                </span><span class="annot"><span class="hs-identifier hs-type">EQ</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Ptr Word64 -&gt; Ptr Word64 -&gt; IO Ordering
+</span><a href="Chainweb.Miner.Core.html#fastCheckTargetN"><span class="hs-identifier hs-var">fastCheckTargetN</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482720"><span class="hs-identifier hs-var">trgPtr</span></a></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482719"><span class="hs-identifier hs-var">powPtr</span></a></span><span> </span><span class="annot"><span class="annottext">IO Ordering -&gt; (Ordering -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-192"></span><span>                    </span><span class="annot"><span class="hs-identifier hs-type">LT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-193"></span><span>                    </span><span class="annot"><span class="hs-identifier hs-type">GT</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-194"></span><span>                    </span><span class="annot"><span class="hs-identifier hs-type">EQ</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-195"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#fastCheckTarget"><span class="hs-pragma hs-type">fastCheckTarget</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- | Recall that `peekElemOff` acts like `drop` for the size of the type in</span><span>
+</span><span id="line-198"></span><span class="hs-comment">-- question. Here, this is `Word64`. Since our hash is treated as a `Word256`,</span><span>
+</span><span id="line-199"></span><span class="hs-comment">-- each @n@ knocks off a `Word64`'s worth of bytes, and there would be 4 such</span><span>
+</span><span id="line-200"></span><span class="hs-comment">-- sections (64 * 4 = 256).</span><span>
+</span><span id="line-201"></span><span class="hs-comment">--</span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- This must never be called for @n &gt;= 4@.</span><span>
+</span><span id="line-203"></span><span class="annot"><a href="Chainweb.Miner.Core.html#fastCheckTargetN"><span class="hs-identifier hs-type">fastCheckTargetN</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ptr</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ordering</span></span><span>
+</span><span id="line-204"></span><span id="fastCheckTargetN"><span class="annot"><span class="annottext">fastCheckTargetN :: Int -&gt; Ptr Word64 -&gt; Ptr Word64 -&gt; IO Ordering
+</span><a href="Chainweb.Miner.Core.html#fastCheckTargetN"><span class="hs-identifier hs-var hs-var">fastCheckTargetN</span></a></span></span><span> </span><span id="local-6989586621681482717"><span class="annot"><span class="annottext">n :: Int
+</span><a href="#local-6989586621681482717"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621681482716"><span class="annot"><span class="annottext">trgPtr :: Ptr Word64
+</span><a href="#local-6989586621681482716"><span class="hs-identifier hs-var">trgPtr</span></a></span></span><span> </span><span id="local-6989586621681482715"><span class="annot"><span class="annottext">powPtr :: Ptr Word64
+</span><a href="#local-6989586621681482715"><span class="hs-identifier hs-var">powPtr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Ordering
+forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
+</span><span class="hs-identifier hs-var">compare</span></span><span>
+</span><span id="line-205"></span><span>    </span><span class="annot"><span class="annottext">(Word64 -&gt; Word64 -&gt; Ordering)
+-&gt; IO Word64 -&gt; IO (Word64 -&gt; Ordering)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64 -&gt; Int -&gt; IO Word64
+forall a. Storable a =&gt; Ptr a -&gt; Int -&gt; IO a
+</span><span class="hs-identifier hs-var">peekElemOff</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482716"><span class="hs-identifier hs-var">trgPtr</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681482717"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-206"></span><span>    </span><span class="annot"><span class="annottext">IO (Word64 -&gt; Ordering) -&gt; IO Word64 -&gt; IO Ordering
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64 -&gt; Int -&gt; IO Word64
+forall a. Storable a =&gt; Ptr a -&gt; Int -&gt; IO a
+</span><span class="hs-identifier hs-var">peekElemOff</span></span><span> </span><span class="annot"><span class="annottext">Ptr Word64
+</span><a href="#local-6989586621681482715"><span class="hs-identifier hs-var">powPtr</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681482717"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-207"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#fastCheckTargetN"><span class="hs-pragma hs-type">fastCheckTargetN</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span class="hs-keyword">data</span><span> </span><span id="MiningResult"><span class="annot"><a href="Chainweb.Miner.Core.html#MiningResult"><span class="hs-identifier hs-var">MiningResult</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MiningResult"><span class="annot"><a href="Chainweb.Miner.Core.html#MiningResult"><span class="hs-identifier hs-var">MiningResult</span></a></span></span><span>
+</span><span id="line-210"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="_mrNonceBytes"><span class="annot"><span class="annottext">MiningResult -&gt; ByteString
+</span><a href="Chainweb.Miner.Core.html#_mrNonceBytes"><span class="hs-identifier hs-var hs-var">_mrNonceBytes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span>
+</span><span id="line-211"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_mrNumNoncesTried"><span class="annot"><span class="annottext">MiningResult -&gt; Word64
+</span><a href="Chainweb.Miner.Core.html#_mrNumNoncesTried"><span class="hs-identifier hs-var hs-var">_mrNumNoncesTried</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span>
+</span><span id="line-212"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_mrEstimatedHashesPerSec"><span class="annot"><span class="annottext">MiningResult -&gt; Word64
+</span><a href="Chainweb.Miner.Core.html#_mrEstimatedHashesPerSec"><span class="hs-identifier hs-var hs-var">_mrEstimatedHashesPerSec</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span>
+</span><span id="line-213"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_mrStderr"><span class="annot"><span class="annottext">MiningResult -&gt; ByteString
+</span><a href="Chainweb.Miner.Core.html#_mrStderr"><span class="hs-identifier hs-var hs-var">_mrStderr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span>
+</span><span id="line-214"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-215"></span><span>
+</span><span id="line-216"></span><span class="annot"><a href="Chainweb.Miner.Core.html#callExternalMiner"><span class="hs-identifier hs-type">callExternalMiner</span></a></span><span>
+</span><span id="line-217"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span>            </span><span class="hs-comment">-- ^ miner path</span><span>
+</span><span id="line-218"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">]</span><span>                 </span><span class="hs-comment">-- ^ miner extra args</span><span>
+</span><span id="line-219"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>                     </span><span class="hs-comment">-- ^ save stderr?</span><span>
+</span><span id="line-220"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span>             </span><span class="hs-comment">-- ^ target hash</span><span>
+</span><span id="line-221"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span>             </span><span class="hs-comment">-- ^ block bytes</span><span>
+</span><span id="line-222"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Core.html#MiningResult"><span class="hs-identifier hs-type">MiningResult</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-223"></span><span id="callExternalMiner"><span class="annot"><span class="annottext">callExternalMiner :: Path Absolute
+-&gt; [String]
+-&gt; Bool
+-&gt; ByteString
+-&gt; ByteString
+-&gt; IO (Either String MiningResult)
+</span><a href="Chainweb.Miner.Core.html#callExternalMiner"><span class="hs-identifier hs-var hs-var">callExternalMiner</span></a></span></span><span> </span><span id="local-6989586621681482708"><span class="annot"><span class="annottext">minerPath0 :: Path Absolute
+</span><a href="#local-6989586621681482708"><span class="hs-identifier hs-var">minerPath0</span></a></span></span><span> </span><span id="local-6989586621681482707"><span class="annot"><span class="annottext">minerArgs :: [String]
+</span><a href="#local-6989586621681482707"><span class="hs-identifier hs-var">minerArgs</span></a></span></span><span> </span><span id="local-6989586621681482706"><span class="annot"><span class="annottext">saveStderr :: Bool
+</span><a href="#local-6989586621681482706"><span class="hs-identifier hs-var">saveStderr</span></a></span></span><span> </span><span id="local-6989586621681482705"><span class="annot"><span class="annottext">target :: ByteString
+</span><a href="#local-6989586621681482705"><span class="hs-identifier hs-var">target</span></a></span></span><span> </span><span id="local-6989586621681482704"><span class="annot"><span class="annottext">blockBytes :: ByteString
+</span><a href="#local-6989586621681482704"><span class="hs-identifier hs-var">blockBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-224"></span><span>    </span><span id="local-6989586621681482703"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681482703"><span class="hs-identifier hs-var">minerPath</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; IO String
+forall root. FsRoot root =&gt; Path root -&gt; IO String
+</span><span class="hs-identifier hs-var">toAbsoluteFilePath</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681482708"><span class="hs-identifier hs-var">minerPath0</span></a></span><span>
+</span><span id="line-225"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681482701"><span class="annot"><span class="annottext">args :: [String]
+</span><a href="#local-6989586621681482701"><span class="hs-identifier hs-var hs-var">args</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[String]
+</span><a href="#local-6989586621681482707"><span class="hs-identifier hs-var">minerArgs</span></a></span><span> </span><span class="annot"><span class="annottext">[String] -&gt; [String] -&gt; [String]
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681482700"><span class="hs-identifier hs-var">targetHashStr</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-226"></span><span>    </span><span class="annot"><span class="annottext">CreateProcess
+-&gt; (Maybe Handle
+    -&gt; Maybe Handle
+    -&gt; Maybe Handle
+    -&gt; ProcessHandle
+    -&gt; IO (Either String MiningResult))
+-&gt; IO (Either String MiningResult)
+forall a.
+CreateProcess
+-&gt; (Maybe Handle
+    -&gt; Maybe Handle -&gt; Maybe Handle -&gt; ProcessHandle -&gt; IO a)
+-&gt; IO a
+</span><span class="hs-identifier hs-var">P.withCreateProcess</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; [String] -&gt; CreateProcess
+</span><a href="#local-6989586621681482698"><span class="hs-identifier hs-var">createProcess</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681482703"><span class="hs-identifier hs-var">minerPath</span></a></span><span> </span><span class="annot"><span class="annottext">[String]
+</span><a href="#local-6989586621681482701"><span class="hs-identifier hs-var">args</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Handle
+-&gt; Maybe Handle
+-&gt; Maybe Handle
+-&gt; ProcessHandle
+-&gt; IO (Either String MiningResult)
+</span><a href="#local-6989586621681482697"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-227"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-228"></span><span>    </span><span id="local-6989586621681482698"><span class="annot"><span class="annottext">createProcess :: String -&gt; [String] -&gt; CreateProcess
+</span><a href="#local-6989586621681482698"><span class="hs-identifier hs-var hs-var">createProcess</span></a></span></span><span> </span><span id="local-6989586621681482696"><span class="annot"><span class="annottext">minerPath :: String
+</span><a href="#local-6989586621681482696"><span class="hs-identifier hs-var">minerPath</span></a></span></span><span> </span><span id="local-6989586621681482695"><span class="annot"><span class="annottext">args :: [String]
+</span><a href="#local-6989586621681482695"><span class="hs-identifier hs-var">args</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-229"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; [String] -&gt; CreateProcess
+</span><span class="hs-identifier hs-var">P.proc</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681482696"><span class="hs-identifier hs-var">minerPath</span></a></span><span> </span><span class="annot"><span class="annottext">[String]
+</span><a href="#local-6989586621681482695"><span class="hs-identifier hs-var">args</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-230"></span><span>            </span><span class="annot"><span class="annottext">std_in :: StdStream
+</span><span class="hs-identifier hs-var">P.std_in</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdStream
+</span><span class="hs-identifier hs-var">P.CreatePipe</span></span><span class="hs-special">,</span><span>
+</span><span id="line-231"></span><span>            </span><span class="annot"><span class="annottext">std_out :: StdStream
+</span><span class="hs-identifier hs-var">P.std_out</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdStream
+</span><span class="hs-identifier hs-var">P.CreatePipe</span></span><span class="hs-special">,</span><span>
+</span><span id="line-232"></span><span>            </span><span class="annot"><span class="annottext">std_err :: StdStream
+</span><span class="hs-identifier hs-var">P.std_err</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StdStream
+</span><span class="hs-identifier hs-var">P.CreatePipe</span></span><span>
+</span><span id="line-233"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-234"></span><span>    </span><span id="local-6989586621681482700"><span class="annot"><span class="annottext">targetHashStr :: String
+</span><a href="#local-6989586621681482700"><span class="hs-identifier hs-var hs-var">targetHashStr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; String
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; String) -&gt; ByteString -&gt; String
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">B16.encode</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482705"><span class="hs-identifier hs-var">target</span></a></span><span>
+</span><span id="line-235"></span><span>    </span><span id="local-6989586621681482697"><span class="annot"><span class="annottext">go :: Maybe Handle
+-&gt; Maybe Handle
+-&gt; Maybe Handle
+-&gt; ProcessHandle
+-&gt; IO (Either String MiningResult)
+</span><a href="#local-6989586621681482697"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681482687"><span class="annot"><span class="annottext">hstdin :: Handle
+</span><a href="#local-6989586621681482687"><span class="hs-identifier hs-var">hstdin</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681482686"><span class="annot"><span class="annottext">hstdout :: Handle
+</span><a href="#local-6989586621681482686"><span class="hs-identifier hs-var">hstdout</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681482685"><span class="annot"><span class="annottext">hstderr :: Handle
+</span><a href="#local-6989586621681482685"><span class="hs-identifier hs-var">hstderr</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681482684"><span class="annot"><span class="annottext">ph :: ProcessHandle
+</span><a href="#local-6989586621681482684"><span class="hs-identifier hs-var">ph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-236"></span><span>        </span><span class="annot"><span class="annottext">Handle -&gt; ByteString -&gt; IO ()
+</span><span class="hs-identifier hs-var">B.hPut</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621681482687"><span class="hs-identifier hs-var">hstdin</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482704"><span class="hs-identifier hs-var">blockBytes</span></a></span><span>
+</span><span id="line-237"></span><span>        </span><span class="annot"><span class="annottext">Handle -&gt; IO ()
+</span><span class="hs-identifier hs-var">hClose</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621681482687"><span class="hs-identifier hs-var">hstdin</span></a></span><span>
+</span><span id="line-238"></span><span>        </span><span class="annot"><span class="annottext">IO ByteString
+-&gt; (Async ByteString -&gt; IO (Either String MiningResult))
+-&gt; IO (Either String MiningResult)
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">Async.withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handle -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">B.hGetContents</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621681482686"><span class="hs-identifier hs-var">hstdout</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async ByteString -&gt; IO (Either String MiningResult))
+ -&gt; IO (Either String MiningResult))
+-&gt; (Async ByteString -&gt; IO (Either String MiningResult))
+-&gt; IO (Either String MiningResult)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681482680"><span class="annot"><span class="annottext">stdoutThread :: Async ByteString
+</span><a href="#local-6989586621681482680"><span class="hs-identifier hs-var">stdoutThread</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-239"></span><span>          </span><span class="annot"><span class="annottext">IO ByteString
+-&gt; (Async ByteString -&gt; IO (Either String MiningResult))
+-&gt; IO (Either String MiningResult)
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">Async.withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Handle -&gt; IO ByteString
+</span><a href="#local-6989586621681482679"><span class="hs-identifier hs-var">errThread</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621681482685"><span class="hs-identifier hs-var">hstderr</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async ByteString -&gt; IO (Either String MiningResult))
+ -&gt; IO (Either String MiningResult))
+-&gt; (Async ByteString -&gt; IO (Either String MiningResult))
+-&gt; IO (Either String MiningResult)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681482678"><span class="annot"><span class="annottext">stderrThread :: Async ByteString
+</span><a href="#local-6989586621681482678"><span class="hs-identifier hs-var">stderrThread</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-240"></span><span>          </span><span class="annot"><span class="annottext">ExceptT String IO MiningResult -&gt; IO (Either String MiningResult)
+forall e (m :: * -&gt; *) a. ExceptT e m a -&gt; m (Either e a)
+</span><span class="hs-identifier hs-var">runExceptT</span></span><span> </span><span class="annot"><span class="annottext">(ExceptT String IO MiningResult -&gt; IO (Either String MiningResult))
+-&gt; ExceptT String IO MiningResult
+-&gt; IO (Either String MiningResult)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-241"></span><span>            </span><span id="local-6989586621681482676"><span class="annot"><span class="annottext">ExitCode
+</span><a href="#local-6989586621681482676"><span class="hs-identifier hs-var">code</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ExitCode -&gt; ExceptT String IO ExitCode
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO ExitCode -&gt; ExceptT String IO ExitCode)
+-&gt; IO ExitCode -&gt; ExceptT String IO ExitCode
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ProcessHandle -&gt; IO ExitCode
+</span><span class="hs-identifier hs-var">P.waitForProcess</span></span><span> </span><span class="annot"><span class="annottext">ProcessHandle
+</span><a href="#local-6989586621681482684"><span class="hs-identifier hs-var">ph</span></a></span><span>
+</span><span id="line-242"></span><span>            </span><span class="hs-special">(</span><span id="local-6989586621681482673"><span class="annot"><span class="annottext">outbytes :: ByteString
+</span><a href="#local-6989586621681482673"><span class="hs-identifier hs-var">outbytes</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482672"><span class="annot"><span class="annottext">errbytes :: ByteString
+</span><a href="#local-6989586621681482672"><span class="hs-identifier hs-var">errbytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (ByteString, ByteString)
+-&gt; ExceptT String IO (ByteString, ByteString)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString -&gt; (ByteString, ByteString))
+-&gt; IO ByteString -&gt; IO (ByteString -&gt; (ByteString, ByteString))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Async ByteString -&gt; IO ByteString
+forall a. Async a -&gt; IO a
+</span><span class="hs-identifier hs-var">Async.wait</span></span><span> </span><span class="annot"><span class="annottext">Async ByteString
+</span><a href="#local-6989586621681482680"><span class="hs-identifier hs-var">stdoutThread</span></a></span><span>
+</span><span id="line-243"></span><span>                                                </span><span class="annot"><span class="annottext">IO (ByteString -&gt; (ByteString, ByteString))
+-&gt; IO ByteString -&gt; IO (ByteString, ByteString)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Async ByteString -&gt; IO ByteString
+forall a. Async a -&gt; IO a
+</span><span class="hs-identifier hs-var">Async.wait</span></span><span> </span><span class="annot"><span class="annottext">Async ByteString
+</span><a href="#local-6989586621681482678"><span class="hs-identifier hs-var">stderrThread</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-244"></span><span>            </span><span class="hs-keyword">if</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExitCode
+</span><a href="#local-6989586621681482676"><span class="hs-identifier hs-var">code</span></a></span><span> </span><span class="annot"><span class="annottext">ExitCode -&gt; ExitCode -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">ExitCode
+</span><span class="hs-identifier hs-var">ExitSuccess</span></span><span class="hs-special">)</span><span>
+</span><span id="line-245"></span><span>              </span><span class="hs-keyword">then</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681482668"><span class="annot"><span class="annottext">msg :: String
+</span><a href="#local-6989586621681482668"><span class="hs-identifier hs-var hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[String] -&gt; String
+forall (t :: * -&gt; *) a. Foldable t =&gt; t [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">concat</span></span><span> </span><span class="hs-special">[</span><span>
+</span><span id="line-246"></span><span>                         </span><span class="annot"><span class="hs-string">&quot;Got error from miner. Stderr was: &quot;</span></span><span class="hs-special">,</span><span>
+</span><span id="line-247"></span><span>                         </span><span class="annot"><span class="annottext">ByteString -&gt; String
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482672"><span class="hs-identifier hs-var">errbytes</span></a></span><span>
+</span><span id="line-248"></span><span>                         </span><span class="hs-special">]</span><span>
+</span><span id="line-249"></span><span>                   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">String -&gt; ExceptT String IO MiningResult
+forall (m :: * -&gt; *) e a. Monad m =&gt; e -&gt; ExceptT e m a
+</span><span class="hs-identifier hs-var">throwE</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681482668"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-250"></span><span>              </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-251"></span><span>                </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681482665"><span class="annot"><span class="annottext">parts :: [ByteString]
+</span><a href="#local-6989586621681482665"><span class="hs-identifier hs-var hs-var">parts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; ByteString -&gt; [ByteString]
+</span><span class="hs-identifier hs-var">B.splitWith</span></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Bool
+</span><span class="hs-identifier hs-var">isSpace</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482673"><span class="hs-identifier hs-var">outbytes</span></a></span><span>
+</span><span id="line-252"></span><span>                </span><span id="local-6989586621681482663"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482663"><span class="hs-identifier hs-var">nonceB16</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[ByteString]
+</span><a href="#local-6989586621681482665"><span class="hs-identifier hs-var">parts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-253"></span><span>                              </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; ExceptT String IO ByteString
+forall (m :: * -&gt; *) e a. Monad m =&gt; e -&gt; ExceptT e m a
+</span><span class="hs-identifier hs-var">throwE</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;expected nonce from miner, got: &quot;</span></span><span>
+</span><span id="line-254"></span><span>                                            </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; String
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482673"><span class="hs-identifier hs-var">outbytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-255"></span><span>                              </span><span class="hs-special">(</span><span id="local-6989586621681482662"><span class="annot"><span class="annottext">a :: ByteString
+</span><a href="#local-6989586621681482662"><span class="hs-identifier hs-var">a</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ExceptT String IO ByteString
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482662"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-256"></span><span>                </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681482661"><span class="annot"><span class="annottext">numHashes :: Word64
+</span><a href="#local-6989586621681482661"><span class="hs-identifier hs-var">numHashes</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681482660"><span class="annot"><span class="annottext">rate :: Word64
+</span><a href="#local-6989586621681482660"><span class="hs-identifier hs-var">rate</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-257"></span><span>                      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">[ByteString]
+</span><a href="#local-6989586621681482665"><span class="hs-identifier hs-var">parts</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-258"></span><span>                        </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621681482659"><span class="annot"><span class="annottext">a :: ByteString
+</span><a href="#local-6989586621681482659"><span class="hs-identifier hs-var">a</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span id="local-6989586621681482658"><span class="annot"><span class="annottext">b :: ByteString
+</span><a href="#local-6989586621681482658"><span class="hs-identifier hs-var">b</span></a></span></span><span class="annot"><span class="hs-glyph hs-type">:</span></span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Word64
+forall a. Read a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">read</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; String
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482659"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String -&gt; Word64
+forall a. Read a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">read</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; String
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482658"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-259"></span><span>                        </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span>
+</span><span id="line-260"></span><span>
+</span><span id="line-261"></span><span>                </span><span class="hs-comment">-- reverse -- we want little-endian</span><span>
+</span><span id="line-262"></span><span>                </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681482656"><span class="annot"><span class="annottext">nonceBytes :: ByteString
+</span><a href="#local-6989586621681482656"><span class="hs-identifier hs-var hs-var">nonceBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">B.reverse</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(ByteString, ByteString) -&gt; ByteString
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">((ByteString, ByteString) -&gt; ByteString)
+-&gt; (ByteString, ByteString) -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; (ByteString, ByteString)
+</span><span class="hs-identifier hs-var">B16.decode</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482663"><span class="hs-identifier hs-var">nonceB16</span></a></span><span>
+</span><span id="line-263"></span><span>                </span><span class="annot"><span class="annottext">Bool -&gt; ExceptT String IO () -&gt; ExceptT String IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Int
+</span><span class="hs-identifier hs-var">B.length</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482656"><span class="hs-identifier hs-var">nonceBytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ExceptT String IO () -&gt; ExceptT String IO ())
+-&gt; ExceptT String IO () -&gt; ExceptT String IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ExceptT String IO ()
+forall (m :: * -&gt; *) e a. Monad m =&gt; e -&gt; ExceptT e m a
+</span><span class="hs-identifier hs-var">throwE</span></span><span> </span><span class="annot"><span class="hs-string">&quot;process returned short nonce&quot;</span></span><span>
+</span><span id="line-264"></span><span>                </span><span class="annot"><span class="annottext">MiningResult -&gt; ExceptT String IO MiningResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(MiningResult -&gt; ExceptT String IO MiningResult)
+-&gt; MiningResult -&gt; ExceptT String IO MiningResult
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Word64 -&gt; Word64 -&gt; ByteString -&gt; MiningResult
+</span><a href="Chainweb.Miner.Core.html#MiningResult"><span class="hs-identifier hs-var">MiningResult</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482656"><span class="hs-identifier hs-var">nonceBytes</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482661"><span class="hs-identifier hs-var">numHashes</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681482660"><span class="hs-identifier hs-var">rate</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482672"><span class="hs-identifier hs-var">errbytes</span></a></span><span>
+</span><span id="line-265"></span><span>    </span><span class="annot"><a href="#local-6989586621681482697"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (Either String MiningResult)
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="hs-string">&quot;impossible: process is opened with CreatePipe in/out/err&quot;</span></span><span>
+</span><span id="line-266"></span><span>
+</span><span id="line-267"></span><span>    </span><span id="local-6989586621681482652"><span class="annot"><span class="annottext">slurp :: Handle -&gt; IO b
+</span><a href="#local-6989586621681482652"><span class="hs-identifier hs-var hs-var">slurp</span></a></span></span><span> </span><span id="local-6989586621681482651"><span class="annot"><span class="annottext">h :: Handle
+</span><a href="#local-6989586621681482651"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO b
+</span><a href="#local-6989586621681482650"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-268"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-269"></span><span>        </span><span id="local-6989586621681482650"><span class="annot"><span class="annottext">act :: IO b
+</span><a href="#local-6989586621681482650"><span class="hs-identifier hs-var hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-270"></span><span>            </span><span id="local-6989586621681482649"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482649"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; Int -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">B.hGet</span></span><span> </span><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621681482651"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="hs-number">4000</span></span><span>
+</span><span id="line-271"></span><span>            </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Bool
+</span><span class="hs-identifier hs-var">B.null</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681482649"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">b -&gt; IO b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="hs-string">&quot;stderr not saved&quot;</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IO b
+</span><a href="#local-6989586621681482650"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-272"></span><span>
+</span><span id="line-273"></span><span>    </span><span id="local-6989586621681482679"><span class="annot"><span class="annottext">errThread :: Handle -&gt; IO ByteString
+</span><a href="#local-6989586621681482679"><span class="hs-identifier hs-var hs-var">errThread</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681482706"><span class="hs-identifier hs-var">saveStderr</span></a></span><span>
+</span><span id="line-274"></span><span>                  </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">B.hGetContents</span></span><span>
+</span><span id="line-275"></span><span>                  </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO ByteString
+forall b. IsString b =&gt; Handle -&gt; IO b
+</span><a href="#local-6989586621681482652"><span class="hs-identifier hs-var">slurp</span></a></span><span>
+</span><span id="line-276"></span></pre></body></html>

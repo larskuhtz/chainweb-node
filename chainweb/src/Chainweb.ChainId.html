@@ -1,0 +1,656 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Module: Chainweb.ChainId</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- The defininitions in this module are also exported via &quot;Chainweb.Version&quot;.</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.ChainId</span><span>
+</span><span id="line-23"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdException"><span class="hs-identifier">ChainIdException</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier">ChainId</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier">HasChainId</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#checkChainId"><span class="hs-identifier">checkChainId</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainIdToText"><span class="hs-identifier">chainIdToText</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-identifier">chainIdFromText</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Serialization</span></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#encodeChainId"><span class="hs-identifier">encodeChainId</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#decodeChainId"><span class="hs-identifier">decodeChainId</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#decodeChainIdChecked"><span class="hs-identifier">decodeChainIdChecked</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="annot"><span class="hs-comment">-- * Typelevel ChainID</span></span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier">ChainIdT</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdSymbol"><span class="hs-identifier">ChainIdSymbol</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainIdSymbolVal"><span class="hs-identifier">chainIdSymbolVal</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier">SomeChainIdT</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier">KnownChainIdSymbol</span></a></span><span>
+</span><span id="line-41"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier">someChainIdVal</span></a></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><span class="hs-comment">-- * Singletons</span></span><span>
+</span><span id="line-44"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier">Sing</span></a></span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier">SChainId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier">SChainId</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="annot"><span class="hs-comment">-- * Testing</span></span><span>
+</span><span id="line-48"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#unsafeChainId"><span class="hs-identifier">unsafeChainId</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier">chainIdInt</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Exception</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MonadThrow</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Types</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toJSONKeyText</span></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Get</span></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Put</span></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Signed</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Hashable</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Kind</span></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word32</span></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.TypeLits</span></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Arbitrary</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- internal imports</span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html"><span class="hs-identifier">Chainweb.Crypto.MerkleLog</span></a></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.MerkleUniverse.html"><span class="hs-identifier">Chainweb.MerkleUniverse</span></a></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Singletons.html"><span class="hs-identifier">Data.Singletons</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- Exceptions</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span id="local-6989586621681475019"><span id="local-6989586621681475020"></span></span><span class="hs-keyword">data</span><span> </span><span id="ChainIdException"><span class="annot"><a href="Chainweb.ChainId.html#ChainIdException"><span class="hs-identifier hs-var">ChainIdException</span></a></span></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span id="ChainIdMismatch"><span class="annot"><a href="Chainweb.ChainId.html#ChainIdMismatch"><span class="hs-identifier hs-var">ChainIdMismatch</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#Expected"><span class="hs-identifier hs-type">Expected</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#Actual"><span class="hs-identifier hs-type">Actual</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475012"><span id="local-6989586621681475014"><span id="local-6989586621681475016"><span class="annot"><span class="annottext">Int -&gt; ChainIdException -&gt; ShowS
+[ChainIdException] -&gt; ShowS
+ChainIdException -&gt; String
+(Int -&gt; ChainIdException -&gt; ShowS)
+-&gt; (ChainIdException -&gt; String)
+-&gt; ([ChainIdException] -&gt; ShowS)
+-&gt; Show ChainIdException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [ChainIdException] -&gt; ShowS
+$cshowList :: [ChainIdException] -&gt; ShowS
+show :: ChainIdException -&gt; String
+$cshow :: ChainIdException -&gt; String
+showsPrec :: Int -&gt; ChainIdException -&gt; ShowS
+$cshowsPrec :: Int -&gt; ChainIdException -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681475007"><span id="local-6989586621681475009"><span class="annot"><span class="annottext">ChainIdException -&gt; ChainIdException -&gt; Bool
+(ChainIdException -&gt; ChainIdException -&gt; Bool)
+-&gt; (ChainIdException -&gt; ChainIdException -&gt; Bool)
+-&gt; Eq ChainIdException
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: ChainIdException -&gt; ChainIdException -&gt; Bool
+$c/= :: ChainIdException -&gt; ChainIdException -&gt; Bool
+== :: ChainIdException -&gt; ChainIdException -&gt; Bool
+$c== :: ChainIdException -&gt; ChainIdException -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474991"><span id="local-6989586621681474993"><span id="local-6989586621681474995"><span id="local-6989586621681474997"><span id="local-6989586621681474999"><span id="local-6989586621681475001"><span id="local-6989586621681475003"><span class="annot"><span class="annottext">Eq ChainIdException
+Eq ChainIdException =&gt;
+(ChainIdException -&gt; ChainIdException -&gt; Ordering)
+-&gt; (ChainIdException -&gt; ChainIdException -&gt; Bool)
+-&gt; (ChainIdException -&gt; ChainIdException -&gt; Bool)
+-&gt; (ChainIdException -&gt; ChainIdException -&gt; Bool)
+-&gt; (ChainIdException -&gt; ChainIdException -&gt; Bool)
+-&gt; (ChainIdException -&gt; ChainIdException -&gt; ChainIdException)
+-&gt; (ChainIdException -&gt; ChainIdException -&gt; ChainIdException)
+-&gt; Ord ChainIdException
+ChainIdException -&gt; ChainIdException -&gt; Bool
+ChainIdException -&gt; ChainIdException -&gt; Ordering
+ChainIdException -&gt; ChainIdException -&gt; ChainIdException
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: ChainIdException -&gt; ChainIdException -&gt; ChainIdException
+$cmin :: ChainIdException -&gt; ChainIdException -&gt; ChainIdException
+max :: ChainIdException -&gt; ChainIdException -&gt; ChainIdException
+$cmax :: ChainIdException -&gt; ChainIdException -&gt; ChainIdException
+&gt;= :: ChainIdException -&gt; ChainIdException -&gt; Bool
+$c&gt;= :: ChainIdException -&gt; ChainIdException -&gt; Bool
+&gt; :: ChainIdException -&gt; ChainIdException -&gt; Bool
+$c&gt; :: ChainIdException -&gt; ChainIdException -&gt; Bool
+&lt;= :: ChainIdException -&gt; ChainIdException -&gt; Bool
+$c&lt;= :: ChainIdException -&gt; ChainIdException -&gt; Bool
+&lt; :: ChainIdException -&gt; ChainIdException -&gt; Bool
+$c&lt; :: ChainIdException -&gt; ChainIdException -&gt; Bool
+compare :: ChainIdException -&gt; ChainIdException -&gt; Ordering
+$ccompare :: ChainIdException -&gt; ChainIdException -&gt; Ordering
+$cp1Ord :: Eq ChainIdException
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. ChainIdException -&gt; Rep ChainIdException x)
+-&gt; (forall x. Rep ChainIdException x -&gt; ChainIdException)
+-&gt; Generic ChainIdException
+forall x. Rep ChainIdException x -&gt; ChainIdException
+forall x. ChainIdException -&gt; Rep ChainIdException x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep ChainIdException x -&gt; ChainIdException
+$cfrom :: forall x. ChainIdException -&gt; Rep ChainIdException x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474979"><span id="local-6989586621681474981"><span id="local-6989586621681474983"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdException"><span class="hs-identifier hs-type">ChainIdException</span></a></span></span></span></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- ChainId</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- | ChainId /within the context of a Chainweb instance/.</span><span>
+</span><span id="line-93"></span><span class="hs-comment">--</span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- The set of valid ChainIds is determined by the 'ChainwebVersion'. In almost</span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- all use cases there should be a context that is an instance of</span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- 'HasChainwebVersion' can be used get the set of chain ids.</span><span>
+</span><span id="line-97"></span><span class="hs-comment">--</span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- In the context of a particular chain the respective 'ChainId' can be obtained</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- via instances of 'HasChainId'.</span><span>
+</span><span id="line-100"></span><span class="hs-comment">--</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- /How to create values of type 'ChainId'/</span><span>
+</span><span id="line-102"></span><span class="hs-comment">--</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- * To fold or traverse over all chain ids, use 'chainIds'.</span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- * To deserialize a chain id, use 'mkChainId'.</span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- * For a random chain id consider using 'randomChainId'.</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- * For some arbitrary but fixed chain id consider using 'someChainId'.</span><span>
+</span><span id="line-107"></span><span class="hs-comment">--</span><span>
+</span><span id="line-108"></span><span id="local-6989586621681474976"><span id="local-6989586621681474977"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="ChainId"><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-var">ChainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-109"></span><span>    </span><span id="ChainId"><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-var">ChainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474969"><span id="local-6989586621681474971"><span id="local-6989586621681474973"><span class="annot"><span class="annottext">Int -&gt; ChainId -&gt; ShowS
+[ChainId] -&gt; ShowS
+ChainId -&gt; String
+(Int -&gt; ChainId -&gt; ShowS)
+-&gt; (ChainId -&gt; String) -&gt; ([ChainId] -&gt; ShowS) -&gt; Show ChainId
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [ChainId] -&gt; ShowS
+$cshowList :: [ChainId] -&gt; ShowS
+show :: ChainId -&gt; String
+$cshow :: ChainId -&gt; String
+showsPrec :: Int -&gt; ChainId -&gt; ShowS
+$cshowsPrec :: Int -&gt; ChainId -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474961"><span id="local-6989586621681474963"><span id="local-6989586621681474965"><span id="local-6989586621681474967"><span class="annot"><span class="annottext">ReadPrec [ChainId]
+ReadPrec ChainId
+Int -&gt; ReadS ChainId
+ReadS [ChainId]
+(Int -&gt; ReadS ChainId)
+-&gt; ReadS [ChainId]
+-&gt; ReadPrec ChainId
+-&gt; ReadPrec [ChainId]
+-&gt; Read ChainId
+forall a.
+(Int -&gt; ReadS a)
+-&gt; ReadS [a] -&gt; ReadPrec a -&gt; ReadPrec [a] -&gt; Read a
+readListPrec :: ReadPrec [ChainId]
+$creadListPrec :: ReadPrec [ChainId]
+readPrec :: ReadPrec ChainId
+$creadPrec :: ReadPrec ChainId
+readList :: ReadS [ChainId]
+$creadList :: ReadS [ChainId]
+readsPrec :: Int -&gt; ReadS ChainId
+$creadsPrec :: Int -&gt; ReadS ChainId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474956"><span id="local-6989586621681474958"><span class="annot"><span class="annottext">ChainId -&gt; ChainId -&gt; Bool
+(ChainId -&gt; ChainId -&gt; Bool)
+-&gt; (ChainId -&gt; ChainId -&gt; Bool) -&gt; Eq ChainId
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: ChainId -&gt; ChainId -&gt; Bool
+$c/= :: ChainId -&gt; ChainId -&gt; Bool
+== :: ChainId -&gt; ChainId -&gt; Bool
+$c== :: ChainId -&gt; ChainId -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474941"><span id="local-6989586621681474943"><span id="local-6989586621681474945"><span id="local-6989586621681474947"><span id="local-6989586621681474949"><span id="local-6989586621681474951"><span id="local-6989586621681474953"><span class="annot"><span class="annottext">Eq ChainId
+Eq ChainId =&gt;
+(ChainId -&gt; ChainId -&gt; Ordering)
+-&gt; (ChainId -&gt; ChainId -&gt; Bool)
+-&gt; (ChainId -&gt; ChainId -&gt; Bool)
+-&gt; (ChainId -&gt; ChainId -&gt; Bool)
+-&gt; (ChainId -&gt; ChainId -&gt; Bool)
+-&gt; (ChainId -&gt; ChainId -&gt; ChainId)
+-&gt; (ChainId -&gt; ChainId -&gt; ChainId)
+-&gt; Ord ChainId
+ChainId -&gt; ChainId -&gt; Bool
+ChainId -&gt; ChainId -&gt; Ordering
+ChainId -&gt; ChainId -&gt; ChainId
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: ChainId -&gt; ChainId -&gt; ChainId
+$cmin :: ChainId -&gt; ChainId -&gt; ChainId
+max :: ChainId -&gt; ChainId -&gt; ChainId
+$cmax :: ChainId -&gt; ChainId -&gt; ChainId
+&gt;= :: ChainId -&gt; ChainId -&gt; Bool
+$c&gt;= :: ChainId -&gt; ChainId -&gt; Bool
+&gt; :: ChainId -&gt; ChainId -&gt; Bool
+$c&gt; :: ChainId -&gt; ChainId -&gt; Bool
+&lt;= :: ChainId -&gt; ChainId -&gt; Bool
+$c&lt;= :: ChainId -&gt; ChainId -&gt; Bool
+&lt; :: ChainId -&gt; ChainId -&gt; Bool
+$c&lt; :: ChainId -&gt; ChainId -&gt; Bool
+compare :: ChainId -&gt; ChainId -&gt; Ordering
+$ccompare :: ChainId -&gt; ChainId -&gt; Ordering
+$cp1Ord :: Eq ChainId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. ChainId -&gt; Rep ChainId x)
+-&gt; (forall x. Rep ChainId x -&gt; ChainId) -&gt; Generic ChainId
+forall x. Rep ChainId x -&gt; ChainId
+forall x. ChainId -&gt; Rep ChainId x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep ChainId x -&gt; ChainId
+$cfrom :: forall x. ChainId -&gt; Rep ChainId x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474935"><span id="local-6989586621681474937"><span class="annot"><span class="annottext">Int -&gt; ChainId -&gt; Int
+ChainId -&gt; Int
+(Int -&gt; ChainId -&gt; Int) -&gt; (ChainId -&gt; Int) -&gt; Hashable ChainId
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: ChainId -&gt; Int
+$chash :: ChainId -&gt; Int
+hashWithSalt :: Int -&gt; ChainId -&gt; Int
+$chashWithSalt :: Int -&gt; ChainId -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474926"><span id="local-6989586621681474928"><span id="local-6989586621681474930"><span id="local-6989586621681474932"><span class="annot"><span class="annottext">[ChainId] -&gt; Encoding
+[ChainId] -&gt; Value
+ChainId -&gt; Encoding
+ChainId -&gt; Value
+(ChainId -&gt; Value)
+-&gt; (ChainId -&gt; Encoding)
+-&gt; ([ChainId] -&gt; Value)
+-&gt; ([ChainId] -&gt; Encoding)
+-&gt; ToJSON ChainId
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [ChainId] -&gt; Encoding
+$ctoEncodingList :: [ChainId] -&gt; Encoding
+toJSONList :: [ChainId] -&gt; Value
+$ctoJSONList :: [ChainId] -&gt; Value
+toEncoding :: ChainId -&gt; Encoding
+$ctoEncoding :: ChainId -&gt; Encoding
+toJSON :: ChainId -&gt; Value
+$ctoJSON :: ChainId -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474921"><span id="local-6989586621681474923"><span class="annot"><span class="annottext">Value -&gt; Parser [ChainId]
+Value -&gt; Parser ChainId
+(Value -&gt; Parser ChainId)
+-&gt; (Value -&gt; Parser [ChainId]) -&gt; FromJSON ChainId
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [ChainId]
+$cparseJSONList :: Value -&gt; Parser [ChainId]
+parseJSON :: Value -&gt; Parser ChainId
+$cparseJSON :: Value -&gt; Parser ChainId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474918"><span class="annot"><span class="annottext">ChainId -&gt; ()
+(ChainId -&gt; ()) -&gt; NFData ChainId
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: ChainId -&gt; ()
+$crnf :: ChainId -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474914"><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-114"></span><span>    </span><span id="local-6989586621681474912"><span class="annot"><span class="annottext">toJSONKey :: ToJSONKeyFunction ChainId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSONKey</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; Text) -&gt; ToJSONKeyFunction ChainId
+forall a. (a -&gt; Text) -&gt; ToJSONKeyFunction a
+</span><span class="hs-identifier hs-var">toJSONKeyText</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSONKey</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474907"><span class="annot"><span class="hs-identifier hs-type">FromJSONKey</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-118"></span><span>    </span><span id="local-6989586621681474905"><span class="annot"><span class="annottext">fromJSONKey :: FromJSONKeyFunction ChainId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromJSONKey</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser ChainId) -&gt; FromJSONKeyFunction ChainId
+forall a. (Text -&gt; Parser a) -&gt; FromJSONKeyFunction a
+</span><span class="hs-identifier hs-var">FromJSONKeyTextParser</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(String -&gt; Parser ChainId)
+-&gt; (ChainId -&gt; Parser ChainId)
+-&gt; Either String ChainId
+-&gt; Parser ChainId
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Parser ChainId
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Parser ChainId
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either String ChainId -&gt; Parser ChainId)
+-&gt; (Text -&gt; Either String ChainId) -&gt; Text -&gt; Parser ChainId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either String ChainId
+forall a. HasTextRepresentation a =&gt; Text -&gt; Either String a
+</span><a href="Chainweb.Utils.html#eitherFromText"><span class="hs-identifier hs-var">eitherFromText</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">fromJSONKey</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="hs-keyword">class</span><span> </span><span id="HasChainId"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-var">HasChainId</span></a></span></span><span> </span><span id="local-6989586621681475155"><span class="annot"><a href="#local-6989586621681475155"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-122"></span><span>    </span><span id="_chainId"><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-type">_chainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681475155"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span id="local-6989586621681474898"><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var hs-var">_chainId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Getting ChainId a ChainId -&gt; a -&gt; ChainId
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting ChainId a ChainId
+forall a. HasChainId a =&gt; Getter a ChainId
+</span><a href="Chainweb.ChainId.html#chainId"><span class="hs-identifier hs-var">chainId</span></a></span></span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span>    </span><span id="chainId"><span class="annot"><a href="Chainweb.ChainId.html#chainId"><span class="hs-identifier hs-type">chainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Getter</span></span><span> </span><span class="annot"><a href="#local-6989586621681475155"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-127"></span><span>    </span><span id="local-6989586621681474895"><span class="annot"><a href="Chainweb.ChainId.html#chainId"><span class="hs-identifier hs-var hs-var">chainId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; ChainId) -&gt; (ChainId -&gt; f ChainId) -&gt; a -&gt; f a
+forall (p :: * -&gt; * -&gt; *) (f :: * -&gt; *) s a.
+(Profunctor p, Contravariant f) =&gt;
+(s -&gt; a) -&gt; Optic' p f s a
+</span><span class="hs-identifier hs-var">to</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainId"><span class="hs-pragma hs-type">chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-pragma">{-# MINIMAL</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">|</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainId"><span class="hs-pragma hs-type">chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474891"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-133"></span><span>    </span><span id="local-6989586621681474889"><span class="annot"><span class="annottext">_chainId :: ChainId -&gt; ChainId
+</span><a href="#local-6989586621681474889"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; ChainId
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span id="local-6989586621681474887"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474884"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474887"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#Expected"><span class="hs-identifier hs-type">Expected</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474887"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>    </span><span id="local-6989586621681474883"><span class="annot"><span class="annottext">_chainId :: Expected a -&gt; ChainId
+</span><a href="#local-6989586621681474883"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; ChainId) -&gt; (Expected a -&gt; a) -&gt; Expected a -&gt; ChainId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Expected a -&gt; a
+forall a. Expected a -&gt; a
+</span><a href="Chainweb.Utils.html#getExpected"><span class="hs-identifier hs-var hs-var">getExpected</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-139"></span><span>
+</span><span id="line-140"></span><span id="local-6989586621681474881"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474878"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474881"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#Actual"><span class="hs-identifier hs-type">Actual</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474881"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-141"></span><span>    </span><span id="local-6989586621681474877"><span class="annot"><span class="annottext">_chainId :: Actual a -&gt; ChainId
+</span><a href="#local-6989586621681474877"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; ChainId) -&gt; (Actual a -&gt; a) -&gt; Actual a -&gt; ChainId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Actual a -&gt; a
+forall a. Actual a -&gt; a
+</span><a href="Chainweb.Utils.html#getActual"><span class="hs-identifier hs-var hs-var">getActual</span></a></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html#IsMerkleLogEntry"><span class="hs-identifier hs-type">IsMerkleLogEntry</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleUniverse.html#ChainwebHashTag"><span class="hs-identifier hs-type">ChainwebHashTag</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Tag"><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html#Tag"><span class="hs-identifier hs-var">Tag</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.MerkleUniverse.html#ChainIdTag"><span class="hs-identifier hs-type">ChainIdTag</span></a></span><span>
+</span><span id="line-146"></span><span>    </span><span id="local-6989586621681474870"><span class="annot"><span class="annottext">toMerkleNode :: ChainId -&gt; MerkleNodeType (HashAlg ChainwebHashTag) ByteString
+</span><a href="Chainweb.Crypto.MerkleLog.html#toMerkleNode"><span class="hs-identifier hs-var hs-var hs-var hs-var">toMerkleNode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (m :: * -&gt; *). MonadPut m =&gt; ChainId -&gt; m ())
+-&gt; ChainId -&gt; MerkleNodeType SHA512t_256 ByteString
+forall b a.
+(forall (m :: * -&gt; *). MonadPut m =&gt; b -&gt; m ())
+-&gt; b -&gt; MerkleNodeType a ByteString
+</span><a href="Chainweb.Crypto.MerkleLog.html#encodeMerkleInputNode"><span class="hs-identifier hs-var">encodeMerkleInputNode</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *). MonadPut m =&gt; ChainId -&gt; m ()
+</span><a href="Chainweb.ChainId.html#encodeChainId"><span class="hs-identifier hs-var">encodeChainId</span></a></span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621681474867"><span class="annot"><span class="annottext">fromMerkleNode :: MerkleNodeType (HashAlg ChainwebHashTag) ByteString
+-&gt; Either SomeException ChainId
+</span><a href="Chainweb.Crypto.MerkleLog.html#fromMerkleNode"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromMerkleNode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (n :: * -&gt; *). MonadGet n =&gt; n ChainId)
+-&gt; MerkleNodeType SHA512t_256 ByteString
+-&gt; Either SomeException ChainId
+forall (m :: * -&gt; *) b a.
+MonadThrow m =&gt;
+(forall (n :: * -&gt; *). MonadGet n =&gt; n b)
+-&gt; MerkleNodeType a ByteString -&gt; m b
+</span><a href="Chainweb.Crypto.MerkleLog.html#decodeMerkleInputNode"><span class="hs-identifier hs-var">decodeMerkleInputNode</span></a></span><span> </span><span class="annot"><span class="annottext">forall (n :: * -&gt; *). MonadGet n =&gt; n ChainId
+</span><a href="Chainweb.ChainId.html#decodeChainId"><span class="hs-identifier hs-var">decodeChainId</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html#toMerkleNode"><span class="hs-pragma hs-type">toMerkleNode</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-149"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html#fromMerkleNode"><span class="hs-pragma hs-type">fromMerkleNode</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span id="local-6989586621681475077"><span id="local-6989586621681475078"><span id="local-6989586621681475079"><span class="annot"><a href="Chainweb.ChainId.html#checkChainId"><span class="hs-identifier hs-type">checkChainId</span></a></span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681475079"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475078"><span class="hs-identifier hs-type">expected</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475077"><span class="hs-identifier hs-type">actual</span></a></span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#Expected"><span class="hs-identifier hs-type">Expected</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475078"><span class="hs-identifier hs-type">expected</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#Actual"><span class="hs-identifier hs-type">Actual</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475077"><span class="hs-identifier hs-type">actual</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681475079"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span></span></span><span>
+</span><span id="line-158"></span><span id="checkChainId"><span class="annot"><span class="annottext">checkChainId :: Expected expected -&gt; Actual actual -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#checkChainId"><span class="hs-identifier hs-var hs-var">checkChainId</span></a></span></span><span> </span><span id="local-6989586621681474864"><span class="annot"><span class="annottext">expected :: Expected expected
+</span><a href="#local-6989586621681474864"><span class="hs-identifier hs-var">expected</span></a></span></span><span> </span><span id="local-6989586621681474863"><span class="annot"><span class="annottext">actual :: Actual actual
+</span><a href="#local-6989586621681474863"><span class="hs-identifier hs-var">actual</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span>
+</span><span id="line-159"></span><span>    </span><span class="annot"><span class="annottext">(ChainId -&gt; ChainId) -&gt; m ChainId -&gt; m ChainId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">(Expected ChainId -&gt; Actual ChainId -&gt; ChainIdException)
+-&gt; Expected ChainId -&gt; Actual ChainId -&gt; m ChainId
+forall (m :: * -&gt; *) a e.
+(MonadThrow m, Eq a, Exception e) =&gt;
+(Expected a -&gt; Actual a -&gt; e) -&gt; Expected a -&gt; Actual a -&gt; m a
+</span><a href="Chainweb.Utils.html#check"><span class="hs-identifier hs-var">check</span></a></span><span> </span><span class="annot"><span class="annottext">Expected ChainId -&gt; Actual ChainId -&gt; ChainIdException
+</span><a href="Chainweb.ChainId.html#ChainIdMismatch"><span class="hs-identifier hs-var">ChainIdMismatch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">expected -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">(expected -&gt; ChainId) -&gt; Expected expected -&gt; Expected ChainId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Expected expected
+</span><a href="#local-6989586621681474864"><span class="hs-identifier hs-var">expected</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">actual -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">(actual -&gt; ChainId) -&gt; Actual actual -&gt; Actual ChainId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Actual actual
+</span><a href="#local-6989586621681474863"><span class="hs-identifier hs-var">actual</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#checkChainId"><span class="hs-pragma hs-type">checkChainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="annot"><a href="Chainweb.ChainId.html#chainIdToText"><span class="hs-identifier hs-type">chainIdToText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-163"></span><span id="chainIdToText"><span class="annot"><span class="annottext">chainIdToText :: ChainId -&gt; Text
+</span><a href="Chainweb.ChainId.html#chainIdToText"><span class="hs-identifier hs-var hs-var">chainIdToText</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span id="local-6989586621681474860"><span class="annot"><span class="annottext">i :: Word32
+</span><a href="#local-6989586621681474860"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621681474860"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-164"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainIdToText"><span class="hs-pragma hs-type">chainIdToText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span id="local-6989586621681474858"><span class="annot"><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-identifier hs-type">chainIdFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681474858"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474858"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span>
+</span><span id="line-167"></span><span id="chainIdFromText"><span class="annot"><span class="annottext">chainIdFromText :: Text -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-identifier hs-var hs-var">chainIdFromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; ChainId) -&gt; m Word32 -&gt; m ChainId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-var">ChainId</span></a></span><span> </span><span class="annot"><span class="annottext">(m Word32 -&gt; m ChainId) -&gt; (Text -&gt; m Word32) -&gt; Text -&gt; m ChainId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; m Word32
+forall (m :: * -&gt; *) a. (MonadThrow m, Read a) =&gt; Text -&gt; m a
+</span><a href="Chainweb.Utils.html#treadM"><span class="hs-identifier hs-var">treadM</span></a></span><span>
+</span><span id="line-168"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-pragma hs-type">chainIdFromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-171"></span><span>    </span><span id="local-6989586621681474853"><span class="annot"><span class="annottext">toText :: ChainId -&gt; Text
+</span><a href="#local-6989586621681474853"><span class="hs-identifier hs-var hs-var hs-var hs-var">toText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Text
+</span><a href="Chainweb.ChainId.html#chainIdToText"><span class="hs-identifier hs-var">chainIdToText</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#toText"><span class="hs-pragma hs-type">toText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-173"></span><span>    </span><span id="local-6989586621681474852"><span class="annot"><span class="annottext">fromText :: Text -&gt; m ChainId
+</span><a href="Chainweb.Utils.html#fromText"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m ChainId
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#chainIdFromText"><span class="hs-identifier hs-var">chainIdFromText</span></a></span><span>
+</span><span id="line-174"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#fromText"><span class="hs-pragma hs-type">fromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- Serialization</span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span id="local-6989586621681474850"><span class="annot"><a href="Chainweb.ChainId.html#encodeChainId"><span class="hs-identifier hs-type">encodeChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPut</span></span><span> </span><span class="annot"><a href="#local-6989586621681474850"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474850"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-180"></span><span id="encodeChainId"><span class="annot"><span class="annottext">encodeChainId :: ChainId -&gt; m ()
+</span><a href="Chainweb.ChainId.html#encodeChainId"><span class="hs-identifier hs-var hs-var">encodeChainId</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span id="local-6989586621681474849"><span class="annot"><span class="annottext">i32 :: Word32
+</span><a href="#local-6989586621681474849"><span class="hs-identifier hs-var">i32</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word32 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord32le</span></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; m ()) -&gt; Word32 -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; Unsigned Word32
+forall i. (Integral i, Num (Unsigned i)) =&gt; i -&gt; Unsigned i
+</span><span class="hs-identifier hs-var">unsigned</span></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621681474849"><span class="hs-identifier hs-var">i32</span></a></span><span>
+</span><span id="line-181"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#encodeChainId"><span class="hs-pragma hs-type">encodeChainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span id="local-6989586621681474846"><span class="annot"><a href="Chainweb.ChainId.html#decodeChainId"><span class="hs-identifier hs-type">decodeChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadGet</span></span><span> </span><span class="annot"><a href="#local-6989586621681474846"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474846"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span>
+</span><span id="line-184"></span><span id="decodeChainId"><span class="annot"><span class="annottext">decodeChainId :: m ChainId
+</span><a href="Chainweb.ChainId.html#decodeChainId"><span class="hs-identifier hs-var hs-var">decodeChainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-var">ChainId</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; ChainId) -&gt; m Word32 -&gt; m ChainId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word32
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word32
+</span><span class="hs-identifier hs-var">getWord32le</span></span><span>
+</span><span id="line-185"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#decodeChainId"><span class="hs-pragma hs-type">decodeChainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-186"></span><span>
+</span><span id="line-187"></span><span id="local-6989586621681474843"><span id="local-6989586621681474844"><span class="annot"><a href="Chainweb.ChainId.html#decodeChainIdChecked"><span class="hs-identifier hs-type">decodeChainIdChecked</span></a></span><span>
+</span><span id="line-188"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadGet</span></span><span> </span><span class="annot"><a href="#local-6989586621681474844"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-189"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681474844"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-190"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474843"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#Expected"><span class="hs-identifier hs-type">Expected</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474843"><span class="hs-identifier hs-type">p</span></a></span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474844"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span></span><span>
+</span><span id="line-193"></span><span id="decodeChainIdChecked"><span class="annot"><span class="annottext">decodeChainIdChecked :: Expected p -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#decodeChainIdChecked"><span class="hs-identifier hs-var hs-var">decodeChainIdChecked</span></a></span></span><span> </span><span id="local-6989586621681474842"><span class="annot"><span class="annottext">p :: Expected p
+</span><a href="#local-6989586621681474842"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Expected p -&gt; Actual ChainId -&gt; m ChainId
+forall (m :: * -&gt; *) expected actual.
+(MonadThrow m, HasChainId expected, HasChainId actual) =&gt;
+Expected expected -&gt; Actual actual -&gt; m ChainId
+</span><a href="Chainweb.ChainId.html#checkChainId"><span class="hs-identifier hs-var">checkChainId</span></a></span><span> </span><span class="annot"><span class="annottext">Expected p
+</span><a href="#local-6989586621681474842"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">(Actual ChainId -&gt; m ChainId)
+-&gt; (ChainId -&gt; Actual ChainId) -&gt; ChainId -&gt; m ChainId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Actual ChainId
+forall a. a -&gt; Actual a
+</span><a href="Chainweb.Utils.html#Actual"><span class="hs-identifier hs-var">Actual</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; m ChainId) -&gt; m ChainId -&gt; m ChainId
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">m ChainId
+forall (n :: * -&gt; *). MonadGet n =&gt; n ChainId
+</span><a href="Chainweb.ChainId.html#decodeChainId"><span class="hs-identifier hs-var">decodeChainId</span></a></span><span>
+</span><span id="line-194"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#decodeChainIdChecked"><span class="hs-pragma hs-type">decodeChainIdChecked</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-195"></span><span>
+</span><span id="line-196"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- Type Level ChainId</span><span>
+</span><span id="line-198"></span><span>
+</span><span id="line-199"></span><span class="hs-comment">-- it's easier to use Symbol here. If we wanted to use Nat we'd need a</span><span>
+</span><span id="line-200"></span><span class="hs-comment">-- typelevel function Nat -&gt; Symbol</span><span>
+</span><span id="line-201"></span><span class="hs-comment">--</span><span>
+</span><span id="line-202"></span><span class="hs-keyword">newtype</span><span> </span><span id="ChainIdT"><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-var">ChainIdT</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ChainIdT"><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-var">ChainIdT</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Symbol</span></span><span>
+</span><span id="line-203"></span><span>
+</span><span id="line-204"></span><span class="hs-keyword">data</span><span> </span><span id="SomeChainIdT"><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-var">SomeChainIdT</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475059"><span class="annot"><a href="#local-6989586621681475059"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-205"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475059"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="SomeChainIdT"><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-var">SomeChainIdT</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681475059"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-206"></span><span>
+</span><span id="line-207"></span><span class="hs-keyword">class</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdSymbol"><span class="hs-identifier hs-type">ChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681475067"><span class="hs-identifier hs-type">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="KnownChainIdSymbol"><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-var">KnownChainIdSymbol</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681475067"><span class="annot"><a href="#local-6989586621681475067"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-208"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="ChainIdSymbol"><span class="annot"><a href="Chainweb.ChainId.html#ChainIdSymbol"><span class="hs-identifier hs-var">ChainIdSymbol</span></a></span></span><span> </span><span id="local-6989586621681475067"><span class="annot"><a href="#local-6989586621681475067"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Symbol</span></span><span>
+</span><span id="line-209"></span><span>    </span><span id="chainIdSymbolVal"><span class="annot"><a href="Chainweb.ChainId.html#chainIdSymbolVal"><span class="hs-identifier hs-type">chainIdSymbolVal</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681475067"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-210"></span><span>
+</span><span id="line-211"></span><span id="local-6989586621681474838"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681474838"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474838"><span class="hs-identifier hs-type">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-212"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="ChainIdSymbol"><span class="annot"><a href="Chainweb.ChainId.html#ChainIdSymbol"><span class="hs-identifier hs-var">ChainIdSymbol</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474838"><span class="hs-identifier hs-type">n</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681474838"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-213"></span><span>    </span><span id="local-6989586621681474834"><span class="annot"><span class="annottext">chainIdSymbolVal :: Proxy ('ChainIdT n) -&gt; Text
+</span><a href="#local-6989586621681474834"><span class="hs-identifier hs-var hs-var hs-var hs-var">chainIdSymbolVal</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Text) -&gt; String -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy n -&gt; String
+forall (n :: Symbol) (proxy :: Symbol -&gt; *).
+KnownSymbol n =&gt;
+proxy n -&gt; String
+</span><span class="hs-identifier hs-var">symbolVal</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy n
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681474838"><span class="hs-identifier hs-type">n</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-214"></span><span>
+</span><span id="line-215"></span><span class="annot"><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-type">someChainIdVal</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span>
+</span><span id="line-216"></span><span id="someChainIdVal"><span class="annot"><span class="annottext">someChainIdVal :: ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var hs-var">someChainIdVal</span></a></span></span><span> </span><span id="local-6989586621681474830"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681474830"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">String -&gt; SomeSymbol
+</span><span class="hs-identifier hs-var">someSymbolVal</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainId -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681474830"><span class="hs-identifier hs-var">cid</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-217"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SomeSymbol</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474826"><span class="annot"><span class="annottext">Proxy n
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681474826"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Proxy ('ChainIdT n) -&gt; SomeChainIdT
+forall (a :: ChainIdT).
+KnownChainIdSymbol a =&gt;
+Proxy a -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-var">SomeChainIdT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy ('ChainIdT n)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474826"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-218"></span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- Singletons</span><span>
+</span><span id="line-221"></span><span>
+</span><span id="line-222"></span><span class="hs-keyword">data</span><span> </span><span class="hs-keyword">instance</span><span> </span><span id="Sing"><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-var">Sing</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474825"><span class="annot"><a href="#local-6989586621681474825"><span class="hs-identifier hs-type hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-223"></span><span>    </span><span id="local-6989586621681474824"><span id="SChainId"><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-var">SChainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474824"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474824"><span class="hs-identifier hs-type">n</span></a></span></span><span>
+</span><span id="line-224"></span><span>
+</span><span id="line-225"></span><span class="hs-keyword">type</span><span> </span><span id="SChainId"><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-var">SChainId</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474823"><span class="annot"><a href="#local-6989586621681474823"><span class="hs-identifier hs-type">n</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474823"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-226"></span><span>
+</span><span id="line-227"></span><span id="local-6989586621681474822"><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474822"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingI"><span class="hs-identifier hs-type">SingI</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681474822"><span class="hs-identifier hs-type">n</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-228"></span><span>    </span><span id="local-6989586621681474819"><span class="annot"><span class="annottext">sing :: Sing n
+</span><a href="Data.Singletons.html#sing"><span class="hs-identifier hs-var hs-var hs-var hs-var">sing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Sing n
+forall (n :: ChainIdT). KnownChainIdSymbol n =&gt; Sing n
+</span><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-var">SChainId</span></a></span></span><span>
+</span><span id="line-229"></span><span>
+</span><span id="line-230"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Singletons.html#SingKind"><span class="hs-identifier hs-type">SingKind</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-231"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Demote"><span class="annot"><a href="Data.Singletons.html#Demote"><span class="hs-identifier hs-var">Demote</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-232"></span><span>    </span><span id="local-6989586621681474814"><span class="annot"><span class="annottext">fromSing :: Sing a -&gt; Demote ChainIdT
+</span><a href="Data.Singletons.html#fromSing"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromSing</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474812"><span class="annot"><span class="annottext">Sing a
+</span><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-var">SChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474812"><span class="hs-identifier hs-type">n</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Demote ChainIdT
+forall a. (HasCallStack, HasTextRepresentation a) =&gt; Text -&gt; a
+</span><a href="Chainweb.Utils.html#unsafeFromText"><span class="hs-identifier hs-var">unsafeFromText</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Demote ChainIdT) -&gt; Text -&gt; Demote ChainIdT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy a -&gt; Text
+forall (n :: ChainIdT). KnownChainIdSymbol n =&gt; Proxy n -&gt; Text
+</span><a href="Chainweb.ChainId.html#chainIdSymbolVal"><span class="hs-identifier hs-var">chainIdSymbolVal</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy a
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681474812"><span class="hs-identifier hs-type">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>    </span><span id="local-6989586621681474810"><span class="annot"><span class="annottext">toSing :: Demote ChainIdT -&gt; SomeSing ChainIdT
+</span><a href="Data.Singletons.html#toSing"><span class="hs-identifier hs-var hs-var hs-var hs-var">toSing</span></a></span></span><span> </span><span id="local-6989586621681474808"><span class="annot"><span class="annottext">n :: Demote ChainIdT
+</span><a href="#local-6989586621681474808"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var">someChainIdVal</span></a></span><span> </span><span class="annot"><span class="annottext">Demote ChainIdT
+ChainId
+</span><a href="#local-6989586621681474808"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-234"></span><span>        </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span> </span><span id="local-6989586621681474807"><span class="annot"><span class="annottext">p :: Proxy a
+</span><a href="#local-6989586621681474807"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Sing a -&gt; SomeSing ChainIdT
+forall k (a :: k). Sing a -&gt; SomeSing k
+</span><a href="Data.Singletons.html#SomeSing"><span class="hs-identifier hs-var">SomeSing</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy a -&gt; Sing a
+forall k (a :: k) (proxy :: k -&gt; *). SingI a =&gt; proxy a -&gt; Sing a
+</span><a href="Data.Singletons.html#singByProxy"><span class="hs-identifier hs-var">singByProxy</span></a></span><span> </span><span class="annot"><span class="annottext">Proxy a
+</span><a href="#local-6989586621681474807"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-235"></span><span>
+</span><span id="line-236"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-237"></span><span class="hs-comment">-- Misc</span><span>
+</span><span id="line-238"></span><span>
+</span><span id="line-239"></span><span class="hs-comment">-- | This function should be be rarely needed. Please consult the documentation</span><span>
+</span><span id="line-240"></span><span class="hs-comment">-- of 'ChainId' for alternative ways to obtain 'ChainId' values.</span><span>
+</span><span id="line-241"></span><span class="hs-comment">--</span><span>
+</span><span id="line-242"></span><span class="annot"><a href="Chainweb.ChainId.html#unsafeChainId"><span class="hs-identifier hs-type">unsafeChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-243"></span><span id="unsafeChainId"><span class="annot"><span class="annottext">unsafeChainId :: Word32 -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#unsafeChainId"><span class="hs-identifier hs-var hs-var">unsafeChainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-var">ChainId</span></a></span><span>
+</span><span id="line-244"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#unsafeChainId"><span class="hs-pragma hs-type">unsafeChainId</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span id="local-6989586621681474804"><span class="annot"><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier hs-type">chainIdInt</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621681474804"><span class="hs-identifier hs-type">i</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474804"><span class="hs-identifier hs-type">i</span></a></span></span><span>
+</span><span id="line-247"></span><span id="chainIdInt"><span class="annot"><span class="annottext">chainIdInt :: ChainId -&gt; i
+</span><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-identifier hs-var hs-var">chainIdInt</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span id="local-6989586621681474803"><span class="annot"><span class="annottext">cid :: Word32
+</span><a href="#local-6989586621681474803"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; i
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621681474803"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-248"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#chainIdInt"><span class="hs-pragma hs-type">chainIdInt</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-249"></span><span>
+</span><span id="line-250"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474799"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-251"></span><span>    </span><span id="local-6989586621681474797"><span class="annot"><span class="annottext">arbitrary :: Gen ChainId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#unsafeChainId"><span class="hs-identifier hs-var">unsafeChainId</span></a></span><span> </span><span class="annot"><span class="annottext">(Word32 -&gt; ChainId) -&gt; Gen Word32 -&gt; Gen ChainId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Gen Word32
+forall a. Arbitrary a =&gt; Gen a
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span>
+</span><span id="line-252"></span><span>
+</span><span id="line-253"></span></pre></body></html>

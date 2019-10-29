@@ -1,0 +1,641 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Store.CAS.FS</span><span>
+</span><span id="line-4"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsDB"><span class="hs-identifier">FsDB</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsOps"><span class="hs-identifier">FsOps</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#withDB"><span class="hs-identifier">withDB</span></a></span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#withDB%27"><span class="hs-identifier">withDB'</span></a></span><span>
+</span><span id="line-8"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#systemFsOps"><span class="hs-identifier">systemFsOps</span></a></span><span>
+</span><span id="line-9"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getNumCapabilities</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html"><span class="hs-identifier">Control.Concurrent.FixedThreadPool</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier">ThreadPool</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html"><span class="hs-identifier">Control.Concurrent.FixedThreadPool</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">TP</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">unless</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Except</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Put</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">runPutS</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Base16</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B16</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Random.MWC</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MWCB</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Vector</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Directory</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Dir</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Path</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Absolute</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Path</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;/&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Path</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Path</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Random.MWC</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MWC</span></span><span>
+</span><span id="line-30"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier">BlockPayloadHash</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#encodeBlockPayloadHash"><span class="hs-identifier">encodeBlockPayloadHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.html"><span class="hs-identifier">Chainweb.Store.CAS</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#Codec"><span class="hs-identifier">Codec</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#eatIOExceptions"><span class="hs-identifier">eatIOExceptions</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- TODO: use base64 instead? slower, but wastes fewer bytes for filenames</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- | A content-addressed store for block payloads using a direct filesystem</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- representation. Block payload hashes are converted to hex strings and mapped</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- to files rooted at the given directory. We use a 3-deep nesting, e.g. block</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- payload hash</span><span>
+</span><span id="line-42"></span><span class="hs-comment">--</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- &gt;  f22136124cd3e1d65a48487cecf310771b2fd1e83dc032e3d19724160ac0ff71</span><span>
+</span><span id="line-44"></span><span class="hs-comment">--</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- would be stored at</span><span>
+</span><span id="line-46"></span><span class="hs-comment">--</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- &gt;  $ROOT/f22/136/124cd3e1d65a48487cecf310771b2fd1e83dc032e3d19724160ac0ff71</span><span>
+</span><span id="line-48"></span><span class="hs-comment">--</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- Filesystem operations are abstracted by passing an 'FsOps' record; this will</span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- allow us to plug in a backend using S3 later.</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">data</span><span> </span><span id="FsDB"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsDB"><span class="hs-identifier hs-var">FsDB</span></a></span></span><span> </span><span id="local-6989586621681481760"><span class="annot"><a href="#local-6989586621681481760"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FsDB"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsDB"><span class="hs-identifier hs-var">FsDB</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-52"></span><span>    </span><span id="_fsDbRoot"><span class="annot"><span class="annottext">FsDB t -&gt; Path Absolute
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbRoot"><span class="hs-identifier hs-var hs-var">_fsDbRoot</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_fsDbConfig"><span class="annot"><span class="annottext">FsDB t -&gt; PayloadConfig t
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbConfig"><span class="hs-identifier hs-var hs-var">_fsDbConfig</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Store.CAS.html#PayloadConfig"><span class="hs-identifier hs-type">PayloadConfig</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481760"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_fsOps"><span class="annot"><span class="annottext">FsDB t -&gt; FsOps
+</span><a href="Chainweb.Store.CAS.FS.html#_fsOps"><span class="hs-identifier hs-var hs-var">_fsOps</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsOps"><span class="hs-identifier hs-type">FsOps</span></a></span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="_fsTP"><span class="annot"><span class="annottext">FsDB t -&gt; ThreadPool
+</span><a href="Chainweb.Store.CAS.FS.html#_fsTP"><span class="hs-identifier hs-var hs-var">_fsTP</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Control.Concurrent.FixedThreadPool.html#ThreadPool"><span class="hs-identifier hs-type">ThreadPool</span></a></span><span>
+</span><span id="line-56"></span><span class="hs-special">}</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- | Filesystem operations for the content-addressed store backend. Use</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- 'systemFsOps' to use the local filesystem.</span><span>
+</span><span id="line-60"></span><span class="hs-keyword">data</span><span> </span><span id="FsOps"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsOps"><span class="hs-identifier hs-var">FsOps</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FsOps"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsOps"><span class="hs-identifier hs-var">FsOps</span></a></span></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-61"></span><span>    </span><span id="opDoesFileExist"><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO Bool
+</span><a href="Chainweb.Store.CAS.FS.html#opDoesFileExist"><span class="hs-identifier hs-var hs-var">opDoesFileExist</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-62"></span><span>        </span><span class="hs-comment">-- ^ does a file at this path exist?</span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="opMakeAbsolutePath"><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO (Path Absolute)
+</span><a href="Chainweb.Store.CAS.FS.html#opMakeAbsolutePath"><span class="hs-identifier hs-var hs-var">opMakeAbsolutePath</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>        </span><span class="hs-comment">-- ^ makes the given path absolute.</span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="opCreateDirectory"><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#opCreateDirectory"><span class="hs-identifier hs-var hs-var">opCreateDirectory</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>        </span><span class="hs-comment">-- ^ makes a directory and all of its parents.</span><span>
+</span><span id="line-67"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="opWriteAtomic"><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; ByteString -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#opWriteAtomic"><span class="hs-identifier hs-var hs-var">opWriteAtomic</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-comment">-- ^ atomic-writes the given contents to the filesystem. On local</span><span>
+</span><span id="line-69"></span><span>        </span><span class="hs-comment">-- filesystems this means a write to a temporary file and an</span><span>
+</span><span id="line-70"></span><span>        </span><span class="hs-comment">-- atomic-rename.</span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="opDeleteFile"><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#opDeleteFile"><span class="hs-identifier hs-var hs-var">opDeleteFile</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>        </span><span class="hs-comment">-- ^ deletes the given file, silently.</span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="opReadFile"><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO ByteString
+</span><a href="Chainweb.Store.CAS.FS.html#opReadFile"><span class="hs-identifier hs-var hs-var">opReadFile</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span>
+</span><span id="line-74"></span><span>        </span><span class="hs-comment">-- ^ strictly reads the given path into a bytestring.</span><span>
+</span><span id="line-75"></span><span class="hs-special">}</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- | Given a root directory and a payload config, generates a block payload 'DB'</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- and runs the given user handler with it.</span><span>
+</span><span id="line-80"></span><span id="local-6989586621681481666"><span id="local-6989586621681481667"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#withDB"><span class="hs-identifier hs-type">withDB</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>              </span><span class="hs-comment">-- ^ db root</span><span>
+</span><span id="line-81"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.html#PayloadConfig"><span class="hs-identifier hs-type">PayloadConfig</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481667"><span class="hs-identifier hs-type">t</span></a></span><span>       </span><span class="hs-comment">-- ^ description of payloads</span><span>
+</span><span id="line-82"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Store.CAS.html#DB"><span class="hs-identifier hs-type">DB</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481667"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681481666"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>        </span><span class="hs-comment">-- ^ user handler</span><span>
+</span><span id="line-83"></span><span>       </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681481666"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-84"></span><span id="withDB"><span class="annot"><span class="annottext">withDB :: FilePath -&gt; PayloadConfig t -&gt; (DB t -&gt; IO b) -&gt; IO b
+</span><a href="Chainweb.Store.CAS.FS.html#withDB"><span class="hs-identifier hs-var hs-var">withDB</span></a></span></span><span> </span><span id="local-6989586621681481665"><span class="annot"><span class="annottext">fp :: FilePath
+</span><a href="#local-6989586621681481665"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span id="local-6989586621681481664"><span class="annot"><span class="annottext">cfg :: PayloadConfig t
+</span><a href="#local-6989586621681481664"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621681481663"><span class="annot"><span class="annottext">userHandler :: DB t -&gt; IO b
+</span><a href="#local-6989586621681481663"><span class="hs-identifier hs-var">userHandler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">IO FsOps
+</span><a href="Chainweb.Store.CAS.FS.html#systemFsOps"><span class="hs-identifier hs-var">systemFsOps</span></a></span><span> </span><span class="annot"><span class="annottext">IO FsOps -&gt; (FsOps -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681481662"><span class="annot"><span class="annottext">ops :: FsOps
+</span><a href="#local-6989586621681481662"><span class="hs-identifier hs-var">ops</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; PayloadConfig t -&gt; (DB t -&gt; IO b) -&gt; IO b
+forall t b.
+FsOps -&gt; FilePath -&gt; PayloadConfig t -&gt; (DB t -&gt; IO b) -&gt; IO b
+</span><a href="Chainweb.Store.CAS.FS.html#withDB%27"><span class="hs-identifier hs-var">withDB'</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481662"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481665"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadConfig t
+</span><a href="#local-6989586621681481664"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">DB t -&gt; IO b
+</span><a href="#local-6989586621681481663"><span class="hs-identifier hs-var">userHandler</span></a></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- | Given a filesystem implementation, a root directory, and a payload config,</span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- generates a block payload 'DB' and runs the given user handler with it.</span><span>
+</span><span id="line-90"></span><span id="local-6989586621681481767"><span id="local-6989586621681481768"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#withDB%27"><span class="hs-identifier hs-type">withDB'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsOps"><span class="hs-identifier hs-type">FsOps</span></a></span><span>                 </span><span class="hs-comment">-- ^ filesystem abstraction</span><span>
+</span><span id="line-91"></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>              </span><span class="hs-comment">-- ^ db root</span><span>
+</span><span id="line-92"></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.html#PayloadConfig"><span class="hs-identifier hs-type">PayloadConfig</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481768"><span class="hs-identifier hs-type">t</span></a></span><span>       </span><span class="hs-comment">-- ^ description of payloads</span><span>
+</span><span id="line-93"></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Store.CAS.html#DB"><span class="hs-identifier hs-type">DB</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481768"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681481767"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span>        </span><span class="hs-comment">-- ^ user handler</span><span>
+</span><span id="line-94"></span><span>        </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681481767"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-95"></span><span id="withDB%27"><span class="annot"><span class="annottext">withDB' :: FsOps -&gt; FilePath -&gt; PayloadConfig t -&gt; (DB t -&gt; IO b) -&gt; IO b
+</span><a href="Chainweb.Store.CAS.FS.html#withDB%27"><span class="hs-identifier hs-var hs-var">withDB'</span></a></span></span><span> </span><span id="local-6989586621681481661"><span class="annot"><span class="annottext">ops :: FsOps
+</span><a href="#local-6989586621681481661"><span class="hs-identifier hs-var">ops</span></a></span></span><span> </span><span id="local-6989586621681481660"><span class="annot"><span class="annottext">root0 :: FilePath
+</span><a href="#local-6989586621681481660"><span class="hs-identifier hs-var">root0</span></a></span></span><span> </span><span id="local-6989586621681481659"><span class="annot"><span class="annottext">config :: PayloadConfig t
+</span><a href="#local-6989586621681481659"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621681481658"><span class="annot"><span class="annottext">userFunc :: DB t -&gt; IO b
+</span><a href="#local-6989586621681481658"><span class="hs-identifier hs-var">userFunc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-96"></span><span>    </span><span id="local-6989586621681481657"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681481657"><span class="hs-identifier hs-var">numC</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Int
+</span><span class="hs-identifier hs-var">getNumCapabilities</span></span><span>
+</span><span id="line-97"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; (ThreadPool -&gt; IO b) -&gt; IO b
+forall a. Int -&gt; (ThreadPool -&gt; IO a) -&gt; IO a
+</span><a href="Control.Concurrent.FixedThreadPool.html#withThreadPool"><span class="hs-identifier hs-var">TP.withThreadPool</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681481657"><span class="hs-identifier hs-var">numC</span></a></span><span> </span><span class="annot"><span class="annottext">((ThreadPool -&gt; IO b) -&gt; IO b) -&gt; (ThreadPool -&gt; IO b) -&gt; IO b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681481655"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681481655"><span class="hs-identifier hs-var">tp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>        </span><span id="local-6989586621681481654"><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481654"><span class="hs-identifier hs-var">root</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO (Path Absolute)
+</span><a href="Chainweb.Store.CAS.FS.html#opMakeAbsolutePath"><span class="hs-identifier hs-var hs-var">opMakeAbsolutePath</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481661"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481660"><span class="hs-identifier hs-var">root0</span></a></span><span>
+</span><span id="line-99"></span><span>        </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#opCreateDirectory"><span class="hs-identifier hs-var hs-var">opCreateDirectory</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481661"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO ()) -&gt; FilePath -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; FilePath
+</span><span class="hs-identifier hs-var">Path.toFilePath</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481654"><span class="hs-identifier hs-var">root</span></a></span><span>
+</span><span id="line-100"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681481652"><span class="annot"><span class="annottext">fsdb :: FsDB t
+</span><a href="#local-6989586621681481652"><span class="hs-identifier hs-var hs-var">fsdb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; PayloadConfig t -&gt; FsOps -&gt; ThreadPool -&gt; FsDB t
+forall t.
+Path Absolute -&gt; PayloadConfig t -&gt; FsOps -&gt; ThreadPool -&gt; FsDB t
+</span><a href="Chainweb.Store.CAS.FS.html#FsDB"><span class="hs-identifier hs-var">FsDB</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481654"><span class="hs-identifier hs-var">root</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadConfig t
+</span><a href="#local-6989586621681481659"><span class="hs-identifier hs-var">config</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481661"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681481655"><span class="hs-identifier hs-var">tp</span></a></span><span>
+</span><span id="line-101"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681481651"><span class="annot"><span class="annottext">db :: DB t
+</span><a href="#local-6989586621681481651"><span class="hs-identifier hs-var hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DB :: forall t.
+PayloadConfig t
+-&gt; (Vector BlockPayloadHash -&gt; IO (Vector (Maybe t)))
+-&gt; (Vector t -&gt; IO ())
+-&gt; (Vector BlockPayloadHash -&gt; IO ())
+-&gt; DB t
+</span><a href="Chainweb.Store.CAS.html#DB"><span class="hs-identifier hs-type hs-type">DB</span></a></span><span> </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">casDbConfig :: PayloadConfig t
+</span><a href="Chainweb.Store.CAS.html#casDbConfig"><span class="hs-identifier hs-var">casDbConfig</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadConfig t
+</span><a href="#local-6989586621681481659"><span class="hs-identifier hs-var">config</span></a></span><span>
+</span><span id="line-102"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">casLookup :: Vector BlockPayloadHash -&gt; IO (Vector (Maybe t))
+</span><a href="Chainweb.Store.CAS.html#casLookup"><span class="hs-identifier hs-var">casLookup</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; Vector BlockPayloadHash -&gt; IO (Vector (Maybe t))
+forall t.
+FsDB t -&gt; Vector BlockPayloadHash -&gt; IO (Vector (Maybe t))
+</span><a href="Chainweb.Store.CAS.FS.html#fsLookup"><span class="hs-identifier hs-var">fsLookup</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481652"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-103"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">casInsert :: Vector t -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.html#casInsert"><span class="hs-identifier hs-var">casInsert</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; Vector t -&gt; IO ()
+forall t. FsDB t -&gt; Vector t -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#fsInsert"><span class="hs-identifier hs-var">fsInsert</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481652"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-104"></span><span>                    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">casDelete :: Vector BlockPayloadHash -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.html#casDelete"><span class="hs-identifier hs-var">casDelete</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; Vector BlockPayloadHash -&gt; IO ()
+forall t. FsDB t -&gt; Vector BlockPayloadHash -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#fsDelete"><span class="hs-identifier hs-var">fsDelete</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481652"><span class="hs-identifier hs-var">fsdb</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-105"></span><span>        </span><span class="annot"><span class="annottext">DB t -&gt; IO b
+</span><a href="#local-6989586621681481658"><span class="hs-identifier hs-var">userFunc</span></a></span><span> </span><span class="annot"><span class="annottext">DB t
+</span><a href="#local-6989586621681481651"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span id="local-6989586621681481755"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#fsInsert"><span class="hs-identifier hs-type">fsInsert</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsDB"><span class="hs-identifier hs-type">FsDB</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481755"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="#local-6989586621681481755"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-109"></span><span id="fsInsert"><span class="annot"><span class="annottext">fsInsert :: FsDB t -&gt; Vector t -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#fsInsert"><span class="hs-identifier hs-var hs-var">fsInsert</span></a></span></span><span> </span><span id="local-6989586621681481641"><span class="annot"><span class="annottext">fsdb :: FsDB t
+</span><a href="#local-6989586621681481641"><span class="hs-identifier hs-var">fsdb</span></a></span></span><span> </span><span id="local-6989586621681481640"><span class="annot"><span class="annottext">v :: Vector t
+</span><a href="#local-6989586621681481640"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ThreadPool -&gt; (t -&gt; IO ()) -&gt; [t] -&gt; IO ()
+forall (t :: * -&gt; *) a b.
+Traversable t =&gt;
+ThreadPool -&gt; (a -&gt; IO b) -&gt; t a -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#mapAction_"><span class="hs-identifier hs-var">TP.mapAction_</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681481638"><span class="hs-identifier hs-var">tp</span></a></span><span> </span><span class="annot"><span class="annottext">t -&gt; IO ()
+</span><a href="#local-6989586621681481637"><span class="hs-identifier hs-var">insertOne</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector t -&gt; [t]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">Vector t
+</span><a href="#local-6989586621681481640"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-111"></span><span>    </span><span id="local-6989586621681481638"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681481638"><span class="hs-identifier hs-var hs-var">tp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; ThreadPool
+forall t. FsDB t -&gt; ThreadPool
+</span><a href="Chainweb.Store.CAS.FS.html#_fsTP"><span class="hs-identifier hs-var hs-var">_fsTP</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481641"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span id="local-6989586621681481635"><span class="annot"><span class="annottext">ops :: FsOps
+</span><a href="#local-6989586621681481635"><span class="hs-identifier hs-var hs-var">ops</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; FsOps
+forall t. FsDB t -&gt; FsOps
+</span><a href="Chainweb.Store.CAS.FS.html#_fsOps"><span class="hs-identifier hs-var hs-var">_fsOps</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481641"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span id="local-6989586621681481634"><span class="annot"><span class="annottext">root :: Path Absolute
+</span><a href="#local-6989586621681481634"><span class="hs-identifier hs-var hs-var">root</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; Path Absolute
+forall t. FsDB t -&gt; Path Absolute
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbRoot"><span class="hs-identifier hs-var hs-var">_fsDbRoot</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481641"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span id="local-6989586621681481633"><span class="annot"><span class="annottext">hash :: t -&gt; BlockPayloadHash
+</span><a href="#local-6989586621681481633"><span class="hs-identifier hs-var hs-var">hash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadConfig t -&gt; t -&gt; BlockPayloadHash
+forall t. PayloadConfig t -&gt; t -&gt; BlockPayloadHash
+</span><a href="Chainweb.Store.CAS.html#payloadHash"><span class="hs-identifier hs-var hs-var">payloadHash</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadConfig t -&gt; t -&gt; BlockPayloadHash)
+-&gt; PayloadConfig t -&gt; t -&gt; BlockPayloadHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; PayloadConfig t
+forall t. FsDB t -&gt; PayloadConfig t
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbConfig"><span class="hs-identifier hs-var hs-var">_fsDbConfig</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481641"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span id="local-6989586621681481631"><span class="annot"><span class="annottext">encode :: t -&gt; ByteString
+</span><a href="#local-6989586621681481631"><span class="hs-identifier hs-var hs-var">encode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Codec t -&gt; t -&gt; ByteString
+forall t. Codec t -&gt; t -&gt; ByteString
+</span><a href="Chainweb.Utils.html#codecEncode"><span class="hs-identifier hs-var hs-var">codecEncode</span></a></span><span> </span><span class="annot"><span class="annottext">(Codec t -&gt; t -&gt; ByteString) -&gt; Codec t -&gt; t -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadConfig t -&gt; Codec t
+forall t. PayloadConfig t -&gt; Codec t
+</span><a href="Chainweb.Store.CAS.html#payloadCodec"><span class="hs-identifier hs-var hs-var">payloadCodec</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadConfig t -&gt; Codec t) -&gt; PayloadConfig t -&gt; Codec t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; PayloadConfig t
+forall t. FsDB t -&gt; PayloadConfig t
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbConfig"><span class="hs-identifier hs-var hs-var">_fsDbConfig</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481641"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span id="local-6989586621681481637"><span class="annot"><span class="annottext">insertOne :: t -&gt; IO ()
+</span><a href="#local-6989586621681481637"><span class="hs-identifier hs-var hs-var">insertOne</span></a></span></span><span> </span><span id="local-6989586621681481628"><span class="annot"><span class="annottext">t :: t
+</span><a href="#local-6989586621681481628"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681481627"><span class="annot"><span class="annottext">h :: BlockPayloadHash
+</span><a href="#local-6989586621681481627"><span class="hs-identifier hs-var hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">t -&gt; BlockPayloadHash
+</span><a href="#local-6989586621681481633"><span class="hs-identifier hs-var">hash</span></a></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621681481628"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-118"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681481626"><span class="annot"><span class="annottext">parent :: Path Absolute
+</span><a href="#local-6989586621681481626"><span class="hs-identifier hs-var">parent</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681481625"><span class="annot"><span class="annottext">fn :: FilePath
+</span><a href="#local-6989586621681481625"><span class="hs-identifier hs-var">fn</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; BlockPayloadHash -&gt; (Path Absolute, FilePath)
+</span><a href="Chainweb.Store.CAS.FS.html#getBlockPath"><span class="hs-identifier hs-var">getBlockPath</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481634"><span class="hs-identifier hs-var">root</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681481627"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-119"></span><span>        </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#opCreateDirectory"><span class="hs-identifier hs-var hs-var">opCreateDirectory</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481635"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO ()) -&gt; FilePath -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; FilePath
+</span><span class="hs-identifier hs-var">Path.toFilePath</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481626"><span class="hs-identifier hs-var">parent</span></a></span><span>
+</span><span id="line-120"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681481623"><span class="annot"><span class="annottext">destPath :: FilePath
+</span><a href="#local-6989586621681481623"><span class="hs-identifier hs-var hs-var">destPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; FilePath
+</span><span class="hs-identifier hs-var">Path.toFilePath</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481626"><span class="hs-identifier hs-var">parent</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; Path Unrooted -&gt; Path Absolute
+forall a. Path a -&gt; Path Unrooted -&gt; Path a
+</span><span class="hs-operator hs-var">&lt;/&gt;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Path Unrooted
+</span><span class="hs-identifier hs-var">Path.fromUnrootedFilePath</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481625"><span class="hs-identifier hs-var">fn</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>        </span><span id="local-6989586621681481621"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681481621"><span class="hs-identifier hs-var">ex</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO Bool
+</span><a href="Chainweb.Store.CAS.FS.html#opDoesFileExist"><span class="hs-identifier hs-var hs-var">opDoesFileExist</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481635"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481623"><span class="hs-identifier hs-var">destPath</span></a></span><span>
+</span><span id="line-122"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">unless</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681481621"><span class="hs-identifier hs-var">ex</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; ByteString -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#opWriteAtomic"><span class="hs-identifier hs-var hs-var">opWriteAtomic</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481635"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481623"><span class="hs-identifier hs-var">destPath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">t -&gt; ByteString
+</span><a href="#local-6989586621681481631"><span class="hs-identifier hs-var">encode</span></a></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621681481628"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span id="local-6989586621681481756"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#fsLookup"><span class="hs-identifier hs-type">fsLookup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsDB"><span class="hs-identifier hs-type">FsDB</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481756"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621681481756"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-126"></span><span id="fsLookup"><span class="annot"><span class="annottext">fsLookup :: FsDB t -&gt; Vector BlockPayloadHash -&gt; IO (Vector (Maybe t))
+</span><a href="Chainweb.Store.CAS.FS.html#fsLookup"><span class="hs-identifier hs-var hs-var">fsLookup</span></a></span></span><span> </span><span id="local-6989586621681481620"><span class="annot"><span class="annottext">fsdb :: FsDB t
+</span><a href="#local-6989586621681481620"><span class="hs-identifier hs-var">fsdb</span></a></span></span><span> </span><span id="local-6989586621681481619"><span class="annot"><span class="annottext">v :: Vector BlockPayloadHash
+</span><a href="#local-6989586621681481619"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ThreadPool
+-&gt; (BlockPayloadHash -&gt; IO (Maybe t))
+-&gt; [BlockPayloadHash]
+-&gt; IO [Either SomeException (Maybe t)]
+forall (t :: * -&gt; *) a b.
+Traversable t =&gt;
+ThreadPool -&gt; (a -&gt; IO b) -&gt; t a -&gt; IO (t (Either SomeException b))
+</span><a href="Control.Concurrent.FixedThreadPool.html#mapAction"><span class="hs-identifier hs-var">TP.mapAction</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681481617"><span class="hs-identifier hs-var">tp</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash -&gt; IO (Maybe t)
+</span><a href="#local-6989586621681481616"><span class="hs-identifier hs-var">lookupOne</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector BlockPayloadHash -&gt; [BlockPayloadHash]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">Vector BlockPayloadHash
+</span><a href="#local-6989586621681481619"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO [Either SomeException (Maybe t)]
+-&gt; ([Either SomeException (Maybe t)] -&gt; IO (Vector (Maybe t)))
+-&gt; IO (Vector (Maybe t))
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">[Either SomeException (Maybe t)] -&gt; IO (Vector (Maybe t))
+forall e a. Exception e =&gt; [Either e a] -&gt; IO (Vector a)
+</span><a href="#local-6989586621681481615"><span class="hs-identifier hs-var">toV</span></a></span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-128"></span><span>    </span><span id="local-6989586621681481615"><span class="annot"><span class="annottext">toV :: [Either e a] -&gt; IO (Vector a)
+</span><a href="#local-6989586621681481615"><span class="hs-identifier hs-var hs-var">toV</span></a></span></span><span> </span><span id="local-6989586621681481614"><span class="annot"><span class="annottext">es :: [Either e a]
+</span><a href="#local-6989586621681481614"><span class="hs-identifier hs-var">es</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[a] -&gt; Vector a
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">([a] -&gt; Vector a) -&gt; IO [a] -&gt; IO (Vector a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ExceptT e IO [a] -&gt; IO (Either e [a])
+forall e (m :: * -&gt; *) a. ExceptT e m a -&gt; m (Either e a)
+</span><span class="hs-identifier hs-var">runExceptT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Either e a -&gt; ExceptT e IO a) -&gt; [Either e a] -&gt; ExceptT e IO [a]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO (Either e a) -&gt; ExceptT e IO a
+forall e (m :: * -&gt; *) a. m (Either e a) -&gt; ExceptT e m a
+</span><span class="hs-identifier hs-var">ExceptT</span></span><span> </span><span class="annot"><span class="annottext">(IO (Either e a) -&gt; ExceptT e IO a)
+-&gt; (Either e a -&gt; IO (Either e a)) -&gt; Either e a -&gt; ExceptT e IO a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Either e a -&gt; IO (Either e a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Either e a]
+</span><a href="#local-6989586621681481614"><span class="hs-identifier hs-var">es</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>                             </span><span class="annot"><span class="annottext">IO (Either e [a]) -&gt; (Either e [a] -&gt; IO [a]) -&gt; IO [a]
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">(e -&gt; IO [a]) -&gt; ([a] -&gt; IO [a]) -&gt; Either e [a] -&gt; IO [a]
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">e -&gt; IO [a]
+forall e a. Exception e =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">[a] -&gt; IO [a]
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span>    </span><span id="local-6989586621681481617"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681481617"><span class="hs-identifier hs-var hs-var">tp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; ThreadPool
+forall t. FsDB t -&gt; ThreadPool
+</span><a href="Chainweb.Store.CAS.FS.html#_fsTP"><span class="hs-identifier hs-var hs-var">_fsTP</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481620"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span id="local-6989586621681481605"><span class="annot"><span class="annottext">ops :: FsOps
+</span><a href="#local-6989586621681481605"><span class="hs-identifier hs-var hs-var">ops</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; FsOps
+forall t. FsDB t -&gt; FsOps
+</span><a href="Chainweb.Store.CAS.FS.html#_fsOps"><span class="hs-identifier hs-var hs-var">_fsOps</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481620"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-133"></span><span>    </span><span id="local-6989586621681481604"><span class="annot"><span class="annottext">root :: Path Absolute
+</span><a href="#local-6989586621681481604"><span class="hs-identifier hs-var hs-var">root</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; Path Absolute
+forall t. FsDB t -&gt; Path Absolute
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbRoot"><span class="hs-identifier hs-var hs-var">_fsDbRoot</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481620"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-134"></span><span>    </span><span id="local-6989586621681481603"><span class="annot"><span class="annottext">decode :: ByteString -&gt; Either FilePath t
+</span><a href="#local-6989586621681481603"><span class="hs-identifier hs-var hs-var">decode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Codec t -&gt; ByteString -&gt; Either FilePath t
+forall t. Codec t -&gt; ByteString -&gt; Either FilePath t
+</span><a href="Chainweb.Utils.html#codecDecode"><span class="hs-identifier hs-var hs-var">codecDecode</span></a></span><span> </span><span class="annot"><span class="annottext">(Codec t -&gt; ByteString -&gt; Either FilePath t)
+-&gt; Codec t -&gt; ByteString -&gt; Either FilePath t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadConfig t -&gt; Codec t
+forall t. PayloadConfig t -&gt; Codec t
+</span><a href="Chainweb.Store.CAS.html#payloadCodec"><span class="hs-identifier hs-var hs-var">payloadCodec</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadConfig t -&gt; Codec t) -&gt; PayloadConfig t -&gt; Codec t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; PayloadConfig t
+forall t. FsDB t -&gt; PayloadConfig t
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbConfig"><span class="hs-identifier hs-var hs-var">_fsDbConfig</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481620"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-135"></span><span>    </span><span id="local-6989586621681481616"><span class="annot"><span class="annottext">lookupOne :: BlockPayloadHash -&gt; IO (Maybe t)
+</span><a href="#local-6989586621681481616"><span class="hs-identifier hs-var hs-var">lookupOne</span></a></span></span><span> </span><span id="local-6989586621681481601"><span class="annot"><span class="annottext">h :: BlockPayloadHash
+</span><a href="#local-6989586621681481601"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-136"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681481600"><span class="annot"><span class="annottext">fp :: FilePath
+</span><a href="#local-6989586621681481600"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; BlockPayloadHash -&gt; FilePath
+</span><a href="Chainweb.Store.CAS.FS.html#getBlockFilePath"><span class="hs-identifier hs-var">getBlockFilePath</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481604"><span class="hs-identifier hs-var">root</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681481601"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-137"></span><span>        </span><span id="local-6989586621681481598"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681481598"><span class="hs-identifier hs-var">ex</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO Bool
+</span><a href="Chainweb.Store.CAS.FS.html#opDoesFileExist"><span class="hs-identifier hs-var hs-var">opDoesFileExist</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481605"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481600"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><span id="line-138"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681481598"><span class="hs-identifier hs-var">ex</span></a></span><span>
+</span><span id="line-139"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; Maybe t)
+-&gt; (t -&gt; Maybe t) -&gt; Either FilePath t -&gt; Maybe t
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe t -&gt; FilePath -&gt; Maybe t
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">Maybe t
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">t -&gt; Maybe t
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Either FilePath t -&gt; Maybe t)
+-&gt; (ByteString -&gt; Either FilePath t) -&gt; ByteString -&gt; Maybe t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either FilePath t
+</span><a href="#local-6989586621681481603"><span class="hs-identifier hs-var">decode</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Maybe t) -&gt; IO ByteString -&gt; IO (Maybe t)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO ByteString
+</span><a href="Chainweb.Store.CAS.FS.html#opReadFile"><span class="hs-identifier hs-var hs-var">opReadFile</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481605"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481600"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><span id="line-140"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Maybe t -&gt; IO (Maybe t)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Maybe t
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span id="local-6989586621681481754"><span class="annot"><a href="Chainweb.Store.CAS.FS.html#fsDelete"><span class="hs-identifier hs-type">fsDelete</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsDB"><span class="hs-identifier hs-type">FsDB</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681481754"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-144"></span><span id="fsDelete"><span class="annot"><span class="annottext">fsDelete :: FsDB t -&gt; Vector BlockPayloadHash -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#fsDelete"><span class="hs-identifier hs-var hs-var">fsDelete</span></a></span></span><span> </span><span id="local-6989586621681481596"><span class="annot"><span class="annottext">fsdb :: FsDB t
+</span><a href="#local-6989586621681481596"><span class="hs-identifier hs-var">fsdb</span></a></span></span><span> </span><span id="local-6989586621681481595"><span class="annot"><span class="annottext">v :: Vector BlockPayloadHash
+</span><a href="#local-6989586621681481595"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ThreadPool
+-&gt; (BlockPayloadHash -&gt; IO ()) -&gt; [BlockPayloadHash] -&gt; IO ()
+forall (t :: * -&gt; *) a b.
+Traversable t =&gt;
+ThreadPool -&gt; (a -&gt; IO b) -&gt; t a -&gt; IO ()
+</span><a href="Control.Concurrent.FixedThreadPool.html#mapAction_"><span class="hs-identifier hs-var">TP.mapAction_</span></a></span><span> </span><span class="annot"><span class="annottext">ThreadPool
+</span><a href="#local-6989586621681481594"><span class="hs-identifier hs-var">tp</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash -&gt; IO ()
+</span><a href="#local-6989586621681481593"><span class="hs-identifier hs-var">deleteOne</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector BlockPayloadHash -&gt; [BlockPayloadHash]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">Vector BlockPayloadHash
+</span><a href="#local-6989586621681481595"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-146"></span><span>    </span><span id="local-6989586621681481594"><span class="annot"><span class="annottext">tp :: ThreadPool
+</span><a href="#local-6989586621681481594"><span class="hs-identifier hs-var hs-var">tp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; ThreadPool
+forall t. FsDB t -&gt; ThreadPool
+</span><a href="Chainweb.Store.CAS.FS.html#_fsTP"><span class="hs-identifier hs-var hs-var">_fsTP</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481596"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621681481592"><span class="annot"><span class="annottext">ops :: FsOps
+</span><a href="#local-6989586621681481592"><span class="hs-identifier hs-var hs-var">ops</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; FsOps
+forall t. FsDB t -&gt; FsOps
+</span><a href="Chainweb.Store.CAS.FS.html#_fsOps"><span class="hs-identifier hs-var hs-var">_fsOps</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481596"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span id="local-6989586621681481591"><span class="annot"><span class="annottext">root :: Path Absolute
+</span><a href="#local-6989586621681481591"><span class="hs-identifier hs-var hs-var">root</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsDB t -&gt; Path Absolute
+forall t. FsDB t -&gt; Path Absolute
+</span><a href="Chainweb.Store.CAS.FS.html#_fsDbRoot"><span class="hs-identifier hs-var hs-var">_fsDbRoot</span></a></span><span> </span><span class="annot"><span class="annottext">FsDB t
+</span><a href="#local-6989586621681481596"><span class="hs-identifier hs-var">fsdb</span></a></span><span>
+</span><span id="line-149"></span><span>    </span><span id="local-6989586621681481593"><span class="annot"><span class="annottext">deleteOne :: BlockPayloadHash -&gt; IO ()
+</span><a href="#local-6989586621681481593"><span class="hs-identifier hs-var hs-var">deleteOne</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsOps -&gt; FilePath -&gt; IO ()
+</span><a href="Chainweb.Store.CAS.FS.html#opDeleteFile"><span class="hs-identifier hs-var hs-var">opDeleteFile</span></a></span><span> </span><span class="annot"><span class="annottext">FsOps
+</span><a href="#local-6989586621681481592"><span class="hs-identifier hs-var">ops</span></a></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO ())
+-&gt; (BlockPayloadHash -&gt; FilePath) -&gt; BlockPayloadHash -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; BlockPayloadHash -&gt; FilePath
+</span><a href="Chainweb.Store.CAS.FS.html#getBlockFilePath"><span class="hs-identifier hs-var">getBlockFilePath</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481591"><span class="hs-identifier hs-var">root</span></a></span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#getBlockPath"><span class="hs-identifier hs-type">getBlockPath</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span>                  </span><span class="hs-comment">-- ^ payload store root</span><span>
+</span><span id="line-153"></span><span>             </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span>               </span><span class="hs-comment">-- ^ block payload hash</span><span>
+</span><span id="line-154"></span><span>             </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span class="hs-special">)</span><span>  </span><span class="hs-comment">-- ^ (dirname, filename)</span><span>
+</span><span id="line-155"></span><span id="getBlockPath"><span class="annot"><span class="annottext">getBlockPath :: Path Absolute -&gt; BlockPayloadHash -&gt; (Path Absolute, FilePath)
+</span><a href="Chainweb.Store.CAS.FS.html#getBlockPath"><span class="hs-identifier hs-var hs-var">getBlockPath</span></a></span></span><span> </span><span id="local-6989586621681481590"><span class="annot"><span class="annottext">root :: Path Absolute
+</span><a href="#local-6989586621681481590"><span class="hs-identifier hs-var">root</span></a></span></span><span> </span><span id="local-6989586621681481589"><span class="annot"><span class="annottext">hash :: BlockPayloadHash
+</span><a href="#local-6989586621681481589"><span class="hs-identifier hs-var">hash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481588"><span class="hs-identifier hs-var">dir</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; FilePath
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681481586"><span class="hs-identifier hs-var">fn</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-157"></span><span>    </span><span id="local-6989586621681481585"><span class="annot"><span class="annottext">b16hash :: ByteString
+</span><a href="#local-6989586621681481585"><span class="hs-identifier hs-var hs-var">b16hash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">B16.encode</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><span class="hs-identifier hs-var">runPutS</span></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString) -&gt; Put -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; BlockPayloadHash -&gt; m ()
+</span><a href="Chainweb.Payload.html#encodeBlockPayloadHash"><span class="hs-identifier hs-var">encodeBlockPayloadHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681481589"><span class="hs-identifier hs-var">hash</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681481583"><span class="annot"><span class="annottext">pfx1 :: ByteString
+</span><a href="#local-6989586621681481583"><span class="hs-identifier hs-var">pfx1</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681481582"><span class="annot"><span class="annottext">r1 :: ByteString
+</span><a href="#local-6989586621681481582"><span class="hs-identifier hs-var">r1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; (ByteString, ByteString)
+</span><span class="hs-identifier hs-var">B.splitAt</span></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681481585"><span class="hs-identifier hs-var">b16hash</span></a></span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681481580"><span class="annot"><span class="annottext">pfx2 :: ByteString
+</span><a href="#local-6989586621681481580"><span class="hs-identifier hs-var">pfx2</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681481586"><span class="annot"><span class="annottext">fn :: ByteString
+</span><a href="#local-6989586621681481586"><span class="hs-identifier hs-var">fn</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; (ByteString, ByteString)
+</span><span class="hs-identifier hs-var">B.splitAt</span></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681481582"><span class="hs-identifier hs-var">r1</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span id="local-6989586621681481579"><span class="annot"><span class="annottext">unp :: ByteString -&gt; Path Unrooted
+</span><a href="#local-6989586621681481579"><span class="hs-identifier hs-var hs-var">unp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Path Unrooted
+</span><span class="hs-identifier hs-var">Path.fromUnrootedFilePath</span></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; Path Unrooted)
+-&gt; (ByteString -&gt; FilePath) -&gt; ByteString -&gt; Path Unrooted
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; FilePath
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span>
+</span><span id="line-161"></span><span>    </span><span id="local-6989586621681481588"><span class="annot"><span class="annottext">dir :: Path Absolute
+</span><a href="#local-6989586621681481588"><span class="hs-identifier hs-var hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481590"><span class="hs-identifier hs-var">root</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; Path Unrooted -&gt; Path Absolute
+forall a. Path a -&gt; Path Unrooted -&gt; Path a
+</span><span class="hs-operator hs-var">&lt;/&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Path Unrooted
+</span><a href="#local-6989586621681481579"><span class="hs-identifier hs-var">unp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681481583"><span class="hs-identifier hs-var">pfx1</span></a></span><span> </span><span class="annot"><span class="annottext">Path Unrooted -&gt; Path Unrooted -&gt; Path Unrooted
+forall a. Path a -&gt; Path Unrooted -&gt; Path a
+</span><span class="hs-operator hs-var">&lt;/&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Path Unrooted
+</span><a href="#local-6989586621681481579"><span class="hs-identifier hs-var">unp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681481580"><span class="hs-identifier hs-var">pfx2</span></a></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#getBlockFilePath"><span class="hs-identifier hs-type">getBlockFilePath</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Path</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Absolute</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>
+</span><span id="line-165"></span><span id="getBlockFilePath"><span class="annot"><span class="annottext">getBlockFilePath :: Path Absolute -&gt; BlockPayloadHash -&gt; FilePath
+</span><a href="Chainweb.Store.CAS.FS.html#getBlockFilePath"><span class="hs-identifier hs-var hs-var">getBlockFilePath</span></a></span></span><span> </span><span id="local-6989586621681481578"><span class="annot"><span class="annottext">root :: Path Absolute
+</span><a href="#local-6989586621681481578"><span class="hs-identifier hs-var">root</span></a></span></span><span> </span><span id="local-6989586621681481577"><span class="annot"><span class="annottext">h :: BlockPayloadHash
+</span><a href="#local-6989586621681481577"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481576"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><span id="line-166"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-167"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681481575"><span class="annot"><span class="annottext">parent :: Path Absolute
+</span><a href="#local-6989586621681481575"><span class="hs-identifier hs-var">parent</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681481574"><span class="annot"><span class="annottext">fn :: FilePath
+</span><a href="#local-6989586621681481574"><span class="hs-identifier hs-var">fn</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; BlockPayloadHash -&gt; (Path Absolute, FilePath)
+</span><a href="Chainweb.Store.CAS.FS.html#getBlockPath"><span class="hs-identifier hs-var">getBlockPath</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481578"><span class="hs-identifier hs-var">root</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681481577"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-168"></span><span>    </span><span id="local-6989586621681481576"><span class="annot"><span class="annottext">fp :: FilePath
+</span><a href="#local-6989586621681481576"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; FilePath
+</span><span class="hs-identifier hs-var">Path.toFilePath</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Path Absolute
+</span><a href="#local-6989586621681481575"><span class="hs-identifier hs-var">parent</span></a></span><span> </span><span class="annot"><span class="annottext">Path Absolute -&gt; Path Unrooted -&gt; Path Absolute
+forall a. Path a -&gt; Path Unrooted -&gt; Path a
+</span><span class="hs-operator hs-var">&lt;/&gt;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Path Unrooted
+</span><span class="hs-identifier hs-var">Path.fromUnrootedFilePath</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481574"><span class="hs-identifier hs-var">fn</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#newMWC"><span class="hs-identifier hs-type">newMWC</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">MWC.GenIO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span id="newMWC"><span class="annot"><span class="annottext">newMWC :: IO (MVar GenIO)
+</span><a href="Chainweb.Store.CAS.FS.html#newMWC"><span class="hs-identifier hs-var hs-var">newMWC</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Gen RealWorld)
+IO GenIO
+</span><span class="hs-identifier hs-var">MWC.createSystemRandom</span></span><span> </span><span class="annot"><span class="annottext">IO (Gen RealWorld)
+-&gt; (Gen RealWorld -&gt; IO (MVar (Gen RealWorld)))
+-&gt; IO (MVar (Gen RealWorld))
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Gen RealWorld -&gt; IO (MVar (Gen RealWorld))
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span>
+</span><span id="line-173"></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#systemFsOps"><span class="hs-identifier hs-type">systemFsOps</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Store.CAS.FS.html#FsOps"><span class="hs-identifier hs-type">FsOps</span></a></span><span>
+</span><span id="line-176"></span><span id="systemFsOps"><span class="annot"><span class="annottext">systemFsOps :: IO FsOps
+</span><a href="Chainweb.Store.CAS.FS.html#systemFsOps"><span class="hs-identifier hs-var hs-var">systemFsOps</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-177"></span><span>    </span><span id="local-6989586621681481570"><span class="annot"><span class="annottext">MVar (Gen RealWorld)
+</span><a href="#local-6989586621681481570"><span class="hs-identifier hs-var">mv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar (Gen RealWorld))
+IO (MVar GenIO)
+</span><a href="Chainweb.Store.CAS.FS.html#newMWC"><span class="hs-identifier hs-var">newMWC</span></a></span><span>
+</span><span id="line-178"></span><span>    </span><span class="annot"><span class="annottext">FsOps -&gt; IO FsOps
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(FsOps -&gt; IO FsOps) -&gt; FsOps -&gt; IO FsOps
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO Bool)
+-&gt; (FilePath -&gt; IO (Path Absolute))
+-&gt; (FilePath -&gt; IO ())
+-&gt; (FilePath -&gt; ByteString -&gt; IO ())
+-&gt; (FilePath -&gt; IO ())
+-&gt; (FilePath -&gt; IO ByteString)
+-&gt; FsOps
+</span><a href="Chainweb.Store.CAS.FS.html#FsOps"><span class="hs-identifier hs-var">FsOps</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO Bool
+</span><span class="hs-identifier hs-var">Dir.doesFileExist</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (Path Absolute)
+</span><a href="#local-6989586621681481568"><span class="hs-identifier hs-var">mkAbsolute</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO ()
+</span><a href="#local-6989586621681481567"><span class="hs-identifier hs-var">mkdir</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MVar (Gen RealWorld) -&gt; FilePath -&gt; ByteString -&gt; IO ()
+</span><a href="#local-6989586621681481566"><span class="hs-identifier hs-var">writeAtomic</span></a></span><span> </span><span class="annot"><span class="annottext">MVar (Gen RealWorld)
+</span><a href="#local-6989586621681481570"><span class="hs-identifier hs-var">mv</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO ()
+</span><a href="#local-6989586621681481565"><span class="hs-identifier hs-var">rmFile</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">B.readFile</span></span><span>
+</span><span id="line-179"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-180"></span><span>    </span><span id="local-6989586621681481568"><span class="annot"><span class="annottext">mkAbsolute :: FilePath -&gt; IO (Path Absolute)
+</span><a href="#local-6989586621681481568"><span class="hs-identifier hs-var hs-var">mkAbsolute</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FsPath -&gt; IO (Path Absolute)
+</span><span class="hs-identifier hs-var">Path.makeAbsolute</span></span><span> </span><span class="annot"><span class="annottext">(FsPath -&gt; IO (Path Absolute))
+-&gt; (FilePath -&gt; FsPath) -&gt; FilePath -&gt; IO (Path Absolute)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FsPath
+</span><span class="hs-identifier hs-var">Path.fromFilePath</span></span><span>
+</span><span id="line-181"></span><span>    </span><span id="local-6989586621681481567"><span class="annot"><span class="annottext">mkdir :: FilePath -&gt; IO ()
+</span><a href="#local-6989586621681481567"><span class="hs-identifier hs-var hs-var">mkdir</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; FilePath -&gt; IO ()
+</span><span class="hs-identifier hs-var">Dir.createDirectoryIfMissing</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-182"></span><span>    </span><span id="local-6989586621681481560"><span class="annot"><span class="annottext">randomBytes :: MVar (Gen RealWorld) -&gt; IO ByteString
+</span><a href="#local-6989586621681481560"><span class="hs-identifier hs-var hs-var">randomBytes</span></a></span></span><span> </span><span id="local-6989586621681481559"><span class="annot"><span class="annottext">mv :: MVar (Gen RealWorld)
+</span><a href="#local-6989586621681481559"><span class="hs-identifier hs-var">mv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Gen RealWorld)
+-&gt; (Gen RealWorld -&gt; IO ByteString) -&gt; IO ByteString
+forall a b. MVar a -&gt; (a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Gen RealWorld)
+</span><a href="#local-6989586621681481559"><span class="hs-identifier hs-var">mv</span></a></span><span> </span><span class="annot"><span class="annottext">((Gen RealWorld -&gt; IO ByteString) -&gt; IO ByteString)
+-&gt; (Gen RealWorld -&gt; IO ByteString) -&gt; IO ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Gen RealWorld -&gt; Natural -&gt; IO ByteString)
+-&gt; Natural -&gt; Gen RealWorld -&gt; IO ByteString
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">Gen RealWorld -&gt; Natural -&gt; IO ByteString
+GenIO -&gt; Natural -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">MWCB.randomGen</span></span><span> </span><span class="annot"><span class="hs-number">6</span></span><span>
+</span><span id="line-183"></span><span>    </span><span id="local-6989586621681481565"><span class="annot"><span class="annottext">rmFile :: FilePath -&gt; IO ()
+</span><a href="#local-6989586621681481565"><span class="hs-identifier hs-var hs-var">rmFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="Chainweb.Utils.html#eatIOExceptions"><span class="hs-identifier hs-var">eatIOExceptions</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; (FilePath -&gt; IO ()) -&gt; FilePath -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO ()
+</span><span class="hs-identifier hs-var">Dir.removeFile</span></span><span>
+</span><span id="line-184"></span><span>    </span><span id="local-6989586621681481566"><span class="annot"><span class="annottext">writeAtomic :: MVar (Gen RealWorld) -&gt; FilePath -&gt; ByteString -&gt; IO ()
+</span><a href="#local-6989586621681481566"><span class="hs-identifier hs-var hs-var">writeAtomic</span></a></span></span><span> </span><span id="local-6989586621681481554"><span class="annot"><span class="annottext">mv :: MVar (Gen RealWorld)
+</span><a href="#local-6989586621681481554"><span class="hs-identifier hs-var">mv</span></a></span></span><span> </span><span id="local-6989586621681481553"><span class="annot"><span class="annottext">fp :: FilePath
+</span><a href="#local-6989586621681481553"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span id="local-6989586621681481552"><span class="annot"><span class="annottext">s :: ByteString
+</span><a href="#local-6989586621681481552"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-185"></span><span>        </span><span id="local-6989586621681481551"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481551"><span class="hs-identifier hs-var">suffix</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; FilePath
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; FilePath)
+-&gt; (ByteString -&gt; ByteString) -&gt; ByteString -&gt; FilePath
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">B16.encode</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; FilePath) -&gt; IO ByteString -&gt; IO FilePath
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar (Gen RealWorld) -&gt; IO ByteString
+</span><a href="#local-6989586621681481560"><span class="hs-identifier hs-var">randomBytes</span></a></span><span> </span><span class="annot"><span class="annottext">MVar (Gen RealWorld)
+</span><a href="#local-6989586621681481554"><span class="hs-identifier hs-var">mv</span></a></span><span>
+</span><span id="line-186"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681481550"><span class="annot"><span class="annottext">tmp :: FilePath
+</span><a href="#local-6989586621681481550"><span class="hs-identifier hs-var hs-var">tmp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481553"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-char">'.'</span></span><span> </span><span class="annot"><span class="annottext">Char -&gt; FilePath -&gt; FilePath
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481551"><span class="hs-identifier hs-var">suffix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-187"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681481549"><span class="annot"><span class="annottext">write :: IO ()
+</span><a href="#local-6989586621681481549"><span class="hs-identifier hs-var hs-var">write</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; ByteString -&gt; IO ()
+</span><span class="hs-identifier hs-var">B.writeFile</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481550"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681481552"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; IO ()
+</span><span class="hs-identifier hs-var">Dir.renameFile</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481550"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481553"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><span id="line-188"></span><span>        </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681481549"><span class="hs-identifier hs-var">write</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall a b. IO a -&gt; IO b -&gt; IO a
+</span><span class="hs-operator hs-var">`onException`</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO ()
+</span><a href="#local-6989586621681481565"><span class="hs-identifier hs-var">rmFile</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681481550"><span class="hs-identifier hs-var">tmp</span></a></span><span>
+</span><span id="line-189"></span></pre></body></html>

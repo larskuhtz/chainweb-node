@@ -1,0 +1,107 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Module: Chainweb.Logging.Miner</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Logging.Miner</span><span>
+</span><span id="line-18"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Logging.Miner.html#NewMinedBlock"><span class="hs-identifier">NewMinedBlock</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span id="local-6989586621681484813"><span id="local-6989586621681484814"></span></span><span class="hs-keyword">data</span><span> </span><span id="NewMinedBlock"><span class="annot"><a href="Chainweb.Logging.Miner.html#NewMinedBlock"><span class="hs-identifier hs-var">NewMinedBlock</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NewMinedBlock"><span class="annot"><a href="Chainweb.Logging.Miner.html#NewMinedBlock"><span class="hs-identifier hs-var">NewMinedBlock</span></a></span></span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_minedBlockHeader"><span class="annot"><span class="annottext">NewMinedBlock -&gt; ObjectEncoded BlockHeader
+</span><a href="Chainweb.Logging.Miner.html#_minedBlockHeader"><span class="hs-identifier hs-var hs-var">_minedBlockHeader</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#ObjectEncoded"><span class="hs-identifier hs-type">ObjectEncoded</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_minedBlockTrans"><span class="annot"><span class="annottext">NewMinedBlock -&gt; Word
+</span><a href="Chainweb.Logging.Miner.html#_minedBlockTrans"><span class="hs-identifier hs-var hs-var">_minedBlockTrans</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Word</span></span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_minedBlockSize"><span class="annot"><span class="annottext">NewMinedBlock -&gt; Word
+</span><a href="Chainweb.Logging.Miner.html#_minedBlockSize"><span class="hs-identifier hs-var hs-var">_minedBlockSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Word</span></span><span>   </span><span class="hs-comment">-- ^ Bytes</span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_minedHashAttempts"><span class="annot"><span class="annottext">NewMinedBlock -&gt; Natural
+</span><a href="Chainweb.Logging.Miner.html#_minedHashAttempts"><span class="hs-identifier hs-var hs-var">_minedHashAttempts</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_minedBlockMiner"><span class="annot"><span class="annottext">NewMinedBlock -&gt; Text
+</span><a href="Chainweb.Logging.Miner.html#_minedBlockMiner"><span class="hs-identifier hs-var hs-var">_minedBlockMiner</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681484803"><span id="local-6989586621681484805"><span class="annot"><span class="annottext">NewMinedBlock -&gt; NewMinedBlock -&gt; Bool
+(NewMinedBlock -&gt; NewMinedBlock -&gt; Bool)
+-&gt; (NewMinedBlock -&gt; NewMinedBlock -&gt; Bool) -&gt; Eq NewMinedBlock
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: NewMinedBlock -&gt; NewMinedBlock -&gt; Bool
+$c/= :: NewMinedBlock -&gt; NewMinedBlock -&gt; Bool
+== :: NewMinedBlock -&gt; NewMinedBlock -&gt; Bool
+$c== :: NewMinedBlock -&gt; NewMinedBlock -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484796"><span id="local-6989586621681484798"><span id="local-6989586621681484800"><span class="annot"><span class="annottext">Int -&gt; NewMinedBlock -&gt; ShowS
+[NewMinedBlock] -&gt; ShowS
+NewMinedBlock -&gt; String
+(Int -&gt; NewMinedBlock -&gt; ShowS)
+-&gt; (NewMinedBlock -&gt; String)
+-&gt; ([NewMinedBlock] -&gt; ShowS)
+-&gt; Show NewMinedBlock
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [NewMinedBlock] -&gt; ShowS
+$cshowList :: [NewMinedBlock] -&gt; ShowS
+show :: NewMinedBlock -&gt; String
+$cshow :: NewMinedBlock -&gt; String
+showsPrec :: Int -&gt; NewMinedBlock -&gt; ShowS
+$cshowsPrec :: Int -&gt; NewMinedBlock -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. NewMinedBlock -&gt; Rep NewMinedBlock x)
+-&gt; (forall x. Rep NewMinedBlock x -&gt; NewMinedBlock)
+-&gt; Generic NewMinedBlock
+forall x. Rep NewMinedBlock x -&gt; NewMinedBlock
+forall x. NewMinedBlock -&gt; Rep NewMinedBlock x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep NewMinedBlock x -&gt; NewMinedBlock
+$cfrom :: forall x. NewMinedBlock -&gt; Rep NewMinedBlock x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681484784"><span id="local-6989586621681484786"><span id="local-6989586621681484788"><span id="local-6989586621681484790"><span class="annot"><span class="annottext">[NewMinedBlock] -&gt; Encoding
+[NewMinedBlock] -&gt; Value
+NewMinedBlock -&gt; Encoding
+NewMinedBlock -&gt; Value
+(NewMinedBlock -&gt; Value)
+-&gt; (NewMinedBlock -&gt; Encoding)
+-&gt; ([NewMinedBlock] -&gt; Value)
+-&gt; ([NewMinedBlock] -&gt; Encoding)
+-&gt; ToJSON NewMinedBlock
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [NewMinedBlock] -&gt; Encoding
+$ctoEncodingList :: [NewMinedBlock] -&gt; Encoding
+toJSONList :: [NewMinedBlock] -&gt; Value
+$ctoJSONList :: [NewMinedBlock] -&gt; Value
+toEncoding :: NewMinedBlock -&gt; Encoding
+$ctoEncoding :: NewMinedBlock -&gt; Encoding
+toJSON :: NewMinedBlock -&gt; Value
+$ctoJSON :: NewMinedBlock -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681484781"><span class="annot"><span class="annottext">NewMinedBlock -&gt; ()
+(NewMinedBlock -&gt; ()) -&gt; NFData NewMinedBlock
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: NewMinedBlock -&gt; ()
+$crnf :: NewMinedBlock -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span></pre></body></html>

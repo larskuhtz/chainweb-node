@@ -1,0 +1,278 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE AllowAmbiguousTypes #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Module: P2P.Node.RestAPI.Client</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">P2P.Node.RestAPI.Client</span><span>
+</span><span id="line-17"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="P2P.Node.RestAPI.Client.html#peerGetClient"><span class="hs-identifier">peerGetClient</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.RestAPI.Client.html#peerPutClient"><span class="hs-identifier">peerPutClient</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.API</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NoContent</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html"><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html"><span class="hs-identifier">Chainweb.Utils.Paging</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.Singletons.html"><span class="hs-identifier">Data.Singletons</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.RestAPI.html"><span class="hs-identifier">P2P.Node.RestAPI</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Peer.html"><span class="hs-identifier">P2P.Peer</span></a></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- GET Peer Client</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><a href="P2P.Node.RestAPI.Client.html#peerGetClient"><span class="hs-identifier hs-type">peerGetClient</span></a></span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="P2P.Peer.html#PeerInfo"><span class="hs-identifier hs-type">PeerInfo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span id="peerGetClient"><span class="annot"><span class="annottext">peerGetClient :: ChainwebVersion
+-&gt; NetworkId
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+</span><a href="P2P.Node.RestAPI.Client.html#peerGetClient"><span class="hs-identifier hs-var hs-var">peerGetClient</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496365"><span class="annot"><a href="Chainweb.Version.html#SChainwebVersion"><span class="hs-identifier hs-type">SChainwebVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496365"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+</span><a href="#local-6989586621681496362"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621681496362"><span class="annot"><span class="annottext">f :: NetworkId
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+</span><a href="#local-6989586621681496362"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496361"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SChainNetwork"><span class="hs-identifier hs-type">SChainNetwork</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-type">SChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496361"><span class="hs-identifier hs-type">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy
+  ('ChainwebEndpoint a
+   :&gt; ('NetworkEndpoint ('ChainNetworkT c)
+       :&gt; (&quot;peer&quot;
+           :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+               :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                   :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   ('ChainwebEndpoint a
+    :&gt; ('NetworkEndpoint ('ChainNetworkT c)
+        :&gt; (&quot;peer&quot;
+            :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+                :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                    :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+ -&gt; Maybe Limit
+ -&gt; Maybe (NextItem Int)
+ -&gt; ClientM (Page (NextItem Int) PeerInfo))
+-&gt; Proxy
+     ('ChainwebEndpoint a
+      :&gt; ('NetworkEndpoint ('ChainNetworkT c)
+          :&gt; (&quot;peer&quot;
+              :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+                  :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                      :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (PeerGetApi a a)
+forall (v :: ChainwebVersionT) (n :: NetworkIdT).
+Proxy (PeerGetApi v n)
+</span><a href="P2P.Node.RestAPI.html#peerGetApi"><span class="hs-identifier hs-var">peerGetApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496365"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496361"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><a href="#local-6989586621681496362"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496356"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SMempoolNetwork"><span class="hs-identifier hs-type">SMempoolNetwork</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-type">SChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496356"><span class="hs-identifier hs-type">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy
+  ('ChainwebEndpoint a
+   :&gt; ('NetworkEndpoint ('MempoolNetworkT c)
+       :&gt; (&quot;peer&quot;
+           :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+               :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                   :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   ('ChainwebEndpoint a
+    :&gt; ('NetworkEndpoint ('MempoolNetworkT c)
+        :&gt; (&quot;peer&quot;
+            :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+                :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                    :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+ -&gt; Maybe Limit
+ -&gt; Maybe (NextItem Int)
+ -&gt; ClientM (Page (NextItem Int) PeerInfo))
+-&gt; Proxy
+     ('ChainwebEndpoint a
+      :&gt; ('NetworkEndpoint ('MempoolNetworkT c)
+          :&gt; (&quot;peer&quot;
+              :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+                  :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                      :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (PeerGetApi a a)
+forall (v :: ChainwebVersionT) (n :: NetworkIdT).
+Proxy (PeerGetApi v n)
+</span><a href="P2P.Node.RestAPI.html#peerGetApi"><span class="hs-identifier hs-var">peerGetApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496365"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496356"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><a href="#local-6989586621681496362"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496354"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SCutNetwork"><span class="hs-identifier hs-type">SCutNetwork</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496354"><span class="hs-identifier hs-type">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy
+  ('ChainwebEndpoint a
+   :&gt; ('NetworkEndpoint 'CutNetworkT
+       :&gt; (&quot;peer&quot;
+           :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+               :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                   :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   ('ChainwebEndpoint a
+    :&gt; ('NetworkEndpoint 'CutNetworkT
+        :&gt; (&quot;peer&quot;
+            :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+                :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                    :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+ -&gt; Maybe Limit
+ -&gt; Maybe (NextItem Int)
+ -&gt; ClientM (Page (NextItem Int) PeerInfo))
+-&gt; Proxy
+     ('ChainwebEndpoint a
+      :&gt; ('NetworkEndpoint 'CutNetworkT
+          :&gt; (&quot;peer&quot;
+              :&gt; (QueryParam' '[Optional, Strict] &quot;limit&quot; Limit
+                  :&gt; (QueryParam' '[Optional, Strict] &quot;next&quot; (NextItem Int)
+                      :&gt; Verb 'GET 200 '[JSON] (Page (NextItem Int) PeerInfo))))))
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem Int)
+-&gt; ClientM (Page (NextItem Int) PeerInfo)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (PeerGetApi a a)
+forall (v :: ChainwebVersionT) (n :: NetworkIdT).
+Proxy (PeerGetApi v n)
+</span><a href="P2P.Node.RestAPI.html#peerGetApi"><span class="hs-identifier hs-var">peerGetApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496365"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496354"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- PUT Peer Client</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><a href="P2P.Node.RestAPI.Client.html#peerPutClient"><span class="hs-identifier hs-type">peerPutClient</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Peer.html#PeerInfo"><span class="hs-identifier hs-type">PeerInfo</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NoContent</span></span><span>
+</span><span id="line-59"></span><span id="peerPutClient"><span class="annot"><span class="annottext">peerPutClient :: ChainwebVersion -&gt; NetworkId -&gt; PeerInfo -&gt; ClientM NoContent
+</span><a href="P2P.Node.RestAPI.Client.html#peerPutClient"><span class="hs-identifier hs-var hs-var">peerPutClient</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496352"><span class="annot"><a href="Chainweb.Version.html#SChainwebVersion"><span class="hs-identifier hs-type">SChainwebVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496352"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; PeerInfo -&gt; ClientM NoContent
+</span><a href="#local-6989586621681496351"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-61"></span><span>    </span><span id="local-6989586621681496351"><span class="annot"><span class="annottext">f :: NetworkId -&gt; PeerInfo -&gt; ClientM NoContent
+</span><a href="#local-6989586621681496351"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496350"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SChainNetwork"><span class="hs-identifier hs-type">SChainNetwork</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-type">SChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496350"><span class="hs-identifier hs-type">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy
+  ('ChainwebEndpoint a
+   :&gt; ('NetworkEndpoint ('ChainNetworkT c)
+       :&gt; (&quot;peer&quot;
+           :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+               :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; PeerInfo -&gt; ClientM NoContent
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   ('ChainwebEndpoint a
+    :&gt; ('NetworkEndpoint ('ChainNetworkT c)
+        :&gt; (&quot;peer&quot;
+            :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+                :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+ -&gt; PeerInfo -&gt; ClientM NoContent)
+-&gt; Proxy
+     ('ChainwebEndpoint a
+      :&gt; ('NetworkEndpoint ('ChainNetworkT c)
+          :&gt; (&quot;peer&quot;
+              :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+                  :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; PeerInfo
+-&gt; ClientM NoContent
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (PeerPutApi a a)
+forall (v :: ChainwebVersionT) (n :: NetworkIdT).
+Proxy (PeerPutApi v n)
+</span><a href="P2P.Node.RestAPI.html#peerPutApi"><span class="hs-identifier hs-var">peerPutApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496352"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496350"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><a href="#local-6989586621681496351"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496348"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SMempoolNetwork"><span class="hs-identifier hs-type">SMempoolNetwork</span></a></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#SChainId"><span class="hs-identifier hs-type">SChainId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496348"><span class="hs-identifier hs-type">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy
+  ('ChainwebEndpoint a
+   :&gt; ('NetworkEndpoint ('MempoolNetworkT c)
+       :&gt; (&quot;peer&quot;
+           :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+               :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; PeerInfo -&gt; ClientM NoContent
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   ('ChainwebEndpoint a
+    :&gt; ('NetworkEndpoint ('MempoolNetworkT c)
+        :&gt; (&quot;peer&quot;
+            :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+                :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+ -&gt; PeerInfo -&gt; ClientM NoContent)
+-&gt; Proxy
+     ('ChainwebEndpoint a
+      :&gt; ('NetworkEndpoint ('MempoolNetworkT c)
+          :&gt; (&quot;peer&quot;
+              :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+                  :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; PeerInfo
+-&gt; ClientM NoContent
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (PeerPutApi a a)
+forall (v :: ChainwebVersionT) (n :: NetworkIdT).
+Proxy (PeerPutApi v n)
+</span><a href="P2P.Node.RestAPI.html#peerPutApi"><span class="hs-identifier hs-var">peerPutApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496352"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496348"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="annot"><a href="#local-6989586621681496351"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.Singletons.html#FromSing"><span class="hs-identifier hs-type">FromSing</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681496347"><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#SCutNetwork"><span class="hs-identifier hs-type">SCutNetwork</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.Singletons.html#Sing"><span class="hs-identifier hs-type">Sing</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681496347"><span class="hs-identifier hs-type">n</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy
+  ('ChainwebEndpoint a
+   :&gt; ('NetworkEndpoint 'CutNetworkT
+       :&gt; (&quot;peer&quot;
+           :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+               :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; PeerInfo -&gt; ClientM NoContent
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   ('ChainwebEndpoint a
+    :&gt; ('NetworkEndpoint 'CutNetworkT
+        :&gt; (&quot;peer&quot;
+            :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+                :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+ -&gt; PeerInfo -&gt; ClientM NoContent)
+-&gt; Proxy
+     ('ChainwebEndpoint a
+      :&gt; ('NetworkEndpoint 'CutNetworkT
+          :&gt; (&quot;peer&quot;
+              :&gt; (ReqBody' '[Required, Strict] '[JSON] PeerInfo
+                  :&gt; Verb 'PUT 204 '[JSON] NoContent))))
+-&gt; PeerInfo
+-&gt; ClientM NoContent
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (PeerPutApi a a)
+forall (v :: ChainwebVersionT) (n :: NetworkIdT).
+Proxy (PeerPutApi v n)
+</span><a href="P2P.Node.RestAPI.html#peerPutApi"><span class="hs-identifier hs-var">peerPutApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496352"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681496347"><span class="hs-identifier hs-type">n</span></a></span><span>
+</span><span id="line-64"></span></pre></body></html>

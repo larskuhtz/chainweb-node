@@ -1,0 +1,471 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Module: Chainweb.MerkleLogHash</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.MerkleLogHash</span><span>
+</span><span id="line-21"></span><span class="hs-special">(</span><span>
+</span><span id="line-22"></span><span class="annot"><span class="hs-comment">-- * MerkleLogHash</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier">MerkleLogHash</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span> </span><span class="hs-comment">-- FIXME import this only internally</span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHashBytesCount"><span class="hs-identifier">MerkleLogHashBytesCount</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-identifier">merkleLogHashBytesCount</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHash"><span class="hs-identifier">merkleLogHash</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-identifier">unsafeMerkleLogHash</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#encodeMerkleLogHash"><span class="hs-identifier">encodeMerkleLogHash</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#decodeMerkleLogHash"><span class="hs-identifier">decodeMerkleLogHash</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#nullHashBytes"><span class="hs-identifier">nullHashBytes</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#oneHashBytes"><span class="hs-identifier">oneHashBytes</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#randomMerkleLogHash"><span class="hs-identifier">randomMerkleLogHash</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadThrow</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">displayException</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">throwM</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MonadIO</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FromJSON</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">FromJSONKey</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ToJSON</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ToJSONKey</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Types</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">FromJSONKeyFunction</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toJSONKeyText</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bits</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteArray</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BA</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Get</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Put</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Random</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BR</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Hashable</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.MerkleLog</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Expected</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Actual</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Foreign.Storable</span></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Stack</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HasCallStack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.TypeNats</span></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO.Unsafe</span></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- internal imports</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html"><span class="hs-identifier">Chainweb.Crypto.MerkleLog</span></a></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.MerkleUniverse.html"><span class="hs-identifier">Chainweb.MerkleUniverse</span></a></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- MerkleLogHash</span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- | TODO: consider parameterizing this value on the ChainwebVersion.</span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- (e.g. for Test we may want to use just '()' or 'Int')</span><span>
+</span><span id="line-73"></span><span class="hs-comment">--</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">type</span><span> </span><span id="MerkleLogHashBytesCount"><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHashBytesCount"><span class="hs-identifier hs-var">MerkleLogHashBytesCount</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">32</span></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-identifier hs-type">merkleLogHashBytesCount</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-78"></span><span id="merkleLogHashBytesCount"><span class="annot"><span class="annottext">merkleLogHashBytesCount :: Natural
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-identifier hs-var hs-var">merkleLogHashBytesCount</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy MerkleLogHashBytesCount -&gt; Natural
+forall (n :: Nat) (proxy :: Nat -&gt; *).
+KnownNat n =&gt;
+proxy n -&gt; Natural
+</span><span class="hs-identifier hs-var">natVal</span></span><span> </span><span class="annot"><span class="annottext">(Proxy MerkleLogHashBytesCount -&gt; Natural)
+-&gt; Proxy MerkleLogHashBytesCount -&gt; Natural
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy MerkleLogHashBytesCount
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHashBytesCount"><span class="hs-identifier hs-type">MerkleLogHashBytesCount</span></a></span><span>
+</span><span id="line-79"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-pragma hs-type">merkleLogHashBytesCount</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span id="local-6989586621681469054"><span id="local-6989586621681469055"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="MerkleLogHash"><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-var">MerkleLogHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MerkleLogHash"><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-var">MerkleLogHash</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MerkleRoot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Crypto.MerkleLog.html#HashAlg"><span class="hs-identifier hs-type">HashAlg</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleUniverse.html#ChainwebHashTag"><span class="hs-identifier hs-type">ChainwebHashTag</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681469047"><span id="local-6989586621681469049"><span id="local-6989586621681469051"><span class="annot"><span class="annottext">Int -&gt; MerkleLogHash -&gt; ShowS
+[MerkleLogHash] -&gt; ShowS
+MerkleLogHash -&gt; String
+(Int -&gt; MerkleLogHash -&gt; ShowS)
+-&gt; (MerkleLogHash -&gt; String)
+-&gt; ([MerkleLogHash] -&gt; ShowS)
+-&gt; Show MerkleLogHash
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [MerkleLogHash] -&gt; ShowS
+$cshowList :: [MerkleLogHash] -&gt; ShowS
+show :: MerkleLogHash -&gt; String
+$cshow :: MerkleLogHash -&gt; String
+showsPrec :: Int -&gt; MerkleLogHash -&gt; ShowS
+$cshowsPrec :: Int -&gt; MerkleLogHash -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681469042"><span id="local-6989586621681469044"><span class="annot"><span class="annottext">MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+(MerkleLogHash -&gt; MerkleLogHash -&gt; Bool)
+-&gt; (MerkleLogHash -&gt; MerkleLogHash -&gt; Bool) -&gt; Eq MerkleLogHash
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+$c/= :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+== :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+$c== :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681469026"><span id="local-6989586621681469028"><span id="local-6989586621681469030"><span id="local-6989586621681469032"><span id="local-6989586621681469034"><span id="local-6989586621681469036"><span id="local-6989586621681469038"><span class="annot"><span class="annottext">Eq MerkleLogHash
+Eq MerkleLogHash =&gt;
+(MerkleLogHash -&gt; MerkleLogHash -&gt; Ordering)
+-&gt; (MerkleLogHash -&gt; MerkleLogHash -&gt; Bool)
+-&gt; (MerkleLogHash -&gt; MerkleLogHash -&gt; Bool)
+-&gt; (MerkleLogHash -&gt; MerkleLogHash -&gt; Bool)
+-&gt; (MerkleLogHash -&gt; MerkleLogHash -&gt; Bool)
+-&gt; (MerkleLogHash -&gt; MerkleLogHash -&gt; MerkleLogHash)
+-&gt; (MerkleLogHash -&gt; MerkleLogHash -&gt; MerkleLogHash)
+-&gt; Ord MerkleLogHash
+MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+MerkleLogHash -&gt; MerkleLogHash -&gt; Ordering
+MerkleLogHash -&gt; MerkleLogHash -&gt; MerkleLogHash
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: MerkleLogHash -&gt; MerkleLogHash -&gt; MerkleLogHash
+$cmin :: MerkleLogHash -&gt; MerkleLogHash -&gt; MerkleLogHash
+max :: MerkleLogHash -&gt; MerkleLogHash -&gt; MerkleLogHash
+$cmax :: MerkleLogHash -&gt; MerkleLogHash -&gt; MerkleLogHash
+&gt;= :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+$c&gt;= :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+&gt; :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+$c&gt; :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+&lt;= :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+$c&lt;= :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+&lt; :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+$c&lt; :: MerkleLogHash -&gt; MerkleLogHash -&gt; Bool
+compare :: MerkleLogHash -&gt; MerkleLogHash -&gt; Ordering
+$ccompare :: MerkleLogHash -&gt; MerkleLogHash -&gt; Ordering
+$cp1Ord :: Eq MerkleLogHash
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. MerkleLogHash -&gt; Rep MerkleLogHash x)
+-&gt; (forall x. Rep MerkleLogHash x -&gt; MerkleLogHash)
+-&gt; Generic MerkleLogHash
+forall x. Rep MerkleLogHash x -&gt; MerkleLogHash
+forall x. MerkleLogHash -&gt; Rep MerkleLogHash x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep MerkleLogHash x -&gt; MerkleLogHash
+$cfrom :: forall x. MerkleLogHash -&gt; Rep MerkleLogHash x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681469016"><span id="local-6989586621681469018"><span id="local-6989586621681469020"><span class="annot"><span class="annottext">MerkleLogHash -&gt; Int
+MerkleLogHash -&gt; Ptr p -&gt; IO ()
+MerkleLogHash -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+(MerkleLogHash -&gt; Int)
+-&gt; (forall p a. MerkleLogHash -&gt; (Ptr p -&gt; IO a) -&gt; IO a)
+-&gt; (forall p. MerkleLogHash -&gt; Ptr p -&gt; IO ())
+-&gt; ByteArrayAccess MerkleLogHash
+forall p. MerkleLogHash -&gt; Ptr p -&gt; IO ()
+forall ba.
+(ba -&gt; Int)
+-&gt; (forall p a. ba -&gt; (Ptr p -&gt; IO a) -&gt; IO a)
+-&gt; (forall p. ba -&gt; Ptr p -&gt; IO ())
+-&gt; ByteArrayAccess ba
+forall p a. MerkleLogHash -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+copyByteArrayToPtr :: MerkleLogHash -&gt; Ptr p -&gt; IO ()
+$ccopyByteArrayToPtr :: forall p. MerkleLogHash -&gt; Ptr p -&gt; IO ()
+withByteArray :: MerkleLogHash -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+$cwithByteArray :: forall p a. MerkleLogHash -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+length :: MerkleLogHash -&gt; Int
+$clength :: MerkleLogHash -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">BA.ByteArrayAccess</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681469013"><span class="annot"><span class="annottext">MerkleLogHash -&gt; ()
+(MerkleLogHash -&gt; ()) -&gt; NFData MerkleLogHash
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: MerkleLogHash -&gt; ()
+$crnf :: MerkleLogHash -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="hs-comment">-- | Smart constructor</span><span>
+</span><span id="line-87"></span><span class="hs-comment">--</span><span>
+</span><span id="line-88"></span><span id="local-6989586621681469011"><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHash"><span class="hs-identifier hs-type">merkleLogHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681469011"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681469011"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span>
+</span><span id="line-89"></span><span id="merkleLogHash"><span class="annot"><span class="annottext">merkleLogHash :: ByteString -&gt; m MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHash"><span class="hs-identifier hs-var hs-var">merkleLogHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(MerkleRoot SHA512t_256 -&gt; MerkleLogHash)
+-&gt; m (MerkleRoot SHA512t_256) -&gt; m MerkleLogHash
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">MerkleRoot SHA512t_256 -&gt; MerkleLogHash
+MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-var">MerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(m (MerkleRoot SHA512t_256) -&gt; m MerkleLogHash)
+-&gt; (ByteString -&gt; m (MerkleRoot SHA512t_256))
+-&gt; ByteString
+-&gt; m MerkleLogHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; m (MerkleRoot SHA512t_256)
+forall (m :: * -&gt; *) a b.
+(MonadThrow m, HashAlgorithm a, ByteArrayAccess b) =&gt;
+b -&gt; m (MerkleRoot a)
+</span><span class="hs-identifier hs-var">decodeMerkleRoot</span></span><span>
+</span><span id="line-90"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHash"><span class="hs-pragma hs-type">merkleLogHash</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-identifier hs-type">unsafeMerkleLogHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasCallStack</span></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">B.ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span><span>
+</span><span id="line-93"></span><span id="unsafeMerkleLogHash"><span class="annot"><span class="annottext">unsafeMerkleLogHash :: ByteString -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-identifier hs-var hs-var">unsafeMerkleLogHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleRoot SHA512t_256 -&gt; MerkleLogHash
+MerkleRoot (HashAlg ChainwebHashTag) -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-var">MerkleLogHash</span></a></span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><span class="annottext">(MerkleRoot SHA512t_256 -&gt; MerkleLogHash)
+-&gt; (ByteString -&gt; MerkleRoot SHA512t_256)
+-&gt; ByteString
+-&gt; MerkleLogHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(SomeException -&gt; MerkleRoot SHA512t_256)
+-&gt; (MerkleRoot SHA512t_256 -&gt; MerkleRoot SHA512t_256)
+-&gt; Either SomeException (MerkleRoot SHA512t_256)
+-&gt; MerkleRoot SHA512t_256
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; MerkleRoot SHA512t_256
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; MerkleRoot SHA512t_256)
+-&gt; (SomeException -&gt; String)
+-&gt; SomeException
+-&gt; MerkleRoot SHA512t_256
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; String
+forall e. Exception e =&gt; e -&gt; String
+</span><span class="hs-identifier hs-var">displayException</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MerkleRoot SHA512t_256 -&gt; MerkleRoot SHA512t_256
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">(Either SomeException (MerkleRoot SHA512t_256)
+ -&gt; MerkleRoot SHA512t_256)
+-&gt; (ByteString -&gt; Either SomeException (MerkleRoot SHA512t_256))
+-&gt; ByteString
+-&gt; MerkleRoot SHA512t_256
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either SomeException (MerkleRoot SHA512t_256)
+forall (m :: * -&gt; *) a b.
+(MonadThrow m, HashAlgorithm a, ByteArrayAccess b) =&gt;
+b -&gt; m (MerkleRoot a)
+</span><span class="hs-identifier hs-var">decodeMerkleRoot</span></span><span>
+</span><span id="line-96"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-pragma hs-type">unsafeMerkleLogHash</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span id="local-6989586621681469113"><span class="annot"><a href="Chainweb.MerkleLogHash.html#encodeMerkleLogHash"><span class="hs-identifier hs-type">encodeMerkleLogHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPut</span></span><span> </span><span class="annot"><a href="#local-6989586621681469113"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681469113"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-99"></span><span id="encodeMerkleLogHash"><span class="annot"><span class="annottext">encodeMerkleLogHash :: MerkleLogHash -&gt; m ()
+</span><a href="Chainweb.MerkleLogHash.html#encodeMerkleLogHash"><span class="hs-identifier hs-var hs-var">encodeMerkleLogHash</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span><span> </span><span id="local-6989586621681469005"><span class="annot"><span class="annottext">bytes :: MerkleRoot (HashAlg ChainwebHashTag)
+</span><a href="#local-6989586621681469005"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; ByteString -&gt; m ()
+</span><span class="hs-identifier hs-var">putByteString</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; m ()) -&gt; ByteString -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MerkleRoot SHA512t_256 -&gt; ByteString
+forall b a. ByteArray b =&gt; MerkleRoot a -&gt; b
+</span><span class="hs-identifier hs-var">encodeMerkleRoot</span></span><span> </span><span class="annot"><span class="annottext">MerkleRoot SHA512t_256
+MerkleRoot (HashAlg ChainwebHashTag)
+</span><a href="#local-6989586621681469005"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-100"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#encodeMerkleLogHash"><span class="hs-pragma hs-type">encodeMerkleLogHash</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span id="local-6989586621681469100"><span class="annot"><a href="Chainweb.MerkleLogHash.html#decodeMerkleLogHash"><span class="hs-identifier hs-type">decodeMerkleLogHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadGet</span></span><span> </span><span class="annot"><a href="#local-6989586621681469100"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681469100"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span>
+</span><span id="line-103"></span><span id="decodeMerkleLogHash"><span class="annot"><span class="annottext">decodeMerkleLogHash :: m MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#decodeMerkleLogHash"><span class="hs-identifier hs-var hs-var">decodeMerkleLogHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ByteString -&gt; MerkleLogHash
+ByteString -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-identifier hs-var">unsafeMerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; MerkleLogHash) -&gt; m ByteString -&gt; m MerkleLogHash
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; m ByteString
+forall (m :: * -&gt; *). MonadGet m =&gt; Int -&gt; m ByteString
+</span><span class="hs-identifier hs-var">getBytes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-identifier hs-var">merkleLogHashBytesCount</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#decodeMerkleLogHash"><span class="hs-pragma hs-type">decodeMerkleLogHash</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681468997"><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-107"></span><span>    </span><span id="local-6989586621681468995"><span class="annot"><span class="annottext">hashWithSalt :: Int -&gt; MerkleLogHash -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">hashWithSalt</span></span></span><span> </span><span id="local-6989586621681468993"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621681468993"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Bits a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">xor</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681468993"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-108"></span><span>        </span><span class="annot"><span class="annottext">(Int -&gt; Int) -&gt; (MerkleLogHash -&gt; Int) -&gt; MerkleLogHash -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int
+forall a. IO a -&gt; a
+</span><span class="hs-identifier hs-var">unsafePerformIO</span></span><span> </span><span class="annot"><span class="annottext">(IO Int -&gt; Int)
+-&gt; (MerkleLogHash -&gt; IO Int) -&gt; MerkleLogHash -&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(MerkleLogHash -&gt; (Ptr Int -&gt; IO Int) -&gt; IO Int)
+-&gt; (Ptr Int -&gt; IO Int) -&gt; MerkleLogHash -&gt; IO Int
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; (Ptr Int -&gt; IO Int) -&gt; IO Int
+forall ba p a. ByteArrayAccess ba =&gt; ba -&gt; (Ptr p -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">BA.withByteArray</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Storable Int =&gt; Ptr Int -&gt; IO Int
+forall a. Storable a =&gt; Ptr a -&gt; IO a
+</span><span class="hs-identifier hs-var">peek</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-comment">-- BlockHashes are already cryptographically strong hashes</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-comment">-- that include the chain id.</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">hashWithSalt</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Chainweb.MerkleLogHash.html#nullHashBytes"><span class="hs-identifier hs-type">nullHashBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span><span>
+</span><span id="line-114"></span><span id="nullHashBytes"><span class="annot"><span class="annottext">nullHashBytes :: MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#nullHashBytes"><span class="hs-identifier hs-var hs-var">nullHashBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ByteString -&gt; MerkleLogHash
+ByteString -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-identifier hs-var">unsafeMerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; MerkleLogHash) -&gt; ByteString -&gt; MerkleLogHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word8 -&gt; ByteString
+</span><span class="hs-identifier hs-var">B.replicate</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-identifier hs-var">merkleLogHashBytesCount</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-number">0x00</span></span><span>
+</span><span id="line-115"></span><span class="hs-pragma">{-# NOINLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#nullHashBytes"><span class="hs-pragma hs-type">nullHashBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="annot"><a href="Chainweb.MerkleLogHash.html#oneHashBytes"><span class="hs-identifier hs-type">oneHashBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span><span>
+</span><span id="line-118"></span><span id="oneHashBytes"><span class="annot"><span class="annottext">oneHashBytes :: MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#oneHashBytes"><span class="hs-identifier hs-var hs-var">oneHashBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ByteString -&gt; MerkleLogHash
+ByteString -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-identifier hs-var">unsafeMerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; MerkleLogHash) -&gt; ByteString -&gt; MerkleLogHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word8 -&gt; ByteString
+</span><span class="hs-identifier hs-var">B.replicate</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-identifier hs-var">merkleLogHashBytesCount</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-number">0xff</span></span><span>
+</span><span id="line-119"></span><span class="hs-pragma">{-# NOINLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#oneHashBytes"><span class="hs-pragma hs-type">oneHashBytes</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- | This must be used only for testing. The result hash is uniformily</span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- distributed, but not cryptographically safe.</span><span>
+</span><span id="line-123"></span><span class="hs-comment">--</span><span>
+</span><span id="line-124"></span><span id="local-6989586621681468986"><span class="annot"><a href="Chainweb.MerkleLogHash.html#randomMerkleLogHash"><span class="hs-identifier hs-type">randomMerkleLogHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621681468986"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681468986"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span>
+</span><span id="line-125"></span><span id="randomMerkleLogHash"><span class="annot"><span class="annottext">randomMerkleLogHash :: m MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#randomMerkleLogHash"><span class="hs-identifier hs-var hs-var">randomMerkleLogHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ByteString -&gt; MerkleLogHash
+ByteString -&gt; MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#unsafeMerkleLogHash"><span class="hs-identifier hs-var">unsafeMerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; MerkleLogHash) -&gt; m ByteString -&gt; m MerkleLogHash
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; m ByteString
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; IO ByteString
+</span><span class="hs-identifier hs-var">BR.random</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashBytesCount"><span class="hs-identifier hs-var">merkleLogHashBytesCount</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHashToText"><span class="hs-identifier hs-type">merkleLogHashToText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-128"></span><span id="merkleLogHashToText"><span class="annot"><span class="annottext">merkleLogHashToText :: MerkleLogHash -&gt; Text
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashToText"><span class="hs-identifier hs-var hs-var">merkleLogHashToText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><a href="Chainweb.Utils.html#encodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">encodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text)
+-&gt; (MerkleLogHash -&gt; ByteString) -&gt; MerkleLogHash -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><span class="hs-identifier hs-var">runPutS</span></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString)
+-&gt; (MerkleLogHash -&gt; Put) -&gt; MerkleLogHash -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; MerkleLogHash -&gt; m ()
+</span><a href="Chainweb.MerkleLogHash.html#encodeMerkleLogHash"><span class="hs-identifier hs-var">encodeMerkleLogHash</span></a></span><span>
+</span><span id="line-129"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHashToText"><span class="hs-pragma hs-type">merkleLogHashToText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span id="local-6989586621681468980"><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHashFromText"><span class="hs-identifier hs-type">merkleLogHashFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681468980"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681468980"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span>
+</span><span id="line-132"></span><span id="merkleLogHashFromText"><span class="annot"><span class="annottext">merkleLogHashFromText :: Text -&gt; m MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashFromText"><span class="hs-identifier hs-var hs-var">merkleLogHashFromText</span></a></span></span><span> </span><span id="local-6989586621681468978"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681468978"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(SomeException -&gt; m MerkleLogHash)
+-&gt; (MerkleLogHash -&gt; m MerkleLogHash)
+-&gt; Either SomeException MerkleLogHash
+-&gt; m MerkleLogHash
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EncodingException -&gt; m MerkleLogHash
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m MerkleLogHash)
+-&gt; (SomeException -&gt; EncodingException)
+-&gt; SomeException
+-&gt; m MerkleLogHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#TextFormatException"><span class="hs-identifier hs-var">TextFormatException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; EncodingException)
+-&gt; (SomeException -&gt; Text) -&gt; SomeException -&gt; EncodingException
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; m MerkleLogHash
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-133"></span><span>        </span><span class="annot"><span class="annottext">(Either SomeException MerkleLogHash -&gt; m MerkleLogHash)
+-&gt; Either SomeException MerkleLogHash -&gt; m MerkleLogHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Get MerkleLogHash
+-&gt; ByteString -&gt; Either SomeException MerkleLogHash
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Get a -&gt; ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#runGet"><span class="hs-identifier hs-var">runGet</span></a></span><span> </span><span class="annot"><span class="annottext">Get MerkleLogHash
+forall (m :: * -&gt; *). MonadGet m =&gt; m MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#decodeMerkleLogHash"><span class="hs-identifier hs-var">decodeMerkleLogHash</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either SomeException MerkleLogHash)
+-&gt; Either SomeException ByteString
+-&gt; Either SomeException MerkleLogHash
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either SomeException ByteString
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ByteString
+</span><a href="Chainweb.Utils.html#decodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">decodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681468978"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-134"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#merkleLogHashFromText"><span class="hs-pragma hs-type">merkleLogHashFromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-137"></span><span>    </span><span id="local-6989586621681468969"><span class="annot"><span class="annottext">toText :: MerkleLogHash -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var hs-var hs-var hs-var">toText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; Text
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashToText"><span class="hs-identifier hs-var">merkleLogHashToText</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#toText"><span class="hs-pragma hs-type">toText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-139"></span><span>    </span><span id="local-6989586621681468967"><span class="annot"><span class="annottext">fromText :: Text -&gt; m MerkleLogHash
+</span><a href="Chainweb.Utils.html#fromText"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m MerkleLogHash
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m MerkleLogHash
+</span><a href="Chainweb.MerkleLogHash.html#merkleLogHashFromText"><span class="hs-identifier hs-var">merkleLogHashFromText</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#fromText"><span class="hs-pragma hs-type">fromText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681468959"><span id="local-6989586621681468961"><span id="local-6989586621681468963"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-143"></span><span>    </span><span id="local-6989586621681468957"><span class="annot"><span class="annottext">toJSON :: MerkleLogHash -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Value)
+-&gt; (MerkleLogHash -&gt; Text) -&gt; MerkleLogHash -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSON</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681468953"><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621681468951"><span class="annot"><span class="annottext">toJSONKey :: ToJSONKeyFunction MerkleLogHash
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSONKey</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(MerkleLogHash -&gt; Text) -&gt; ToJSONKeyFunction MerkleLogHash
+forall a. (a -&gt; Text) -&gt; ToJSONKeyFunction a
+</span><span class="hs-identifier hs-var">toJSONKeyText</span></span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSONKey</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681468947"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-151"></span><span>    </span><span id="local-6989586621681468945"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser MerkleLogHash
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Value -&gt; Parser MerkleLogHash
+forall a. HasTextRepresentation a =&gt; String -&gt; Value -&gt; Parser a
+</span><a href="Chainweb.Utils.html#parseJsonFromText"><span class="hs-identifier hs-var">parseJsonFromText</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;MerkleLogHash&quot;</span></span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">parseJSON</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681468940"><span class="annot"><span class="hs-identifier hs-type">FromJSONKey</span></span><span> </span><span class="annot"><a href="Chainweb.MerkleLogHash.html#MerkleLogHash"><span class="hs-identifier hs-type">MerkleLogHash</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-155"></span><span>    </span><span id="local-6989586621681468938"><span class="annot"><span class="annottext">fromJSONKey :: FromJSONKeyFunction MerkleLogHash
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromJSONKey</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser MerkleLogHash) -&gt; FromJSONKeyFunction MerkleLogHash
+forall a. (Text -&gt; Parser a) -&gt; FromJSONKeyFunction a
+</span><span class="hs-identifier hs-var">FromJSONKeyTextParser</span></span><span>
+</span><span id="line-156"></span><span>        </span><span class="annot"><span class="annottext">((Text -&gt; Parser MerkleLogHash)
+ -&gt; FromJSONKeyFunction MerkleLogHash)
+-&gt; (Text -&gt; Parser MerkleLogHash)
+-&gt; FromJSONKeyFunction MerkleLogHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Parser MerkleLogHash)
+-&gt; (MerkleLogHash -&gt; Parser MerkleLogHash)
+-&gt; Either String MerkleLogHash
+-&gt; Parser MerkleLogHash
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Parser MerkleLogHash
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="annottext">MerkleLogHash -&gt; Parser MerkleLogHash
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either String MerkleLogHash -&gt; Parser MerkleLogHash)
+-&gt; (Text -&gt; Either String MerkleLogHash)
+-&gt; Text
+-&gt; Parser MerkleLogHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either String MerkleLogHash
+forall a. HasTextRepresentation a =&gt; Text -&gt; Either String a
+</span><a href="Chainweb.Utils.html#eitherFromText"><span class="hs-identifier hs-var">eitherFromText</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">fromJSONKey</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-158"></span></pre></body></html>

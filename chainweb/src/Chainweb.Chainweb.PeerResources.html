@@ -1,0 +1,678 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Module: Chainweb.Chainweb.PeerResources</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Chainweb.PeerResources</span><span>
+</span><span id="line-18"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier">PeerResources</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerResConfig"><span class="hs-identifier">peerResConfig</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerResSocket"><span class="hs-identifier">peerResSocket</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerResPeer"><span class="hs-identifier">peerResPeer</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerResDb"><span class="hs-identifier">peerResDb</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerResManager"><span class="hs-identifier">peerResManager</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerServerSettings"><span class="hs-identifier">peerServerSettings</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerLogger"><span class="hs-identifier">peerLogger</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- * Allocate Peer Resources</span></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#withPeerResources"><span class="hs-identifier">withPeerResources</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Internal Utils</span></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#withSocket"><span class="hs-identifier">withSocket</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.html#withPeerDb"><span class="hs-identifier">withPeerDb</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#withConnectionManger"><span class="hs-identifier">withConnectionManger</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Configuration.Utils</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Error</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Lens'</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;.&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;.&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B8</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashSet</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HS</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IxSet.Typed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getEQ</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getOne</span></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Client</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HTTP</span></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Socket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Socket</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">close</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai.Handler.Warp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Settings</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">defaultSettings</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">setHost</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">setPort</span></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">log</span></span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Counter.html"><span class="hs-identifier">Chainweb.Counter</span></a></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html"><span class="hs-identifier">Chainweb.HostAddress</span></a></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Logger.html"><span class="hs-identifier">Chainweb.Logger</span></a></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html"><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span></a></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html"><span class="hs-identifier">Chainweb.RestAPI.Utils</span></a></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Network.X509.SelfSigned.html"><span class="hs-identifier">Network.X509.SelfSigned</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.html"><span class="hs-identifier">P2P.Node</span></a></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html"><span class="hs-identifier">P2P.Node.Configuration</span></a></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.PeerDB.html"><span class="hs-identifier">P2P.Node.PeerDB</span></a></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Peer.html"><span class="hs-identifier">P2P.Peer</span></a></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- Allocate Peer Resources</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">data</span><span> </span><span id="PeerResources"><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-var">PeerResources</span></a></span></span><span> </span><span id="local-6989586621681500006"><span class="annot"><a href="#local-6989586621681500006"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PeerResources"><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-var">PeerResources</span></a></span></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_peerResConfig"><span class="annot"><span class="annottext">PeerResources logger -&gt; P2pConfiguration
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResConfig"><span class="hs-identifier hs-var hs-var">_peerResConfig</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span>
+</span><span id="line-77"></span><span>        </span><span class="hs-comment">-- ^ configuration of this peer</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_peerResPeer"><span class="annot"><span class="annottext">PeerResources logger -&gt; Peer
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResPeer"><span class="hs-identifier hs-var hs-var">_peerResPeer</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.Peer.html#Peer"><span class="hs-identifier hs-type">Peer</span></a></span><span>
+</span><span id="line-79"></span><span>        </span><span class="hs-comment">-- ^ local peer of this chainweb node</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_peerResSocket"><span class="annot"><span class="annottext">PeerResources logger -&gt; Socket
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResSocket"><span class="hs-identifier hs-var hs-var">_peerResSocket</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span>
+</span><span id="line-81"></span><span>        </span><span class="hs-comment">-- ^ a socket that is used by the server of this peer</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_peerResDb"><span class="annot"><span class="annottext">PeerResources logger -&gt; PeerDb
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResDb"><span class="hs-identifier hs-var hs-var">_peerResDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.Node.PeerDB.html#PeerDb"><span class="hs-identifier hs-type">PeerDb</span></a></span><span>
+</span><span id="line-83"></span><span>        </span><span class="hs-comment">-- ^ the peer db</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_peerResManager"><span class="annot"><span class="annottext">PeerResources logger -&gt; Manager
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResManager"><span class="hs-identifier hs-var hs-var">_peerResManager</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-85"></span><span>        </span><span class="hs-comment">-- ^ the connection manager</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_peerLogger"><span class="annot"><span class="annottext">PeerResources logger -&gt; logger
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerLogger"><span class="hs-identifier hs-var hs-var">_peerLogger</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621681500006"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span id="local-6989586621681499864"><span id="peerLogger"><span id="peerResManager"><span id="peerResDb"><span id="peerResPeer"><span id="peerResSocket"><span id="peerResConfig"><span id="local-6989586621681500006"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">PeerResources</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- | Allocate Peer resources. All P2P networks of a chainweb node share a single</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- Peer and the associated underlying network resources.</span><span>
+</span><span id="line-93"></span><span class="hs-comment">--</span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- Additionally, the continuation is provided with a logger the records the peer</span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- info in each log message.</span><span>
+</span><span id="line-96"></span><span class="hs-comment">--</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- The following resources are allocated:</span><span>
+</span><span id="line-98"></span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- * Resolve port and allocating a socket for the port,</span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- * Generate a new certifcate, if none is provided in the configuration, and</span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- * adjust the P2PConfig with the new values.</span><span>
+</span><span id="line-102"></span><span class="hs-comment">--</span><span>
+</span><span id="line-103"></span><span id="local-6989586621681499862"><span id="local-6989586621681499863"><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#withPeerResources"><span class="hs-identifier hs-type">withPeerResources</span></a></span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681499863"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681499863"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681499863"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-type">PeerResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681499863"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681499862"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681499862"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-110"></span><span id="withPeerResources"><span class="annot"><span class="annottext">withPeerResources :: ChainwebVersion
+-&gt; P2pConfiguration
+-&gt; logger
+-&gt; (logger -&gt; PeerResources logger -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Chainweb.PeerResources.html#withPeerResources"><span class="hs-identifier hs-var hs-var">withPeerResources</span></a></span></span><span> </span><span id="local-6989586621681499861"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681499861"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681499860"><span class="annot"><span class="annottext">conf :: P2pConfiguration
+</span><a href="#local-6989586621681499860"><span class="hs-identifier hs-var">conf</span></a></span></span><span> </span><span id="local-6989586621681499859"><span class="annot"><span class="annottext">logger :: logger
+</span><a href="#local-6989586621681499859"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681499858"><span class="annot"><span class="annottext">inner :: logger -&gt; PeerResources logger -&gt; IO a
+</span><a href="#local-6989586621681499858"><span class="hs-identifier hs-var">inner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; ((P2pConfiguration, Socket) -&gt; IO a) -&gt; IO a
+forall a.
+P2pConfiguration -&gt; ((P2pConfiguration, Socket) -&gt; IO a) -&gt; IO a
+</span><a href="Chainweb.Chainweb.PeerResources.html#withSocket"><span class="hs-identifier hs-var">withSocket</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499860"><span class="hs-identifier hs-var">conf</span></a></span><span> </span><span class="annot"><span class="annottext">(((P2pConfiguration, Socket) -&gt; IO a) -&gt; IO a)
+-&gt; ((P2pConfiguration, Socket) -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681499857"><span class="annot"><span class="annottext">conf' :: P2pConfiguration
+</span><a href="#local-6989586621681499857"><span class="hs-identifier hs-var">conf'</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681499856"><span class="annot"><span class="annottext">sock :: Socket
+</span><a href="#local-6989586621681499856"><span class="hs-identifier hs-var">sock</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-111"></span><span>    </span><span id="local-6989586621681499855"><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681499855"><span class="hs-identifier hs-var">peer</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PeerConfig -&gt; IO Peer
+</span><a href="P2P.Peer.html#unsafeCreatePeer"><span class="hs-identifier hs-var">unsafeCreatePeer</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerConfig -&gt; IO Peer) -&gt; PeerConfig -&gt; IO Peer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; PeerConfig
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeer"><span class="hs-identifier hs-var hs-var">_p2pConfigPeer</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499857"><span class="hs-identifier hs-var">conf'</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681499852"><span class="annot"><span class="annottext">pinf :: PeerInfo
+</span><a href="#local-6989586621681499852"><span class="hs-identifier hs-var hs-var">pinf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Peer -&gt; PeerInfo
+</span><a href="P2P.Peer.html#_peerInfo"><span class="hs-identifier hs-var hs-var">_peerInfo</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681499855"><span class="hs-identifier hs-var">peer</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681499850"><span class="annot"><span class="annottext">logger' :: logger
+</span><a href="#local-6989586621681499850"><span class="hs-identifier hs-var hs-var">logger'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;host&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Hostname -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span> </span><span class="annot"><span class="annottext">(Hostname -&gt; Text) -&gt; Hostname -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Getting Hostname PeerInfo Hostname -&gt; PeerInfo -&gt; Hostname
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting Hostname PeerInfo Hostname
+Lens' PeerInfo Hostname
+</span><a href="P2P.Peer.html#peerInfoHostname"><span class="hs-identifier hs-var">peerInfoHostname</span></a></span><span> </span><span class="annot"><span class="annottext">PeerInfo
+</span><a href="#local-6989586621681499852"><span class="hs-identifier hs-var">pinf</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(logger -&gt; logger) -&gt; logger -&gt; logger
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-114"></span><span>                  </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;port&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Port -&gt; Text
+forall a. HasTextRepresentation a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var">toText</span></a></span><span> </span><span class="annot"><span class="annottext">(Port -&gt; Text) -&gt; Port -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Getting Port PeerInfo Port -&gt; PeerInfo -&gt; Port
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting Port PeerInfo Port
+Lens' PeerInfo Port
+</span><a href="P2P.Peer.html#peerInfoPort"><span class="hs-identifier hs-var">peerInfoPort</span></a></span><span> </span><span class="annot"><span class="annottext">PeerInfo
+</span><a href="#local-6989586621681499852"><span class="hs-identifier hs-var">pinf</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(logger -&gt; logger) -&gt; logger -&gt; logger
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-115"></span><span>                  </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;peerId&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; (PeerId -&gt; Text) -&gt; Maybe PeerId -&gt; Text
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="hs-string">&quot;&quot;</span></span><span> </span><span class="annot"><span class="annottext">PeerId -&gt; Text
+</span><a href="P2P.Peer.html#shortPeerId"><span class="hs-identifier hs-var">shortPeerId</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe PeerId -&gt; Text) -&gt; Maybe PeerId -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PeerInfo -&gt; Maybe PeerId
+</span><a href="P2P.Peer.html#_peerId"><span class="hs-identifier hs-var hs-var">_peerId</span></a></span><span> </span><span class="annot"><span class="annottext">PeerInfo
+</span><a href="#local-6989586621681499852"><span class="hs-identifier hs-var">pinf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>                  </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499859"><span class="hs-identifier hs-var">logger</span></a></span><span>
+</span><span id="line-117"></span><span>        </span><span id="local-6989586621681499841"><span class="annot"><span class="annottext">mgrLogger :: logger
+</span><a href="#local-6989586621681499841"><span class="hs-identifier hs-var hs-var">mgrLogger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; Text -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier hs-var">setComponent</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;connection-manager&quot;</span></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499850"><span class="hs-identifier hs-var">logger'</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; P2pConfiguration -&gt; (PeerDb -&gt; IO a) -&gt; IO a
+forall a.
+ChainwebVersion -&gt; P2pConfiguration -&gt; (PeerDb -&gt; IO a) -&gt; IO a
+</span><a href="Chainweb.Chainweb.PeerResources.html#withPeerDb_"><span class="hs-identifier hs-var">withPeerDb_</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681499861"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499857"><span class="hs-identifier hs-var">conf'</span></a></span><span> </span><span class="annot"><span class="annottext">((PeerDb -&gt; IO a) -&gt; IO a) -&gt; (PeerDb -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681499838"><span class="annot"><span class="annottext">peerDb :: PeerDb
+</span><a href="#local-6989586621681499838"><span class="hs-identifier hs-var">peerDb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-119"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681499837"><span class="annot"><span class="annottext">certChain :: X509CertChainPem
+</span><a href="#local-6989586621681499837"><span class="hs-identifier hs-var hs-var">certChain</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Peer -&gt; X509CertChainPem
+</span><a href="P2P.Peer.html#_peerCertificateChain"><span class="hs-identifier hs-var hs-var">_peerCertificateChain</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681499855"><span class="hs-identifier hs-var">peer</span></a></span><span>
+</span><span id="line-120"></span><span>            </span><span id="local-6989586621681499835"><span class="annot"><span class="annottext">key :: X509KeyPem
+</span><a href="#local-6989586621681499835"><span class="hs-identifier hs-var hs-var">key</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Peer -&gt; X509KeyPem
+</span><a href="P2P.Peer.html#_peerKey"><span class="hs-identifier hs-var hs-var">_peerKey</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681499855"><span class="hs-identifier hs-var">peer</span></a></span><span>
+</span><span id="line-121"></span><span>        </span><span class="annot"><span class="annottext">logger
+-&gt; X509CertChainPem
+-&gt; X509KeyPem
+-&gt; PeerDb
+-&gt; (Manager -&gt; IO a)
+-&gt; IO a
+forall logger a.
+Logger logger =&gt;
+logger
+-&gt; X509CertChainPem
+-&gt; X509KeyPem
+-&gt; PeerDb
+-&gt; (Manager -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Chainweb.PeerResources.html#withConnectionManger"><span class="hs-identifier hs-var">withConnectionManger</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499841"><span class="hs-identifier hs-var">mgrLogger</span></a></span><span> </span><span class="annot"><span class="annottext">X509CertChainPem
+</span><a href="#local-6989586621681499837"><span class="hs-identifier hs-var">certChain</span></a></span><span> </span><span class="annot"><span class="annottext">X509KeyPem
+</span><a href="#local-6989586621681499835"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="annot"><span class="annottext">PeerDb
+</span><a href="#local-6989586621681499838"><span class="hs-identifier hs-var">peerDb</span></a></span><span> </span><span class="annot"><span class="annottext">((Manager -&gt; IO a) -&gt; IO a) -&gt; (Manager -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681499833"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681499833"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-122"></span><span>            </span><span class="annot"><span class="annottext">logger -&gt; PeerResources logger -&gt; IO a
+</span><a href="#local-6989586621681499858"><span class="hs-identifier hs-var">inner</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499850"><span class="hs-identifier hs-var">logger'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2pConfiguration
+-&gt; Peer
+-&gt; Socket
+-&gt; PeerDb
+-&gt; Manager
+-&gt; logger
+-&gt; PeerResources logger
+forall logger.
+P2pConfiguration
+-&gt; Peer
+-&gt; Socket
+-&gt; PeerDb
+-&gt; Manager
+-&gt; logger
+-&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-var">PeerResources</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499857"><span class="hs-identifier hs-var">conf'</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681499855"><span class="hs-identifier hs-var">peer</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681499856"><span class="hs-identifier hs-var">sock</span></a></span><span> </span><span class="annot"><span class="annottext">PeerDb
+</span><a href="#local-6989586621681499838"><span class="hs-identifier hs-var">peerDb</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681499833"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499850"><span class="hs-identifier hs-var">logger'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#peerServerSettings"><span class="hs-identifier hs-type">peerServerSettings</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.Peer.html#Peer"><span class="hs-identifier hs-type">Peer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Settings</span></span><span>
+</span><span id="line-125"></span><span id="peerServerSettings"><span class="annot"><span class="annottext">peerServerSettings :: Peer -&gt; Settings
+</span><a href="Chainweb.Chainweb.PeerResources.html#peerServerSettings"><span class="hs-identifier hs-var hs-var">peerServerSettings</span></a></span></span><span> </span><span id="local-6989586621681499832"><span class="annot"><span class="annottext">peer :: Peer
+</span><a href="#local-6989586621681499832"><span class="hs-identifier hs-var">peer</span></a></span></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Port -&gt; Settings -&gt; Settings
+</span><span class="hs-identifier hs-var">setPort</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Port -&gt; Port
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">(Port -&gt; Port) -&gt; (PeerInfo -&gt; Port) -&gt; PeerInfo -&gt; Port
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">HostAddress -&gt; Port
+</span><a href="Chainweb.HostAddress.html#_hostAddressPort"><span class="hs-identifier hs-var hs-var">_hostAddressPort</span></a></span><span> </span><span class="annot"><span class="annottext">(HostAddress -&gt; Port)
+-&gt; (PeerInfo -&gt; HostAddress) -&gt; PeerInfo -&gt; Port
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PeerInfo -&gt; HostAddress
+</span><a href="P2P.Peer.html#_peerAddr"><span class="hs-identifier hs-var hs-var">_peerAddr</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerInfo -&gt; Port) -&gt; PeerInfo -&gt; Port
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Peer -&gt; PeerInfo
+</span><a href="P2P.Peer.html#_peerInfo"><span class="hs-identifier hs-var hs-var">_peerInfo</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681499832"><span class="hs-identifier hs-var">peer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>    </span><span class="annot"><span class="annottext">(Settings -&gt; Settings)
+-&gt; (Settings -&gt; Settings) -&gt; Settings -&gt; Settings
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">HostPreference -&gt; Settings -&gt; Settings
+</span><span class="hs-identifier hs-var">setHost</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Peer -&gt; HostPreference
+</span><a href="P2P.Peer.html#_peerInterface"><span class="hs-identifier hs-var hs-var">_peerInterface</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681499832"><span class="hs-identifier hs-var">peer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>    </span><span class="annot"><span class="annottext">(Settings -&gt; Settings) -&gt; Settings -&gt; Settings
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Settings
+</span><span class="hs-identifier hs-var">defaultSettings</span></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- Allocate Socket</span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#allocateSocket"><span class="hs-identifier hs-type">allocateSocket</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span id="allocateSocket"><span class="annot"><span class="annottext">allocateSocket :: P2pConfiguration -&gt; IO (P2pConfiguration, Socket)
+</span><a href="Chainweb.Chainweb.PeerResources.html#allocateSocket"><span class="hs-identifier hs-var hs-var">allocateSocket</span></a></span></span><span> </span><span id="local-6989586621681499825"><span class="annot"><span class="annottext">conf :: P2pConfiguration
+</span><a href="#local-6989586621681499825"><span class="hs-identifier hs-var">conf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">!</span><span id="local-6989586621681499824"><span class="annot"><span class="annottext">Port
+</span><a href="#local-6989586621681499824"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681499823"><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681499823"><span class="hs-identifier hs-var">sock</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Port -&gt; HostPreference -&gt; IO (Port, Socket)
+</span><a href="Chainweb.RestAPI.Utils.html#bindPortTcp"><span class="hs-identifier hs-var">bindPortTcp</span></a></span><span>
+</span><span id="line-136"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PeerConfig -&gt; Port
+</span><a href="P2P.Peer.html#_peerConfigPort"><span class="hs-identifier hs-var">_peerConfigPort</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerConfig -&gt; Port) -&gt; PeerConfig -&gt; Port
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; PeerConfig
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeer"><span class="hs-identifier hs-var hs-var">_p2pConfigPeer</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499825"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PeerConfig -&gt; HostPreference
+</span><a href="P2P.Peer.html#_peerConfigInterface"><span class="hs-identifier hs-var hs-var">_peerConfigInterface</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerConfig -&gt; HostPreference) -&gt; PeerConfig -&gt; HostPreference
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; PeerConfig
+</span><a href="P2P.Node.Configuration.html#_p2pConfigPeer"><span class="hs-identifier hs-var hs-var">_p2pConfigPeer</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499825"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681499819"><span class="annot"><span class="annottext">conf' :: P2pConfiguration
+</span><a href="#local-6989586621681499819"><span class="hs-identifier hs-var hs-var">conf'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ASetter P2pConfiguration P2pConfiguration Port Port
+-&gt; Port -&gt; P2pConfiguration -&gt; P2pConfiguration
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">set</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(PeerConfig -&gt; Identity PeerConfig)
+-&gt; P2pConfiguration -&gt; Identity P2pConfiguration
+Lens' P2pConfiguration PeerConfig
+</span><a href="P2P.Node.Configuration.html#p2pConfigPeer"><span class="hs-identifier hs-var">p2pConfigPeer</span></a></span><span> </span><span class="annot"><span class="annottext">((PeerConfig -&gt; Identity PeerConfig)
+ -&gt; P2pConfiguration -&gt; Identity P2pConfiguration)
+-&gt; ((Port -&gt; Identity Port) -&gt; PeerConfig -&gt; Identity PeerConfig)
+-&gt; ASetter P2pConfiguration P2pConfiguration Port Port
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Port -&gt; Identity Port) -&gt; PeerConfig -&gt; Identity PeerConfig
+Lens' PeerConfig Port
+</span><a href="P2P.Peer.html#peerConfigPort"><span class="hs-identifier hs-var">peerConfigPort</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Port
+</span><a href="#local-6989586621681499824"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499825"><span class="hs-identifier hs-var">conf</span></a></span><span>
+</span><span id="line-139"></span><span>    </span><span class="annot"><span class="annottext">(P2pConfiguration, Socket) -&gt; IO (P2pConfiguration, Socket)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((P2pConfiguration, Socket) -&gt; IO (P2pConfiguration, Socket))
+-&gt; (P2pConfiguration, Socket) -&gt; IO (P2pConfiguration, Socket)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499819"><span class="hs-identifier hs-var">conf'</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681499823"><span class="hs-identifier hs-var">sock</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#deallocateSocket"><span class="hs-identifier hs-type">deallocateSocket</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span id="deallocateSocket"><span class="annot"><span class="annottext">deallocateSocket :: (P2pConfiguration, Socket) -&gt; IO ()
+</span><a href="Chainweb.Chainweb.PeerResources.html#deallocateSocket"><span class="hs-identifier hs-var hs-var">deallocateSocket</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-identifier">_</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681499813"><span class="annot"><span class="annottext">sock :: Socket
+</span><a href="#local-6989586621681499813"><span class="hs-identifier hs-var">sock</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO ()
+</span><span class="hs-identifier hs-var">close</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681499813"><span class="hs-identifier hs-var">sock</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span id="local-6989586621681500034"><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#withSocket"><span class="hs-identifier hs-type">withSocket</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500034"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500034"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-145"></span><span id="withSocket"><span class="annot"><span class="annottext">withSocket :: P2pConfiguration -&gt; ((P2pConfiguration, Socket) -&gt; IO a) -&gt; IO a
+</span><a href="Chainweb.Chainweb.PeerResources.html#withSocket"><span class="hs-identifier hs-var hs-var">withSocket</span></a></span></span><span> </span><span id="local-6989586621681499812"><span class="annot"><span class="annottext">conf :: P2pConfiguration
+</span><a href="#local-6989586621681499812"><span class="hs-identifier hs-var">conf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (P2pConfiguration, Socket)
+-&gt; ((P2pConfiguration, Socket) -&gt; IO ())
+-&gt; ((P2pConfiguration, Socket) -&gt; IO a)
+-&gt; IO a
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2pConfiguration -&gt; IO (P2pConfiguration, Socket)
+</span><a href="Chainweb.Chainweb.PeerResources.html#allocateSocket"><span class="hs-identifier hs-var">allocateSocket</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499812"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(P2pConfiguration, Socket) -&gt; IO ()
+</span><a href="Chainweb.Chainweb.PeerResources.html#deallocateSocket"><span class="hs-identifier hs-var">deallocateSocket</span></a></span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-148"></span><span class="hs-comment">-- Run PeerDb for a Chainweb Version</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#startPeerDb_"><span class="hs-identifier hs-type">startPeerDb_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="P2P.Node.PeerDB.html#PeerDb"><span class="hs-identifier hs-type">PeerDb</span></a></span><span>
+</span><span id="line-151"></span><span id="startPeerDb_"><span class="annot"><span class="annottext">startPeerDb_ :: ChainwebVersion -&gt; P2pConfiguration -&gt; IO PeerDb
+</span><a href="Chainweb.Chainweb.PeerResources.html#startPeerDb_"><span class="hs-identifier hs-var hs-var">startPeerDb_</span></a></span></span><span> </span><span id="local-6989586621681499809"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681499809"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681499808"><span class="annot"><span class="annottext">conf :: P2pConfiguration
+</span><a href="#local-6989586621681499808"><span class="hs-identifier hs-var">conf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HashSet NetworkId -&gt; P2pConfiguration -&gt; IO PeerDb
+</span><a href="P2P.Node.html#startPeerDb"><span class="hs-identifier hs-var">startPeerDb</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet NetworkId
+</span><a href="#local-6989586621681499806"><span class="hs-identifier hs-var">nids</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499808"><span class="hs-identifier hs-var">conf</span></a></span><span>
+</span><span id="line-152"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-153"></span><span>    </span><span id="local-6989586621681499806"><span class="annot"><span class="annottext">nids :: HashSet NetworkId
+</span><a href="#local-6989586621681499806"><span class="hs-identifier hs-var hs-var">nids</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; HashSet NetworkId
+forall a. Hashable a =&gt; a -&gt; HashSet a
+</span><span class="hs-identifier hs-var">HS.singleton</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-var">CutNetwork</span></a></span><span>
+</span><span id="line-154"></span><span>        </span><span class="annot"><span class="annottext">HashSet NetworkId -&gt; HashSet NetworkId -&gt; HashSet NetworkId
+forall a. (Eq a, Hashable a) =&gt; HashSet a -&gt; HashSet a -&gt; HashSet a
+</span><span class="hs-operator hs-var">`HS.union`</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; NetworkId) -&gt; HashSet ChainId -&gt; HashSet NetworkId
+forall b a.
+(Hashable b, Eq b) =&gt;
+(a -&gt; b) -&gt; HashSet a -&gt; HashSet b
+</span><span class="hs-identifier hs-var">HS.map</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-var">MempoolNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet ChainId
+</span><a href="#local-6989586621681499800"><span class="hs-identifier hs-var">cids</span></a></span><span>
+</span><span id="line-155"></span><span>        </span><span class="annot"><span class="annottext">HashSet NetworkId -&gt; HashSet NetworkId -&gt; HashSet NetworkId
+forall a. (Eq a, Hashable a) =&gt; HashSet a -&gt; HashSet a -&gt; HashSet a
+</span><span class="hs-operator hs-var">`HS.union`</span></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; NetworkId) -&gt; HashSet ChainId -&gt; HashSet NetworkId
+forall b a.
+(Hashable b, Eq b) =&gt;
+(a -&gt; b) -&gt; HashSet a -&gt; HashSet b
+</span><span class="hs-identifier hs-var">HS.map</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-var">ChainNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet ChainId
+</span><a href="#local-6989586621681499800"><span class="hs-identifier hs-var">cids</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span id="local-6989586621681499800"><span class="annot"><span class="annottext">cids :: HashSet ChainId
+</span><a href="#local-6989586621681499800"><span class="hs-identifier hs-var hs-var">cids</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; HashSet ChainId
+forall v. HasChainwebVersion v =&gt; v -&gt; HashSet ChainId
+</span><a href="Chainweb.Version.html#chainIds"><span class="hs-identifier hs-var">chainIds</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681499809"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span id="local-6989586621681500011"><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#withPeerDb_"><span class="hs-identifier hs-type">withPeerDb_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html#P2pConfiguration"><span class="hs-identifier hs-type">P2pConfiguration</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.Node.PeerDB.html#PeerDb"><span class="hs-identifier hs-type">PeerDb</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500011"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500011"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-159"></span><span id="withPeerDb_"><span class="annot"><span class="annottext">withPeerDb_ :: ChainwebVersion -&gt; P2pConfiguration -&gt; (PeerDb -&gt; IO a) -&gt; IO a
+</span><a href="Chainweb.Chainweb.PeerResources.html#withPeerDb_"><span class="hs-identifier hs-var hs-var">withPeerDb_</span></a></span></span><span> </span><span id="local-6989586621681499797"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681499797"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681499796"><span class="annot"><span class="annottext">conf :: P2pConfiguration
+</span><a href="#local-6989586621681499796"><span class="hs-identifier hs-var">conf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO PeerDb -&gt; (PeerDb -&gt; IO ()) -&gt; (PeerDb -&gt; IO a) -&gt; IO a
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; P2pConfiguration -&gt; IO PeerDb
+</span><a href="Chainweb.Chainweb.PeerResources.html#startPeerDb_"><span class="hs-identifier hs-var">startPeerDb_</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681499797"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499796"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">P2pConfiguration -&gt; PeerDb -&gt; IO ()
+</span><a href="P2P.Node.html#stopPeerDb"><span class="hs-identifier hs-var">stopPeerDb</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681499796"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- Connection Manager</span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="hs-comment">-- Connection Manager</span><span>
+</span><span id="line-165"></span><span class="hs-comment">--</span><span>
+</span><span id="line-166"></span><span id="local-6989586621681500007"><span id="local-6989586621681500008"><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#withConnectionManger"><span class="hs-identifier hs-type">withConnectionManger</span></a></span><span>
+</span><span id="line-167"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500008"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-168"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681500008"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-169"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Network.X509.SelfSigned.html#X509CertChainPem"><span class="hs-identifier hs-type">X509CertChainPem</span></a></span><span>
+</span><span id="line-170"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Network.X509.SelfSigned.html#X509KeyPem"><span class="hs-identifier hs-type">X509KeyPem</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Node.PeerDB.html#PeerDb"><span class="hs-identifier hs-type">PeerDb</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500007"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500007"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-174"></span><span id="withConnectionManger"><span class="annot"><span class="annottext">withConnectionManger :: logger
+-&gt; X509CertChainPem
+-&gt; X509KeyPem
+-&gt; PeerDb
+-&gt; (Manager -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Chainweb.PeerResources.html#withConnectionManger"><span class="hs-identifier hs-var hs-var">withConnectionManger</span></a></span></span><span> </span><span id="local-6989586621681499794"><span class="annot"><span class="annottext">logger :: logger
+</span><a href="#local-6989586621681499794"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681499793"><span class="annot"><span class="annottext">certs :: X509CertChainPem
+</span><a href="#local-6989586621681499793"><span class="hs-identifier hs-var">certs</span></a></span></span><span> </span><span id="local-6989586621681499792"><span class="annot"><span class="annottext">key :: X509KeyPem
+</span><a href="#local-6989586621681499792"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span id="local-6989586621681499791"><span class="annot"><span class="annottext">peerDb :: PeerDb
+</span><a href="#local-6989586621681499791"><span class="hs-identifier hs-var">peerDb</span></a></span></span><span> </span><span id="local-6989586621681499790"><span class="annot"><span class="annottext">runInner :: Manager -&gt; IO a
+</span><a href="#local-6989586621681499790"><span class="hs-identifier hs-var">runInner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681499789"><span class="annot"><span class="annottext">cred :: Credential
+</span><a href="#local-6989586621681499789"><span class="hs-identifier hs-var hs-var">cred</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; X509CertChainPem -&gt; X509KeyPem -&gt; Credential
+X509CertChainPem -&gt; X509KeyPem -&gt; Credential
+</span><a href="Network.X509.SelfSigned.html#unsafeMakeCredential"><span class="hs-identifier hs-var">unsafeMakeCredential</span></a></span><span> </span><span class="annot"><span class="annottext">X509CertChainPem
+</span><a href="#local-6989586621681499793"><span class="hs-identifier hs-var">certs</span></a></span><span> </span><span class="annot"><span class="annottext">X509KeyPem
+</span><a href="#local-6989586621681499792"><span class="hs-identifier hs-var">key</span></a></span><span>
+</span><span id="line-176"></span><span>    </span><span id="local-6989586621681499787"><span class="annot"><span class="annottext">ManagerSettings
+</span><a href="#local-6989586621681499787"><span class="hs-identifier hs-var">settings</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TlsPolicy -&gt; Maybe Credential -&gt; IO ManagerSettings
+</span><a href="Network.X509.SelfSigned.html#certificateCacheManagerSettings"><span class="hs-identifier hs-var">certificateCacheManagerSettings</span></a></span><span>
+</span><span id="line-177"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; (ServiceID -&gt; IO (Maybe Fingerprint)) -&gt; TlsPolicy
+</span><a href="Network.X509.SelfSigned.html#TlsSecure"><span class="hs-identifier hs-var">TlsSecure</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span> </span><span class="annot"><span class="annottext">ServiceID -&gt; IO (Maybe Fingerprint)
+</span><a href="#local-6989586621681499784"><span class="hs-identifier hs-var">certCacheLookup</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-178"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Credential -&gt; Maybe Credential
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Credential
+</span><a href="#local-6989586621681499789"><span class="hs-identifier hs-var">cred</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681499783"><span class="annot"><span class="annottext">settings' :: ManagerSettings
+</span><a href="#local-6989586621681499783"><span class="hs-identifier hs-var hs-var">settings'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ManagerSettings
+</span><a href="#local-6989586621681499787"><span class="hs-identifier hs-var">settings</span></a></span><span>
+</span><span id="line-181"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">managerConnCount :: Port
+</span><span class="hs-identifier hs-var">HTTP.managerConnCount</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">5</span></span><span>
+</span><span id="line-182"></span><span>                </span><span class="hs-comment">-- keep only 5 connections alive</span><span>
+</span><span id="line-183"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">managerResponseTimeout :: ResponseTimeout
+</span><span class="hs-identifier hs-var">HTTP.managerResponseTimeout</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Port -&gt; ResponseTimeout
+</span><span class="hs-identifier hs-var">HTTP.responseTimeoutMicro</span></span><span> </span><span class="annot"><span class="hs-number">10000000</span></span><span>
+</span><span id="line-184"></span><span>                </span><span class="hs-comment">-- timeout connection-attempts after 10 sec instead of the default of 30 sec</span><span>
+</span><span id="line-185"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">managerIdleConnectionCount :: Port
+</span><span class="hs-identifier hs-var">HTTP.managerIdleConnectionCount</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">512</span></span><span>
+</span><span id="line-186"></span><span>                </span><span class="hs-comment">-- total number of connections to keep alive. 512 is the default</span><span>
+</span><span id="line-187"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-188"></span><span>
+</span><span id="line-189"></span><span>    </span><span id="local-6989586621681499778"><span class="annot"><span class="annottext">Counter &quot;connection-count&quot;
+</span><a href="#local-6989586621681499778"><span class="hs-identifier hs-var">connCountRef</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Counter &quot;connection-count&quot;)
+forall (s :: Symbol). IO (Counter s)
+</span><a href="Chainweb.Counter.html#newCounter"><span class="hs-identifier hs-var">newCounter</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-string">&quot;connection-count&quot;</span></span><span>
+</span><span id="line-190"></span><span>    </span><span id="local-6989586621681499776"><span class="annot"><span class="annottext">Counter &quot;request-count&quot;
+</span><a href="#local-6989586621681499776"><span class="hs-identifier hs-var">reqCountRef</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Counter &quot;request-count&quot;)
+forall (s :: Symbol). IO (Counter s)
+</span><a href="Chainweb.Counter.html#newCounter"><span class="hs-identifier hs-var">newCounter</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-string">&quot;request-count&quot;</span></span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-comment">-- urlStats &lt;- newCounterMap @&quot;url-counts&quot;</span><span>
+</span><span id="line-192"></span><span>    </span><span id="local-6989586621681499775"><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681499775"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ManagerSettings -&gt; IO Manager
+</span><span class="hs-identifier hs-var">HTTP.newManager</span></span><span> </span><span class="annot"><span class="annottext">ManagerSettings
+</span><a href="#local-6989586621681499783"><span class="hs-identifier hs-var">settings'</span></a></span><span>
+</span><span id="line-193"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">managerTlsConnection :: IO (Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection)
+</span><span class="hs-identifier hs-var">HTTP.managerTlsConnection</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-194"></span><span>            </span><span id="local-6989586621681499772"><span class="annot"><span class="annottext">Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection
+</span><a href="#local-6989586621681499772"><span class="hs-identifier hs-var">mk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ManagerSettings
+-&gt; IO (Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection)
+</span><span class="hs-identifier hs-var hs-var">HTTP.managerTlsConnection</span></span><span> </span><span class="annot"><span class="annottext">ManagerSettings
+</span><a href="#local-6989586621681499783"><span class="hs-identifier hs-var">settings'</span></a></span><span>
+</span><span id="line-195"></span><span>            </span><span class="annot"><span class="annottext">(Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection)
+-&gt; IO (Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection)
+ -&gt; IO (Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection))
+-&gt; (Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection)
+-&gt; IO (Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681499771"><span class="annot"><span class="annottext">a :: Maybe HostAddress
+</span><a href="#local-6989586621681499771"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681499770"><span class="annot"><span class="annottext">b :: String
+</span><a href="#local-6989586621681499770"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span id="local-6989586621681499769"><span class="annot"><span class="annottext">c :: Port
+</span><a href="#local-6989586621681499769"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Counter &quot;connection-count&quot; -&gt; IO ()
+forall (s :: Symbol). Counter s -&gt; IO ()
+</span><a href="Chainweb.Counter.html#inc"><span class="hs-identifier hs-var">inc</span></a></span><span> </span><span class="annot"><span class="annottext">Counter &quot;connection-count&quot;
+</span><a href="#local-6989586621681499778"><span class="hs-identifier hs-var">connCountRef</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO Connection -&gt; IO Connection
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe HostAddress -&gt; String -&gt; Port -&gt; IO Connection
+</span><a href="#local-6989586621681499772"><span class="hs-identifier hs-var">mk</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe HostAddress
+</span><a href="#local-6989586621681499771"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681499770"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">Port
+</span><a href="#local-6989586621681499769"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">managerModifyRequest :: Request -&gt; IO Request
+</span><span class="hs-identifier hs-var">HTTP.managerModifyRequest</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681499766"><span class="annot"><span class="annottext">req :: Request
+</span><a href="#local-6989586621681499766"><span class="hs-identifier hs-var">req</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-198"></span><span>            </span><span class="annot"><span class="annottext">Counter &quot;request-count&quot; -&gt; IO ()
+forall (s :: Symbol). Counter s -&gt; IO ()
+</span><a href="Chainweb.Counter.html#inc"><span class="hs-identifier hs-var">inc</span></a></span><span> </span><span class="annot"><span class="annottext">Counter &quot;request-count&quot;
+</span><a href="#local-6989586621681499776"><span class="hs-identifier hs-var">reqCountRef</span></a></span><span>
+</span><span id="line-199"></span><span>            </span><span class="hs-comment">-- incKey urlStats (sshow $ HTTP.getUri req)</span><span>
+</span><span id="line-200"></span><span>            </span><span class="annot"><span class="annottext">ManagerSettings -&gt; Request -&gt; IO Request
+</span><span class="hs-identifier hs-var hs-var">HTTP.managerModifyRequest</span></span><span> </span><span class="annot"><span class="annottext">ManagerSettings
+</span><a href="#local-6989586621681499787"><span class="hs-identifier hs-var">settings</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621681499766"><span class="hs-identifier hs-var">req</span></a></span><span>
+</span><span id="line-201"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">responseTimeout :: ResponseTimeout
+</span><span class="hs-identifier hs-var">HTTP.responseTimeout</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Port -&gt; ResponseTimeout
+</span><span class="hs-identifier hs-var">HTTP.responseTimeoutMicro</span></span><span> </span><span class="annot"><span class="hs-number">10000000</span></span><span>
+</span><span id="line-202"></span><span>                    </span><span class="hs-comment">-- overwrite the explicit connection timeout from servant-client</span><span>
+</span><span id="line-203"></span><span>                    </span><span class="hs-comment">-- (If the request has a timeout configured, the global timeout of</span><span>
+</span><span id="line-204"></span><span>                    </span><span class="hs-comment">-- the manager is ignored)</span><span>
+</span><span id="line-205"></span><span>                </span><span class="hs-special">}</span><span>
+</span><span id="line-206"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-207"></span><span>
+</span><span id="line-208"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681499764"><span class="annot"><span class="annottext">logClientConnections :: IO b
+</span><a href="#local-6989586621681499764"><span class="hs-identifier hs-var hs-var">logClientConnections</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">forever</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO b) -&gt; IO () -&gt; IO b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-209"></span><span>            </span><span class="annot"><span class="annottext">Port -&gt; IO ()
+</span><a href="Chainweb.Utils.html#approximateThreadDelay"><span class="hs-identifier hs-var">approximateThreadDelay</span></a></span><span> </span><span class="annot"><span class="hs-number">60000000</span></span><span> </span><span class="hs-comment">{- 1 minute -}</span><span>
+</span><span id="line-210"></span><span>            </span><span class="annot"><span class="annottext">logger -&gt; LogLevel -&gt; [CounterValue] -&gt; IO ()
+forall l. Logger l =&gt; l -&gt; LogFunctionCounter
+</span><a href="Chainweb.Counter.html#logFunctionCounter"><span class="hs-identifier hs-var">logFunctionCounter</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499794"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">([CounterValue] -&gt; IO ()) -&gt; IO [CounterValue] -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">=&lt;&lt;</span></span><span> </span><span class="annot"><span class="annottext">[IO CounterValue] -&gt; IO [CounterValue]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a.
+(Traversable t, Monad m) =&gt;
+t (m a) -&gt; m (t a)
+</span><span class="hs-identifier hs-var">sequence</span></span><span>
+</span><span id="line-211"></span><span>                </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Counter &quot;connection-count&quot; -&gt; IO CounterValue
+forall c. IsCounter c =&gt; c -&gt; IO CounterValue
+</span><a href="Chainweb.Counter.html#roll"><span class="hs-identifier hs-var">roll</span></a></span><span> </span><span class="annot"><span class="annottext">Counter &quot;connection-count&quot;
+</span><a href="#local-6989586621681499778"><span class="hs-identifier hs-var">connCountRef</span></a></span><span>
+</span><span id="line-212"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Counter &quot;request-count&quot; -&gt; IO CounterValue
+forall c. IsCounter c =&gt; c -&gt; IO CounterValue
+</span><a href="Chainweb.Counter.html#roll"><span class="hs-identifier hs-var">roll</span></a></span><span> </span><span class="annot"><span class="annottext">Counter &quot;request-count&quot;
+</span><a href="#local-6989586621681499776"><span class="hs-identifier hs-var">reqCountRef</span></a></span><span>
+</span><span id="line-213"></span><span>                </span><span class="hs-comment">-- , roll urlStats</span><span>
+</span><span id="line-214"></span><span>                </span><span class="hs-special">]</span><span>
+</span><span id="line-215"></span><span>
+</span><span id="line-216"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681499756"><span class="annot"><span class="annottext">runLogClientConnections :: (IO b -&gt; IO ()) -&gt; IO b
+</span><a href="#local-6989586621681499756"><span class="hs-identifier hs-var hs-var">runLogClientConnections</span></a></span></span><span> </span><span id="local-6989586621681499755"><span class="annot"><span class="annottext">umask :: IO b -&gt; IO ()
+</span><a href="#local-6989586621681499755"><span class="hs-identifier hs-var">umask</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-217"></span><span>            </span><span class="annot"><span class="annottext">IO b -&gt; IO ()
+</span><a href="#local-6989586621681499755"><span class="hs-identifier hs-var">umask</span></a></span><span> </span><span class="annot"><span class="annottext">IO b
+forall b. IO b
+</span><a href="#local-6989586621681499764"><span class="hs-identifier hs-var">logClientConnections</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; (SomeException -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a.
+(MonadCatch m, NFData a) =&gt;
+m a -&gt; (SomeException -&gt; m a) -&gt; m a
+</span><a href="Chainweb.Utils.html#catchAllSynchronous"><span class="hs-operator hs-var">`catchAllSynchronous`</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681499753"><span class="annot"><span class="annottext">e :: SomeException
+</span><a href="#local-6989586621681499753"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-218"></span><span>                </span><span class="annot"><span class="annottext">logger -&gt; LogFunctionText
+forall l. Logger l =&gt; l -&gt; LogFunctionText
+</span><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-var">logFunctionText</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499794"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Error</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;Connection manager logger failed: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681499753"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-219"></span><span>            </span><span class="annot"><span class="annottext">logger -&gt; LogFunctionText
+forall l. Logger l =&gt; l -&gt; LogFunctionText
+</span><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-var">logFunctionText</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681499794"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Restarting connection manager logger&quot;</span></span><span>
+</span><span id="line-220"></span><span>            </span><span class="annot"><span class="annottext">(IO b -&gt; IO ()) -&gt; IO b
+</span><a href="#local-6989586621681499756"><span class="hs-identifier hs-var">runLogClientConnections</span></a></span><span> </span><span class="annot"><span class="annottext">IO b -&gt; IO ()
+</span><a href="#local-6989586621681499755"><span class="hs-identifier hs-var">umask</span></a></span><span>
+</span><span id="line-221"></span><span>
+</span><span id="line-222"></span><span>    </span><span class="annot"><span class="annottext">((forall c. IO c -&gt; IO c) -&gt; IO Any) -&gt; (Async Any -&gt; IO a) -&gt; IO a
+forall a b.
+((forall c. IO c -&gt; IO c) -&gt; IO a) -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsyncWithUnmask</span></span><span> </span><span class="annot"><span class="annottext">(forall c. IO c -&gt; IO c) -&gt; IO Any
+forall b b. (IO b -&gt; IO ()) -&gt; IO b
+</span><a href="#local-6989586621681499756"><span class="hs-identifier hs-var">runLogClientConnections</span></a></span><span> </span><span class="annot"><span class="annottext">((Async Any -&gt; IO a) -&gt; IO a) -&gt; (Async Any -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Manager -&gt; IO a
+</span><a href="#local-6989586621681499790"><span class="hs-identifier hs-var">runInner</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681499775"><span class="hs-identifier hs-var">mgr</span></a></span><span>
+</span><span id="line-223"></span><span>
+</span><span id="line-224"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-225"></span><span>    </span><span class="annot"><a href="#local-6989586621681499784"><span class="hs-identifier hs-type">certCacheLookup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServiceID</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Fingerprint</span></span><span class="hs-special">)</span><span>
+</span><span id="line-226"></span><span>    </span><span id="local-6989586621681499784"><span class="annot"><span class="annottext">certCacheLookup :: ServiceID -&gt; IO (Maybe Fingerprint)
+</span><a href="#local-6989586621681499784"><span class="hs-identifier hs-var hs-var">certCacheLookup</span></a></span></span><span> </span><span id="local-6989586621681499748"><span class="annot"><span class="annottext">si :: ServiceID
+</span><a href="#local-6989586621681499748"><span class="hs-identifier hs-var">si</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-227"></span><span>        </span><span id="local-6989586621681499747"><span class="annot"><span class="annottext">HostAddress
+</span><a href="#local-6989586621681499747"><span class="hs-identifier hs-var">ha</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ServiceID -&gt; IO HostAddress
+forall (f :: * -&gt; *). MonadThrow f =&gt; ServiceID -&gt; f HostAddress
+</span><a href="#local-6989586621681499746"><span class="hs-identifier hs-var">serviceIdToHostAddress</span></a></span><span> </span><span class="annot"><span class="annottext">ServiceID
+</span><a href="#local-6989586621681499748"><span class="hs-identifier hs-var">si</span></a></span><span>
+</span><span id="line-228"></span><span>        </span><span id="local-6989586621681499745"><span class="annot"><span class="annottext">Maybe PeerEntry
+</span><a href="#local-6989586621681499745"><span class="hs-identifier hs-var">pe</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IxSet PeerEntryIxs PeerEntry -&gt; Maybe PeerEntry
+forall a (ixs :: [*]). Ord a =&gt; IxSet ixs a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">getOne</span></span><span> </span><span class="annot"><span class="annottext">(IxSet PeerEntryIxs PeerEntry -&gt; Maybe PeerEntry)
+-&gt; (IxSet PeerEntryIxs PeerEntry -&gt; IxSet PeerEntryIxs PeerEntry)
+-&gt; IxSet PeerEntryIxs PeerEntry
+-&gt; Maybe PeerEntry
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">HostAddress
+-&gt; IxSet PeerEntryIxs PeerEntry -&gt; IxSet PeerEntryIxs PeerEntry
+forall (ixs :: [*]) a ix.
+(Indexable ixs a, IsIndexOf ix ixs) =&gt;
+ix -&gt; IxSet ixs a -&gt; IxSet ixs a
+</span><span class="hs-identifier hs-var">getEQ</span></span><span> </span><span class="annot"><span class="annottext">HostAddress
+</span><a href="#local-6989586621681499747"><span class="hs-identifier hs-var">ha</span></a></span><span> </span><span class="annot"><span class="annottext">(IxSet PeerEntryIxs PeerEntry -&gt; Maybe PeerEntry)
+-&gt; IO (IxSet PeerEntryIxs PeerEntry) -&gt; IO (Maybe PeerEntry)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">PeerDb -&gt; IO (IxSet PeerEntryIxs PeerEntry)
+</span><a href="P2P.Node.PeerDB.html#peerDbSnapshot"><span class="hs-identifier hs-var">peerDbSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">PeerDb
+</span><a href="#local-6989586621681499791"><span class="hs-identifier hs-var">peerDb</span></a></span><span>
+</span><span id="line-229"></span><span>        </span><span class="annot"><span class="annottext">Maybe Fingerprint -&gt; IO (Maybe Fingerprint)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Maybe Fingerprint -&gt; IO (Maybe Fingerprint))
+-&gt; Maybe Fingerprint -&gt; IO (Maybe Fingerprint)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Maybe PeerEntry
+</span><a href="#local-6989586621681499745"><span class="hs-identifier hs-var">pe</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe PeerEntry
+-&gt; (PeerEntry -&gt; Maybe Fingerprint) -&gt; Maybe Fingerprint
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">(PeerId -&gt; Fingerprint) -&gt; Maybe PeerId -&gt; Maybe Fingerprint
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">PeerId -&gt; Fingerprint
+</span><a href="P2P.Peer.html#peerIdToFingerprint"><span class="hs-identifier hs-var">peerIdToFingerprint</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe PeerId -&gt; Maybe Fingerprint)
+-&gt; (PeerEntry -&gt; Maybe PeerId) -&gt; PeerEntry -&gt; Maybe Fingerprint
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PeerInfo -&gt; Maybe PeerId
+</span><a href="P2P.Peer.html#_peerId"><span class="hs-identifier hs-var hs-var">_peerId</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerInfo -&gt; Maybe PeerId)
+-&gt; (PeerEntry -&gt; PeerInfo) -&gt; PeerEntry -&gt; Maybe PeerId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PeerEntry -&gt; PeerInfo
+</span><a href="P2P.Node.PeerDB.html#_peerEntryInfo"><span class="hs-identifier hs-var hs-var">_peerEntryInfo</span></a></span><span>
+</span><span id="line-230"></span><span>
+</span><span id="line-231"></span><span>    </span><span id="local-6989586621681499746"><span class="annot"><span class="annottext">serviceIdToHostAddress :: ServiceID -&gt; f HostAddress
+</span><a href="#local-6989586621681499746"><span class="hs-identifier hs-var hs-var">serviceIdToHostAddress</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681499740"><span class="annot"><span class="annottext">h :: String
+</span><a href="#local-6989586621681499740"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681499739"><span class="annot"><span class="annottext">p :: ByteString
+</span><a href="#local-6989586621681499739"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Hostname -&gt; Port -&gt; HostAddress
+</span><a href="Chainweb.HostAddress.html#HostAddress"><span class="hs-identifier hs-var">HostAddress</span></a></span><span>
+</span><span id="line-232"></span><span>        </span><span class="annot"><span class="annottext">(Hostname -&gt; Port -&gt; HostAddress)
+-&gt; f Hostname -&gt; f (Port -&gt; HostAddress)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; f Hostname
+forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m Hostname
+</span><a href="Chainweb.HostAddress.html#readHostnameBytes"><span class="hs-identifier hs-var">readHostnameBytes</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; ByteString
+</span><span class="hs-identifier hs-var">B8.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681499740"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>        </span><span class="annot"><span class="annottext">f (Port -&gt; HostAddress) -&gt; f Port -&gt; f HostAddress
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; f Port
+forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m Port
+</span><a href="Chainweb.HostAddress.html#readPortBytes"><span class="hs-identifier hs-var">readPortBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681499739"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-234"></span></pre></body></html>

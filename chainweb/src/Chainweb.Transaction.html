@@ -1,0 +1,463 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Transaction</span><span>
+</span><span id="line-11"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier">ChainwebTransaction</span></a></span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier">HashableTrans</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier">PayloadWithText</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#chainwebPayloadCodec"><span class="hs-identifier">chainwebPayloadCodec</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#gasLimitOf"><span class="hs-identifier">gasLimitOf</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#gasPriceOf"><span class="hs-identifier">gasPriceOf</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#timeToLiveOf"><span class="hs-identifier">timeToLiveOf</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#creationTimeOf"><span class="hs-identifier">creationTimeOf</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#mkPayloadWithText"><span class="hs-identifier">mkPayloadWithText</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#modifyPayloadWithText"><span class="hs-identifier">modifyPayloadWithText</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#payloadBytes"><span class="hs-identifier">payloadBytes</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#payloadObj"><span class="hs-identifier">payloadObj</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Aeson</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Get</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ByteString</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Char8</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BL</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Short</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">SB</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">decodeUtf8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">encodeUtf8</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Parse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">parseExprs</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.ChainMeta</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Command</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Gas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">GasLimit</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">GasPrice</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Hash</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- | A product type representing a `Payload PublicMeta ParsedCode` coupled with</span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- the Text that generated it, to make gossiping easier.</span><span>
+</span><span id="line-49"></span><span class="hs-comment">--</span><span>
+</span><span id="line-50"></span><span id="local-6989586621681467315"><span id="local-6989586621681467316"></span></span><span class="hs-keyword">data</span><span> </span><span id="PayloadWithText"><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-var">PayloadWithText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PayloadWithText"><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-var">PayloadWithText</span></a></span></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_payloadBytes"><span class="annot"><span class="annottext">PayloadWithText -&gt; ShortByteString
+</span><a href="Chainweb.Transaction.html#_payloadBytes"><span class="hs-identifier hs-var hs-var">_payloadBytes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">SB.ShortByteString</span></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_payloadObj"><span class="annot"><span class="annottext">PayloadWithText -&gt; Payload PublicMeta ParsedCode
+</span><a href="Chainweb.Transaction.html#_payloadObj"><span class="hs-identifier hs-var hs-var">_payloadObj</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedCode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681467306"><span id="local-6989586621681467308"><span id="local-6989586621681467310"><span class="annot"><span class="annottext">Int -&gt; PayloadWithText -&gt; ShowS
+[PayloadWithText] -&gt; ShowS
+PayloadWithText -&gt; String
+(Int -&gt; PayloadWithText -&gt; ShowS)
+-&gt; (PayloadWithText -&gt; String)
+-&gt; ([PayloadWithText] -&gt; ShowS)
+-&gt; Show PayloadWithText
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [PayloadWithText] -&gt; ShowS
+$cshowList :: [PayloadWithText] -&gt; ShowS
+show :: PayloadWithText -&gt; String
+$cshow :: PayloadWithText -&gt; String
+showsPrec :: Int -&gt; PayloadWithText -&gt; ShowS
+$cshowsPrec :: Int -&gt; PayloadWithText -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681467301"><span id="local-6989586621681467303"><span class="annot"><span class="annottext">PayloadWithText -&gt; PayloadWithText -&gt; Bool
+(PayloadWithText -&gt; PayloadWithText -&gt; Bool)
+-&gt; (PayloadWithText -&gt; PayloadWithText -&gt; Bool)
+-&gt; Eq PayloadWithText
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: PayloadWithText -&gt; PayloadWithText -&gt; Bool
+$c/= :: PayloadWithText -&gt; PayloadWithText -&gt; Bool
+== :: PayloadWithText -&gt; PayloadWithText -&gt; Bool
+$c== :: PayloadWithText -&gt; PayloadWithText -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. PayloadWithText -&gt; Rep PayloadWithText x)
+-&gt; (forall x. Rep PayloadWithText x -&gt; PayloadWithText)
+-&gt; Generic PayloadWithText
+forall x. Rep PayloadWithText x -&gt; PayloadWithText
+forall x. PayloadWithText -&gt; Rep PayloadWithText x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep PayloadWithText x -&gt; PayloadWithText
+$cfrom :: forall x. PayloadWithText -&gt; Rep PayloadWithText x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681467295"><span class="annot"><span class="annottext">PayloadWithText -&gt; ()
+(PayloadWithText -&gt; ()) -&gt; NFData PayloadWithText
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: PayloadWithText -&gt; ()
+$crnf :: PayloadWithText -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="annot"><a href="Chainweb.Transaction.html#payloadBytes"><span class="hs-identifier hs-type">payloadBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SB.ShortByteString</span></span><span>
+</span><span id="line-59"></span><span id="payloadBytes"><span class="annot"><span class="annottext">payloadBytes :: PayloadWithText -&gt; ShortByteString
+</span><a href="Chainweb.Transaction.html#payloadBytes"><span class="hs-identifier hs-var hs-var">payloadBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithText -&gt; ShortByteString
+</span><a href="Chainweb.Transaction.html#_payloadBytes"><span class="hs-identifier hs-var hs-var">_payloadBytes</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="annot"><a href="Chainweb.Transaction.html#payloadObj"><span class="hs-identifier hs-type">payloadObj</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedCode</span></span><span>
+</span><span id="line-62"></span><span id="payloadObj"><span class="annot"><span class="annottext">payloadObj :: PayloadWithText -&gt; Payload PublicMeta ParsedCode
+</span><a href="Chainweb.Transaction.html#payloadObj"><span class="hs-identifier hs-var hs-var">payloadObj</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithText -&gt; Payload PublicMeta ParsedCode
+</span><a href="Chainweb.Transaction.html#_payloadObj"><span class="hs-identifier hs-var hs-var">_payloadObj</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="annot"><a href="Chainweb.Transaction.html#mkPayloadWithText"><span class="hs-identifier hs-type">mkPayloadWithText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedCode</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span>
+</span><span id="line-66"></span><span id="mkPayloadWithText"><span class="annot"><span class="annottext">mkPayloadWithText :: Payload PublicMeta ParsedCode -&gt; PayloadWithText
+</span><a href="Chainweb.Transaction.html#mkPayloadWithText"><span class="hs-identifier hs-var hs-var">mkPayloadWithText</span></a></span></span><span> </span><span id="local-6989586621681467293"><span class="annot"><span class="annottext">p :: Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467293"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WPayloadWithText :: ShortByteString -&gt; Payload PublicMeta ParsedCode -&gt; PayloadWithText
+</span><a href="Chainweb.Transaction.html#%24WPayloadWithText"><span class="hs-identifier hs-type hs-type">PayloadWithText</span></a></span><span> </span><span class="hs-special">{</span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">_payloadBytes :: ShortByteString
+</span><a href="Chainweb.Transaction.html#_payloadBytes"><span class="hs-identifier hs-var">_payloadBytes</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">ByteString -&gt; ShortByteString
+</span><span class="hs-identifier hs-var">SB.toShort</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ShortByteString) -&gt; ByteString -&gt; ShortByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta Text -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">Aeson.encode</span></span><span> </span><span class="annot"><span class="annottext">(Payload PublicMeta Text -&gt; ByteString)
+-&gt; Payload PublicMeta Text -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(ParsedCode -&gt; Text)
+-&gt; Payload PublicMeta ParsedCode -&gt; Payload PublicMeta Text
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">ParsedCode -&gt; Text
+</span><span class="hs-identifier hs-var hs-var">_pcCode</span></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467293"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_payloadObj :: Payload PublicMeta ParsedCode
+</span><a href="Chainweb.Transaction.html#_payloadObj"><span class="hs-identifier hs-var">_payloadObj</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467293"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="annot"><a href="Chainweb.Transaction.html#modifyPayloadWithText"><span class="hs-identifier hs-type">modifyPayloadWithText</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedCode</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedCode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span>
+</span><span id="line-76"></span><span id="modifyPayloadWithText"><span class="annot"><span class="annottext">modifyPayloadWithText :: (Payload PublicMeta ParsedCode -&gt; Payload PublicMeta ParsedCode)
+-&gt; PayloadWithText -&gt; PayloadWithText
+</span><a href="Chainweb.Transaction.html#modifyPayloadWithText"><span class="hs-identifier hs-var hs-var">modifyPayloadWithText</span></a></span></span><span> </span><span id="local-6989586621681467287"><span class="annot"><span class="annottext">f :: Payload PublicMeta ParsedCode -&gt; Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467287"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621681467286"><span class="annot"><span class="annottext">pwt :: PayloadWithText
+</span><a href="#local-6989586621681467286"><span class="hs-identifier hs-var">pwt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode -&gt; PayloadWithText
+</span><a href="Chainweb.Transaction.html#mkPayloadWithText"><span class="hs-identifier hs-var">mkPayloadWithText</span></a></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467285"><span class="hs-identifier hs-var">newPayload</span></a></span><span>
+</span><span id="line-77"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-78"></span><span>    </span><span id="local-6989586621681467284"><span class="annot"><span class="annottext">oldPayload :: Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467284"><span class="hs-identifier hs-var hs-var">oldPayload</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithText -&gt; Payload PublicMeta ParsedCode
+</span><a href="Chainweb.Transaction.html#_payloadObj"><span class="hs-identifier hs-var hs-var">_payloadObj</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadWithText
+</span><a href="#local-6989586621681467286"><span class="hs-identifier hs-var">pwt</span></a></span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621681467285"><span class="annot"><span class="annottext">newPayload :: Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467285"><span class="hs-identifier hs-var hs-var">newPayload</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode -&gt; Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467287"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467284"><span class="hs-identifier hs-var">oldPayload</span></a></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-keyword">type</span><span> </span><span id="ChainwebTransaction"><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-var">ChainwebTransaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- | Hashable newtype of ChainwebTransaction</span><span>
+</span><span id="line-84"></span><span class="hs-keyword">newtype</span><span> </span><span id="HashableTrans"><span class="annot"><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier hs-var">HashableTrans</span></a></span></span><span> </span><span id="local-6989586621681467283"><span class="annot"><a href="#local-6989586621681467283"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="HashableTrans"><span class="annot"><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier hs-var">HashableTrans</span></a></span></span><span> </span><span class="hs-special">{</span><span> </span><span id="unHashable"><span class="annot"><span class="annottext">HashableTrans a -&gt; Command a
+</span><a href="Chainweb.Transaction.html#unHashable"><span class="hs-identifier hs-var hs-var">unHashable</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="annot"><a href="#local-6989586621681467283"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681467277"><span id="local-6989586621681467279"><span class="annot"><span class="annottext">HashableTrans a -&gt; HashableTrans a -&gt; Bool
+(HashableTrans a -&gt; HashableTrans a -&gt; Bool)
+-&gt; (HashableTrans a -&gt; HashableTrans a -&gt; Bool)
+-&gt; Eq (HashableTrans a)
+forall a. Eq a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: HashableTrans a -&gt; HashableTrans a -&gt; Bool
+$c/= :: forall a. Eq a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+== :: HashableTrans a -&gt; HashableTrans a -&gt; Bool
+$c== :: forall a. Eq a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681467273"><span id="local-6989586621681467275"><span class="annot"><span class="annottext">a -&gt; HashableTrans b -&gt; HashableTrans a
+(a -&gt; b) -&gt; HashableTrans a -&gt; HashableTrans b
+(forall a b. (a -&gt; b) -&gt; HashableTrans a -&gt; HashableTrans b)
+-&gt; (forall a b. a -&gt; HashableTrans b -&gt; HashableTrans a)
+-&gt; Functor HashableTrans
+forall a b. a -&gt; HashableTrans b -&gt; HashableTrans a
+forall a b. (a -&gt; b) -&gt; HashableTrans a -&gt; HashableTrans b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; HashableTrans b -&gt; HashableTrans a
+$c&lt;$ :: forall a b. a -&gt; HashableTrans b -&gt; HashableTrans a
+fmap :: (a -&gt; b) -&gt; HashableTrans a -&gt; HashableTrans b
+$cfmap :: forall a b. (a -&gt; b) -&gt; HashableTrans a -&gt; HashableTrans b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681467257"><span id="local-6989586621681467259"><span id="local-6989586621681467261"><span id="local-6989586621681467263"><span id="local-6989586621681467265"><span id="local-6989586621681467267"><span id="local-6989586621681467269"><span class="annot"><span class="annottext">Eq (HashableTrans a)
+Eq (HashableTrans a) =&gt;
+(HashableTrans a -&gt; HashableTrans a -&gt; Ordering)
+-&gt; (HashableTrans a -&gt; HashableTrans a -&gt; Bool)
+-&gt; (HashableTrans a -&gt; HashableTrans a -&gt; Bool)
+-&gt; (HashableTrans a -&gt; HashableTrans a -&gt; Bool)
+-&gt; (HashableTrans a -&gt; HashableTrans a -&gt; Bool)
+-&gt; (HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a)
+-&gt; (HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a)
+-&gt; Ord (HashableTrans a)
+HashableTrans a -&gt; HashableTrans a -&gt; Bool
+HashableTrans a -&gt; HashableTrans a -&gt; Ordering
+HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+forall a. Ord a =&gt; Eq (HashableTrans a)
+forall a. Ord a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+forall a. Ord a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Ordering
+forall a.
+Ord a =&gt;
+HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a
+min :: HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a
+$cmin :: forall a.
+Ord a =&gt;
+HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a
+max :: HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a
+$cmax :: forall a.
+Ord a =&gt;
+HashableTrans a -&gt; HashableTrans a -&gt; HashableTrans a
+&gt;= :: HashableTrans a -&gt; HashableTrans a -&gt; Bool
+$c&gt;= :: forall a. Ord a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+&gt; :: HashableTrans a -&gt; HashableTrans a -&gt; Bool
+$c&gt; :: forall a. Ord a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+&lt;= :: HashableTrans a -&gt; HashableTrans a -&gt; Bool
+$c&lt;= :: forall a. Ord a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+&lt; :: HashableTrans a -&gt; HashableTrans a -&gt; Bool
+$c&lt; :: forall a. Ord a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Bool
+compare :: HashableTrans a -&gt; HashableTrans a -&gt; Ordering
+$ccompare :: forall a. Ord a =&gt; HashableTrans a -&gt; HashableTrans a -&gt; Ordering
+$cp1Ord :: forall a. Ord a =&gt; Eq (HashableTrans a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681467253"><span class="annot"><span class="hs-identifier hs-type">Hashable</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier hs-type">HashableTrans</span></a></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-88"></span><span>    </span><span id="local-6989586621681467251"><span class="annot"><span class="annottext">hashWithSalt :: Int -&gt; HashableTrans PayloadWithText -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">hashWithSalt</span></span></span><span> </span><span id="local-6989586621681467249"><span class="annot"><span class="annottext">s :: Int
+</span><a href="#local-6989586621681467249"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Transaction.html#HashableTrans"><span class="hs-identifier hs-type">HashableTrans</span></a></span><span> </span><span id="local-6989586621681467248"><span class="annot"><span class="annottext">t :: Command PayloadWithText
+</span><a href="#local-6989586621681467248"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word64 -&gt; Int
+forall a. Hashable a =&gt; Int -&gt; a -&gt; Int
+</span><span class="hs-identifier hs-var">hashWithSalt</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681467249"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681467247"><span class="hs-identifier hs-var">hashCode</span></a></span><span>
+</span><span id="line-89"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-90"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TypedHash</span></span><span> </span><span id="local-6989586621681467245"><span class="annot"><span class="annottext">hc :: ByteString
+</span><a href="#local-6989586621681467245"><span class="hs-identifier hs-var">hc</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Command PayloadWithText -&gt; TypedHash 'Blake2b_256
+forall a. Command a -&gt; TypedHash 'Blake2b_256
+</span><span class="hs-identifier hs-var hs-var">_cmdHash</span></span><span> </span><span class="annot"><span class="annottext">Command PayloadWithText
+</span><a href="#local-6989586621681467248"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-91"></span><span>        </span><span id="local-6989586621681467243"><span class="annot"><span class="annottext">decHC :: ByteString -&gt; Either String Word64
+</span><a href="#local-6989586621681467243"><span class="hs-identifier hs-var hs-var">decHC</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Get Word64 -&gt; ByteString -&gt; Either String Word64
+forall a. Get a -&gt; ByteString -&gt; Either String a
+</span><span class="hs-identifier hs-var">runGetS</span></span><span> </span><span class="annot"><span class="annottext">Get Word64
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word64
+</span><span class="hs-identifier hs-var">getWord64host</span></span><span>
+</span><span id="line-92"></span><span>        </span><span class="hs-glyph">!</span><span id="local-6989586621681467247"><span class="annot"><span class="annottext">hashCode :: Word64
+</span><a href="#local-6989586621681467247"><span class="hs-identifier hs-var hs-var">hashCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(String -&gt; Word64)
+-&gt; (Word64 -&gt; Word64) -&gt; Either String Word64 -&gt; Word64
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Word64
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span> </span><span class="annot"><span class="annottext">(Either String Word64 -&gt; Word64) -&gt; Either String Word64 -&gt; Word64
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String Word64
+</span><a href="#local-6989586621681467243"><span class="hs-identifier hs-var">decHC</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">B.take</span></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681467245"><span class="hs-identifier hs-var">hc</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">hashWithSalt</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- | A codec for (Command PayloadWithText) transactions.</span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Chainweb.Transaction.html#chainwebPayloadCodec"><span class="hs-identifier hs-type">chainwebPayloadCodec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#Codec"><span class="hs-identifier hs-type">Codec</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span id="chainwebPayloadCodec"><span class="annot"><span class="annottext">chainwebPayloadCodec :: Codec (Command PayloadWithText)
+</span><a href="Chainweb.Transaction.html#chainwebPayloadCodec"><span class="hs-identifier hs-var hs-var">chainwebPayloadCodec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Command PayloadWithText -&gt; ByteString)
+-&gt; (ByteString -&gt; Either String (Command PayloadWithText))
+-&gt; Codec (Command PayloadWithText)
+forall t.
+(t -&gt; ByteString) -&gt; (ByteString -&gt; Either String t) -&gt; Codec t
+</span><a href="Chainweb.Utils.html#Codec"><span class="hs-identifier hs-var">Codec</span></a></span><span> </span><span class="annot"><span class="annottext">Command PayloadWithText -&gt; ByteString
+forall (f :: * -&gt; *).
+(ToJSON (f Text), Functor f) =&gt;
+f PayloadWithText -&gt; ByteString
+</span><a href="#local-6989586621681467235"><span class="hs-identifier hs-var">enc</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String (Command PayloadWithText)
+forall (t :: * -&gt; *).
+(FromJSON (t Text), Traversable t) =&gt;
+ByteString -&gt; Either String (t PayloadWithText)
+</span><a href="#local-6989586621681467234"><span class="hs-identifier hs-var">dec</span></a></span><span>
+</span><span id="line-98"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-99"></span><span>    </span><span id="local-6989586621681467235"><span class="annot"><span class="annottext">enc :: f PayloadWithText -&gt; ByteString
+</span><a href="#local-6989586621681467235"><span class="hs-identifier hs-var hs-var">enc</span></a></span></span><span> </span><span id="local-6989586621681467233"><span class="annot"><span class="annottext">c :: f PayloadWithText
+</span><a href="#local-6989586621681467233"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f Text -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><a href="Chainweb.Utils.html#encodeToByteString"><span class="hs-identifier hs-var">encodeToByteString</span></a></span><span> </span><span class="annot"><span class="annottext">(f Text -&gt; ByteString) -&gt; f Text -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(PayloadWithText -&gt; Text) -&gt; f PayloadWithText -&gt; f Text
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text)
+-&gt; (PayloadWithText -&gt; ByteString) -&gt; PayloadWithText -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">SB.fromShort</span></span><span> </span><span class="annot"><span class="annottext">(ShortByteString -&gt; ByteString)
+-&gt; (PayloadWithText -&gt; ShortByteString)
+-&gt; PayloadWithText
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PayloadWithText -&gt; ShortByteString
+</span><a href="Chainweb.Transaction.html#_payloadBytes"><span class="hs-identifier hs-var hs-var">_payloadBytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">f PayloadWithText
+</span><a href="#local-6989586621681467233"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span id="local-6989586621681467234"><span class="annot"><span class="annottext">dec :: ByteString -&gt; Either String (t PayloadWithText)
+</span><a href="#local-6989586621681467234"><span class="hs-identifier hs-var hs-var">dec</span></a></span></span><span> </span><span id="local-6989586621681467229"><span class="annot"><span class="annottext">bs :: ByteString
+</span><a href="#local-6989586621681467229"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe (t Text)
+forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Aeson.decodeStrict'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681467229"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-101"></span><span>               </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681467227"><span class="annot"><span class="annottext">cmd :: t Text
+</span><a href="#local-6989586621681467227"><span class="hs-identifier hs-var">cmd</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either String PayloadWithText)
+-&gt; t Text -&gt; Either String (t PayloadWithText)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Either String PayloadWithText
+</span><a href="Chainweb.Transaction.html#decodePayload"><span class="hs-identifier hs-var">decodePayload</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either String PayloadWithText)
+-&gt; (Text -&gt; ByteString) -&gt; Text -&gt; Either String PayloadWithText
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">encodeUtf8</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">t Text
+</span><a href="#local-6989586621681467227"><span class="hs-identifier hs-var">cmd</span></a></span><span>
+</span><span id="line-102"></span><span>               </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Either String (t PayloadWithText)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="hs-string">&quot;decode PayloadWithText failed&quot;</span></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="annot"><a href="Chainweb.Transaction.html#decodePayload"><span class="hs-identifier hs-type">decodePayload</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-type">PayloadWithText</span></a></span><span>
+</span><span id="line-105"></span><span id="decodePayload"><span class="annot"><span class="annottext">decodePayload :: ByteString -&gt; Either String PayloadWithText
+</span><a href="Chainweb.Transaction.html#decodePayload"><span class="hs-identifier hs-var hs-var">decodePayload</span></a></span></span><span> </span><span id="local-6989586621681467224"><span class="annot"><span class="annottext">bs :: ByteString
+</span><a href="#local-6989586621681467224"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe (Payload PublicMeta Text)
+forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Aeson.decodeStrict'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681467224"><span class="hs-identifier hs-var">bs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681467223"><span class="annot"><span class="annottext">payload :: Payload PublicMeta Text
+</span><a href="#local-6989586621681467223"><span class="hs-identifier hs-var">payload</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-107"></span><span>        </span><span id="local-6989586621681467222"><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467222"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either String ParsedCode)
+-&gt; Payload PublicMeta Text
+-&gt; Either String (Payload PublicMeta ParsedCode)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either String ParsedCode
+</span><a href="Chainweb.Transaction.html#parsePact"><span class="hs-identifier hs-var">parsePact</span></a></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta Text
+</span><a href="#local-6989586621681467223"><span class="hs-identifier hs-var">payload</span></a></span><span>
+</span><span id="line-108"></span><span>        </span><span class="annot"><span class="annottext">PayloadWithText -&gt; Either String PayloadWithText
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(PayloadWithText -&gt; Either String PayloadWithText)
+-&gt; PayloadWithText -&gt; Either String PayloadWithText
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; Payload PublicMeta ParsedCode -&gt; PayloadWithText
+</span><a href="Chainweb.Transaction.html#PayloadWithText"><span class="hs-identifier hs-var">PayloadWithText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ShortByteString
+</span><span class="hs-identifier hs-var">SB.toShort</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681467224"><span class="hs-identifier hs-var">bs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta ParsedCode
+</span><a href="#local-6989586621681467222"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Either String PayloadWithText
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="hs-string">&quot;decoding Payload failed&quot;</span></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="Chainweb.Transaction.html#parsePact"><span class="hs-identifier hs-type">parsePact</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ParsedCode</span></span><span>
+</span><span id="line-112"></span><span id="parsePact"><span class="annot"><span class="annottext">parsePact :: Text -&gt; Either String ParsedCode
+</span><a href="Chainweb.Transaction.html#parsePact"><span class="hs-identifier hs-var hs-var">parsePact</span></a></span></span><span> </span><span id="local-6989586621681467219"><span class="annot"><span class="annottext">code :: Text
+</span><a href="#local-6989586621681467219"><span class="hs-identifier hs-var">code</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Exp Parsed] -&gt; ParsedCode
+</span><span class="hs-identifier hs-var">ParsedCode</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681467219"><span class="hs-identifier hs-var">code</span></a></span><span> </span><span class="annot"><span class="annottext">([Exp Parsed] -&gt; ParsedCode)
+-&gt; Either String [Exp Parsed] -&gt; Either String ParsedCode
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either String [Exp Parsed]
+</span><span class="hs-identifier hs-var">parseExprs</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681467219"><span class="hs-identifier hs-var">code</span></a></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span class="hs-comment">-- | Get the gas limit/supply of a public chain command payload</span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Chainweb.Transaction.html#gasLimitOf"><span class="hs-identifier hs-type">gasLimitOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681467216"><span class="annot"><a href="#local-6989586621681467216"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><a href="#local-6989586621681467216"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">GasLimit</span></span><span>
+</span><span id="line-116"></span><span id="gasLimitOf"><span class="annot"><span class="annottext">gasLimitOf :: Command (Payload PublicMeta c) -&gt; GasLimit
+</span><a href="Chainweb.Transaction.html#gasLimitOf"><span class="hs-identifier hs-var hs-var">gasLimitOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PublicMeta -&gt; GasLimit
+</span><span class="hs-identifier hs-var hs-var">_pmGasLimit</span></span><span> </span><span class="annot"><span class="annottext">(PublicMeta -&gt; GasLimit)
+-&gt; (Command (Payload PublicMeta c) -&gt; PublicMeta)
+-&gt; Command (Payload PublicMeta c)
+-&gt; GasLimit
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta c -&gt; PublicMeta
+forall m c. Payload m c -&gt; m
+</span><span class="hs-identifier hs-var hs-var">_pMeta</span></span><span> </span><span class="annot"><span class="annottext">(Payload PublicMeta c -&gt; PublicMeta)
+-&gt; (Command (Payload PublicMeta c) -&gt; Payload PublicMeta c)
+-&gt; Command (Payload PublicMeta c)
+-&gt; PublicMeta
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta c) -&gt; Payload PublicMeta c
+forall a. Command a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">_cmdPayload</span></span><span>
+</span><span id="line-117"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#gasLimitOf"><span class="hs-pragma hs-type">gasLimitOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- | Get the gas price of a public chain command payload</span><span>
+</span><span id="line-120"></span><span class="annot"><a href="Chainweb.Transaction.html#gasPriceOf"><span class="hs-identifier hs-type">gasPriceOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681467212"><span class="annot"><a href="#local-6989586621681467212"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><a href="#local-6989586621681467212"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">GasPrice</span></span><span>
+</span><span id="line-121"></span><span id="gasPriceOf"><span class="annot"><span class="annottext">gasPriceOf :: Command (Payload PublicMeta c) -&gt; GasPrice
+</span><a href="Chainweb.Transaction.html#gasPriceOf"><span class="hs-identifier hs-var hs-var">gasPriceOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PublicMeta -&gt; GasPrice
+</span><span class="hs-identifier hs-var hs-var">_pmGasPrice</span></span><span> </span><span class="annot"><span class="annottext">(PublicMeta -&gt; GasPrice)
+-&gt; (Command (Payload PublicMeta c) -&gt; PublicMeta)
+-&gt; Command (Payload PublicMeta c)
+-&gt; GasPrice
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta c -&gt; PublicMeta
+forall m c. Payload m c -&gt; m
+</span><span class="hs-identifier hs-var hs-var">_pMeta</span></span><span> </span><span class="annot"><span class="annottext">(Payload PublicMeta c -&gt; PublicMeta)
+-&gt; (Command (Payload PublicMeta c) -&gt; Payload PublicMeta c)
+-&gt; Command (Payload PublicMeta c)
+-&gt; PublicMeta
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta c) -&gt; Payload PublicMeta c
+forall a. Command a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">_cmdPayload</span></span><span>
+</span><span id="line-122"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#gasPriceOf"><span class="hs-pragma hs-type">gasPriceOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="annot"><a href="Chainweb.Transaction.html#timeToLiveOf"><span class="hs-identifier hs-type">timeToLiveOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681467210"><span class="annot"><a href="#local-6989586621681467210"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><a href="#local-6989586621681467210"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TTLSeconds</span></span><span>
+</span><span id="line-125"></span><span id="timeToLiveOf"><span class="annot"><span class="annottext">timeToLiveOf :: Command (Payload PublicMeta c) -&gt; TTLSeconds
+</span><a href="Chainweb.Transaction.html#timeToLiveOf"><span class="hs-identifier hs-var hs-var">timeToLiveOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PublicMeta -&gt; TTLSeconds
+</span><span class="hs-identifier hs-var hs-var">_pmTTL</span></span><span> </span><span class="annot"><span class="annottext">(PublicMeta -&gt; TTLSeconds)
+-&gt; (Command (Payload PublicMeta c) -&gt; PublicMeta)
+-&gt; Command (Payload PublicMeta c)
+-&gt; TTLSeconds
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta c -&gt; PublicMeta
+forall m c. Payload m c -&gt; m
+</span><span class="hs-identifier hs-var hs-var">_pMeta</span></span><span> </span><span class="annot"><span class="annottext">(Payload PublicMeta c -&gt; PublicMeta)
+-&gt; (Command (Payload PublicMeta c) -&gt; Payload PublicMeta c)
+-&gt; Command (Payload PublicMeta c)
+-&gt; PublicMeta
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta c) -&gt; Payload PublicMeta c
+forall a. Command a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">_cmdPayload</span></span><span>
+</span><span id="line-126"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#timeToLiveOf"><span class="hs-pragma hs-type">timeToLiveOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="annot"><a href="Chainweb.Transaction.html#creationTimeOf"><span class="hs-identifier hs-type">creationTimeOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681467208"><span class="annot"><a href="#local-6989586621681467208"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Payload</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PublicMeta</span></span><span> </span><span class="annot"><a href="#local-6989586621681467208"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxCreationTime</span></span><span>
+</span><span id="line-129"></span><span id="creationTimeOf"><span class="annot"><span class="annottext">creationTimeOf :: Command (Payload PublicMeta c) -&gt; TxCreationTime
+</span><a href="Chainweb.Transaction.html#creationTimeOf"><span class="hs-identifier hs-var hs-var">creationTimeOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PublicMeta -&gt; TxCreationTime
+</span><span class="hs-identifier hs-var hs-var">_pmCreationTime</span></span><span> </span><span class="annot"><span class="annottext">(PublicMeta -&gt; TxCreationTime)
+-&gt; (Command (Payload PublicMeta c) -&gt; PublicMeta)
+-&gt; Command (Payload PublicMeta c)
+-&gt; TxCreationTime
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Payload PublicMeta c -&gt; PublicMeta
+forall m c. Payload m c -&gt; m
+</span><span class="hs-identifier hs-var hs-var">_pMeta</span></span><span> </span><span class="annot"><span class="annottext">(Payload PublicMeta c -&gt; PublicMeta)
+-&gt; (Command (Payload PublicMeta c) -&gt; Payload PublicMeta c)
+-&gt; Command (Payload PublicMeta c)
+-&gt; PublicMeta
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Command (Payload PublicMeta c) -&gt; Payload PublicMeta c
+forall a. Command a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">_cmdPayload</span></span><span>
+</span><span id="line-130"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#creationTimeOf"><span class="hs-pragma hs-type">creationTimeOf</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-131"></span></pre></body></html>

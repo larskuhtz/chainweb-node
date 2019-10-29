@@ -1,0 +1,420 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE AllowAmbiguousTypes #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Module: Data.Word.Encoding</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-13"></span><span class="hs-comment">--</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.Word.Encoding</span><span>
+</span><span id="line-15"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier">WordEncoding</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#properties"><span class="hs-identifier">properties</span></a></span><span>
+</span><span id="line-17"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(&lt;$!&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bits</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Get</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bytes.Put</span></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">B</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.DoubleWord</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Word128</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Word256</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Word</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">class</span><span> </span><span id="WordEncoding"><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-var">WordEncoding</span></a></span></span><span> </span><span id="local-6989586621681476630"><span class="annot"><a href="#local-6989586621681476630"><span class="hs-identifier hs-type">w</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>    </span><span id="local-6989586621681476635"><span id="encodeWordLe"><span class="annot"><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-identifier hs-type">encodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPut</span></span><span> </span><span class="annot"><a href="#local-6989586621681476635"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476630"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476635"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-31"></span><span>    </span><span id="local-6989586621681476633"><span id="decodeWordLe"><span class="annot"><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-identifier hs-type">decodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadGet</span></span><span> </span><span class="annot"><a href="#local-6989586621681476633"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476633"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476630"><span class="hs-identifier hs-type">w</span></a></span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span>    </span><span id="local-6989586621681476559"><span id="encodeWordBe"><span class="annot"><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-identifier hs-type">encodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadPut</span></span><span> </span><span class="annot"><a href="#local-6989586621681476559"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476630"><span class="hs-identifier hs-type">w</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476559"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-34"></span><span>    </span><span id="local-6989586621681476557"><span id="decodeWordBe"><span class="annot"><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-identifier hs-type">decodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadGet</span></span><span> </span><span class="annot"><a href="#local-6989586621681476557"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681476557"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476630"><span class="hs-identifier hs-type">w</span></a></span></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-37"></span><span>    </span><span id="local-6989586621681476550"><span class="annot"><span class="annottext">encodeWordLe :: Word8 -&gt; m ()
+</span><a href="#local-6989586621681476550"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word8 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord8</span></span><span>
+</span><span id="line-38"></span><span>    </span><span id="local-6989586621681476548"><span class="annot"><span class="annottext">decodeWordLe :: m Word8
+</span><a href="#local-6989586621681476548"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word8
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word8
+</span><span class="hs-identifier hs-var">getWord8</span></span><span>
+</span><span id="line-39"></span><span>    </span><span id="local-6989586621681476546"><span class="annot"><span class="annottext">encodeWordBe :: Word8 -&gt; m ()
+</span><a href="#local-6989586621681476546"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word8 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word8 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord8</span></span><span>
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621681476545"><span class="annot"><span class="annottext">decodeWordBe :: m Word8
+</span><a href="#local-6989586621681476545"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word8
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word8
+</span><span class="hs-identifier hs-var">getWord8</span></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-pragma hs-type">encodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-pragma hs-type">decodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-pragma hs-type">encodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-pragma hs-type">decodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word16</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621681476540"><span class="annot"><span class="annottext">encodeWordLe :: Word16 -&gt; m ()
+</span><a href="#local-6989586621681476540"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word16 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord16le</span></span><span>
+</span><span id="line-48"></span><span>    </span><span id="local-6989586621681476538"><span class="annot"><span class="annottext">decodeWordLe :: m Word16
+</span><a href="#local-6989586621681476538"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word16
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word16
+</span><span class="hs-identifier hs-var">getWord16le</span></span><span>
+</span><span id="line-49"></span><span>    </span><span id="local-6989586621681476536"><span class="annot"><span class="annottext">encodeWordBe :: Word16 -&gt; m ()
+</span><a href="#local-6989586621681476536"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word16 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord16be</span></span><span>
+</span><span id="line-50"></span><span>    </span><span id="local-6989586621681476534"><span class="annot"><span class="annottext">decodeWordBe :: m Word16
+</span><a href="#local-6989586621681476534"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word16
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word16
+</span><span class="hs-identifier hs-var">getWord16be</span></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-pragma hs-type">encodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-pragma hs-type">decodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-pragma hs-type">encodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-pragma hs-type">decodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word32</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-57"></span><span>    </span><span id="local-6989586621681476528"><span class="annot"><span class="annottext">encodeWordLe :: Word32 -&gt; m ()
+</span><a href="#local-6989586621681476528"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word32 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord32le</span></span><span>
+</span><span id="line-58"></span><span>    </span><span id="local-6989586621681476526"><span class="annot"><span class="annottext">decodeWordLe :: m Word32
+</span><a href="#local-6989586621681476526"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word32
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word32
+</span><span class="hs-identifier hs-var">getWord32le</span></span><span>
+</span><span id="line-59"></span><span>    </span><span id="local-6989586621681476524"><span class="annot"><span class="annottext">encodeWordBe :: Word32 -&gt; m ()
+</span><a href="#local-6989586621681476524"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word32 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word32 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord32be</span></span><span>
+</span><span id="line-60"></span><span>    </span><span id="local-6989586621681476522"><span class="annot"><span class="annottext">decodeWordBe :: m Word32
+</span><a href="#local-6989586621681476522"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word32
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word32
+</span><span class="hs-identifier hs-var">getWord32be</span></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-pragma hs-type">encodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-pragma hs-type">decodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-pragma hs-type">encodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-pragma hs-type">decodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word64</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-67"></span><span>    </span><span id="local-6989586621681476516"><span class="annot"><span class="annottext">encodeWordLe :: Word64 -&gt; m ()
+</span><a href="#local-6989586621681476516"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word64 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord64le</span></span><span>
+</span><span id="line-68"></span><span>    </span><span id="local-6989586621681476514"><span class="annot"><span class="annottext">decodeWordLe :: m Word64
+</span><a href="#local-6989586621681476514"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word64
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word64
+</span><span class="hs-identifier hs-var">getWord64le</span></span><span>
+</span><span id="line-69"></span><span>    </span><span id="local-6989586621681476512"><span class="annot"><span class="annottext">encodeWordBe :: Word64 -&gt; m ()
+</span><a href="#local-6989586621681476512"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; m ()
+forall (m :: * -&gt; *). MonadPut m =&gt; Word64 -&gt; m ()
+</span><span class="hs-identifier hs-var">putWord64be</span></span><span>
+</span><span id="line-70"></span><span>    </span><span id="local-6989586621681476510"><span class="annot"><span class="annottext">decodeWordBe :: m Word64
+</span><a href="#local-6989586621681476510"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m Word64
+forall (m :: * -&gt; *). MonadGet m =&gt; m Word64
+</span><span class="hs-identifier hs-var">getWord64be</span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-pragma hs-type">encodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-pragma hs-type">decodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-pragma hs-type">encodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-pragma hs-type">decodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word128</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621681476504"><span class="annot"><span class="annottext">encodeWordLe :: Word128 -&gt; m ()
+</span><a href="#local-6989586621681476504"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordLe</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word128</span></span><span> </span><span id="local-6989586621681476502"><span class="annot"><span class="annottext">a :: Word64
+</span><a href="#local-6989586621681476502"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681476501"><span class="annot"><span class="annottext">b :: Word64
+</span><a href="#local-6989586621681476501"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-identifier hs-var">encodeWordLe</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681476501"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-identifier hs-var">encodeWordLe</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681476502"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span id="local-6989586621681476500"><span class="annot"><span class="annottext">decodeWordLe :: m Word128
+</span><a href="#local-6989586621681476500"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; Word64 -&gt; Word128) -&gt; Word64 -&gt; Word64 -&gt; Word128
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word128
+</span><span class="hs-identifier hs-var">Word128</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; Word64 -&gt; Word128) -&gt; m Word64 -&gt; m (Word64 -&gt; Word128)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word64
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-identifier hs-var">decodeWordLe</span></a></span><span> </span><span class="annot"><span class="annottext">m (Word64 -&gt; Word128) -&gt; m Word64 -&gt; m Word128
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word64
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-identifier hs-var">decodeWordLe</span></a></span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621681476498"><span class="annot"><span class="annottext">encodeWordBe :: Word128 -&gt; m ()
+</span><a href="#local-6989586621681476498"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordBe</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word128</span></span><span> </span><span id="local-6989586621681476497"><span class="annot"><span class="annottext">a :: Word64
+</span><a href="#local-6989586621681476497"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681476496"><span class="annot"><span class="annottext">b :: Word64
+</span><a href="#local-6989586621681476496"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-identifier hs-var">encodeWordBe</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681476497"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-identifier hs-var">encodeWordBe</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621681476496"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span id="local-6989586621681476495"><span class="annot"><span class="annottext">decodeWordBe :: m Word128
+</span><a href="#local-6989586621681476495"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Word64 -&gt; Word128
+</span><span class="hs-identifier hs-var">Word128</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; Word64 -&gt; Word128) -&gt; m Word64 -&gt; m (Word64 -&gt; Word128)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word64
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-identifier hs-var">decodeWordBe</span></a></span><span> </span><span class="annot"><span class="annottext">m (Word64 -&gt; Word128) -&gt; m Word64 -&gt; m Word128
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word64
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-identifier hs-var">decodeWordBe</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-pragma hs-type">encodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-pragma hs-type">decodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-pragma hs-type">encodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-pragma hs-type">decodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Word256</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-87"></span><span>    </span><span id="local-6989586621681476490"><span class="annot"><span class="annottext">encodeWordLe :: Word256 -&gt; m ()
+</span><a href="#local-6989586621681476490"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordLe</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word256</span></span><span> </span><span id="local-6989586621681476488"><span class="annot"><span class="annottext">a :: Word128
+</span><a href="#local-6989586621681476488"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681476487"><span class="annot"><span class="annottext">b :: Word128
+</span><a href="#local-6989586621681476487"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word128 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-identifier hs-var">encodeWordLe</span></a></span><span> </span><span class="annot"><span class="annottext">Word128
+</span><a href="#local-6989586621681476487"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Word128 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-identifier hs-var">encodeWordLe</span></a></span><span> </span><span class="annot"><span class="annottext">Word128
+</span><a href="#local-6989586621681476488"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span id="local-6989586621681476486"><span class="annot"><span class="annottext">decodeWordLe :: m Word256
+</span><a href="#local-6989586621681476486"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordLe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Word128 -&gt; Word128 -&gt; Word256) -&gt; Word128 -&gt; Word128 -&gt; Word256
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">Word128 -&gt; Word128 -&gt; Word256
+</span><span class="hs-identifier hs-var">Word256</span></span><span> </span><span class="annot"><span class="annottext">(Word128 -&gt; Word128 -&gt; Word256)
+-&gt; m Word128 -&gt; m (Word128 -&gt; Word256)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word128
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-identifier hs-var">decodeWordLe</span></a></span><span> </span><span class="annot"><span class="annottext">m (Word128 -&gt; Word256) -&gt; m Word128 -&gt; m Word256
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word128
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-identifier hs-var">decodeWordLe</span></a></span><span>
+</span><span id="line-89"></span><span>    </span><span id="local-6989586621681476485"><span class="annot"><span class="annottext">encodeWordBe :: Word256 -&gt; m ()
+</span><a href="#local-6989586621681476485"><span class="hs-identifier hs-var hs-var hs-var hs-var">encodeWordBe</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Word256</span></span><span> </span><span id="local-6989586621681476484"><span class="annot"><span class="annottext">a :: Word128
+</span><a href="#local-6989586621681476484"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681476483"><span class="annot"><span class="annottext">b :: Word128
+</span><a href="#local-6989586621681476483"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word128 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-identifier hs-var">encodeWordBe</span></a></span><span> </span><span class="annot"><span class="annottext">Word128
+</span><a href="#local-6989586621681476484"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m () -&gt; m ()
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><span class="hs-operator hs-var">*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Word128 -&gt; m ()
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-identifier hs-var">encodeWordBe</span></a></span><span> </span><span class="annot"><span class="annottext">Word128
+</span><a href="#local-6989586621681476483"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-90"></span><span>    </span><span id="local-6989586621681476482"><span class="annot"><span class="annottext">decodeWordBe :: m Word256
+</span><a href="#local-6989586621681476482"><span class="hs-identifier hs-var hs-var hs-var hs-var">decodeWordBe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word128 -&gt; Word128 -&gt; Word256
+</span><span class="hs-identifier hs-var">Word256</span></span><span> </span><span class="annot"><span class="annottext">(Word128 -&gt; Word128 -&gt; Word256)
+-&gt; m Word128 -&gt; m (Word128 -&gt; Word256)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word128
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-identifier hs-var">decodeWordBe</span></a></span><span> </span><span class="annot"><span class="annottext">m (Word128 -&gt; Word256) -&gt; m Word128 -&gt; m Word256
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">m Word128
+forall w (m :: * -&gt; *). (WordEncoding w, MonadGet m) =&gt; m w
+</span><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-identifier hs-var">decodeWordBe</span></a></span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-pragma hs-type">encodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordLe"><span class="hs-pragma hs-type">decodeWordLe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-pragma hs-type">encodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#decodeWordBe"><span class="hs-pragma hs-type">decodeWordBe</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- Properties</span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="annot"><a href="Data.Word.Encoding.html#prop_bigEndian"><span class="hs-identifier hs-type">prop_bigEndian</span></a></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681476480"><span class="annot"><a href="#local-6989586621681476480"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621681476480"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621681476480"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476480"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FiniteBits</span></span><span> </span><span class="annot"><a href="#local-6989586621681476480"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-106"></span><span id="prop_bigEndian"><span class="annot"><span class="annottext">prop_bigEndian :: Bool
+</span><a href="Data.Word.Encoding.html#prop_bigEndian"><span class="hs-identifier hs-var hs-var">prop_bigEndian</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Bool) -&gt; [Int] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">all</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Bool
+</span><a href="#local-6989586621681476478"><span class="hs-identifier hs-var">run</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall b. FiniteBits b =&gt; b -&gt; Int
+</span><span class="hs-identifier hs-var">finiteBitSize</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681476480"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span>  </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-108"></span><span>    </span><span id="local-6989586621681476478"><span class="annot"><span class="annottext">run :: Int -&gt; Bool
+</span><a href="#local-6989586621681476478"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span id="local-6989586621681476474"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681476474"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681476474"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-109"></span><span>        </span><span class="annot"><span class="annottext">(Int -&gt; Bool) -&gt; Int -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span>
+</span><span id="line-110"></span><span>        </span><span class="annot"><span class="annottext">([Word8] -&gt; Int) -&gt; [Word8] -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8 -&gt; Bool) -&gt; [Word8] -&gt; [Word8]
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">takeWhile</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word8 -&gt; Word8 -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0x00</span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>        </span><span class="annot"><span class="annottext">([Word8] -&gt; [Word8]) -&gt; [Word8] -&gt; [Word8]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [Word8]
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span>
+</span><span id="line-112"></span><span>        </span><span class="annot"><span class="annottext">(ByteString -&gt; [Word8]) -&gt; ByteString -&gt; [Word8]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><span class="hs-identifier hs-var">runPutS</span></span><span>
+</span><span id="line-113"></span><span>        </span><span class="annot"><span class="annottext">(Put -&gt; ByteString) -&gt; Put -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Put
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordBe"><span class="hs-identifier hs-var">encodeWordBe</span></a></span><span>
+</span><span id="line-114"></span><span>        </span><span class="annot"><span class="annottext">(a -&gt; Put) -&gt; a -&gt; Put
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bounded a =&gt; a
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">maxBound</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681476480"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="hs-number">2</span></span><span class="annot"><span class="annottext">a -&gt; Int -&gt; a
+forall a b. (Num a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-number">8</span></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681476474"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="annot"><a href="Data.Word.Encoding.html#prop_littleEndian"><span class="hs-identifier hs-type">prop_littleEndian</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681476564"><span class="annot"><a href="#local-6989586621681476564"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621681476564"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bounded</span></span><span> </span><span class="annot"><a href="#local-6989586621681476564"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.Word.Encoding.html#WordEncoding"><span class="hs-identifier hs-type">WordEncoding</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681476564"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FiniteBits</span></span><span> </span><span class="annot"><a href="#local-6989586621681476564"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-123"></span><span id="prop_littleEndian"><span class="annot"><span class="annottext">prop_littleEndian :: Bool
+</span><a href="Data.Word.Encoding.html#prop_littleEndian"><span class="hs-identifier hs-var hs-var">prop_littleEndian</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Bool) -&gt; [Int] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">all</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Bool
+</span><a href="#local-6989586621681476465"><span class="hs-identifier hs-var">run</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall b. FiniteBits b =&gt; b -&gt; Int
+</span><span class="hs-identifier hs-var">finiteBitSize</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+forall a. HasCallStack =&gt; a
+</span><span class="hs-identifier hs-var">undefined</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681476564"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-124"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>    </span><span id="local-6989586621681476465"><span class="annot"><span class="annottext">run :: Int -&gt; Bool
+</span><a href="#local-6989586621681476465"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span id="local-6989586621681476464"><span class="annot"><span class="annottext">i :: Int
+</span><a href="#local-6989586621681476464"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681476464"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-126"></span><span>        </span><span class="annot"><span class="annottext">(Int -&gt; Bool) -&gt; Int -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span>
+</span><span id="line-127"></span><span>        </span><span class="annot"><span class="annottext">([Word8] -&gt; Int) -&gt; [Word8] -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Word8 -&gt; Bool) -&gt; [Word8] -&gt; [Word8]
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">takeWhile</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word8 -&gt; Word8 -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0x00</span></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>        </span><span class="annot"><span class="annottext">([Word8] -&gt; [Word8]) -&gt; [Word8] -&gt; [Word8]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Word8] -&gt; [Word8]
+forall a. [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">reverse</span></span><span>
+</span><span id="line-129"></span><span>        </span><span class="annot"><span class="annottext">([Word8] -&gt; [Word8]) -&gt; [Word8] -&gt; [Word8]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [Word8]
+</span><span class="hs-identifier hs-var">B.unpack</span></span><span>
+</span><span id="line-130"></span><span>        </span><span class="annot"><span class="annottext">(ByteString -&gt; [Word8]) -&gt; ByteString -&gt; [Word8]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><span class="hs-identifier hs-var">runPutS</span></span><span>
+</span><span id="line-131"></span><span>        </span><span class="annot"><span class="annottext">(Put -&gt; ByteString) -&gt; Put -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Put
+forall w (m :: * -&gt; *). (WordEncoding w, MonadPut m) =&gt; w -&gt; m ()
+</span><a href="Data.Word.Encoding.html#encodeWordLe"><span class="hs-identifier hs-var">encodeWordLe</span></a></span><span>
+</span><span id="line-132"></span><span>        </span><span class="annot"><span class="annottext">(a -&gt; Put) -&gt; a -&gt; Put
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Bounded a =&gt; a
+forall a. Bounded a =&gt; a
+</span><span class="hs-identifier hs-var">maxBound</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681476564"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="hs-number">2</span></span><span class="annot"><span class="annottext">a -&gt; Int -&gt; a
+forall a b. (Num a, Integral b) =&gt; a -&gt; b -&gt; a
+</span><span class="hs-operator hs-var">^</span></span><span class="hs-special">(</span><span class="annot"><span class="hs-number">8</span></span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681476464"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="annot"><a href="Data.Word.Encoding.html#properties"><span class="hs-identifier hs-type">properties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-135"></span><span id="properties"><span class="annot"><span class="annottext">properties :: [(String, Property)]
+</span><a href="Data.Word.Encoding.html#properties"><span class="hs-identifier hs-var hs-var">properties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;Word128 little endian encoding&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Property) -&gt; Bool -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Integral Word128, Bounded Word128, WordEncoding Word128,
+ FiniteBits Word128) =&gt;
+Bool
+forall a.
+(Integral a, Bounded a, WordEncoding a, FiniteBits a) =&gt;
+Bool
+</span><a href="Data.Word.Encoding.html#prop_littleEndian"><span class="hs-identifier hs-var">prop_littleEndian</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Word128</span></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;Word256 little endian encoding&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Property) -&gt; Bool -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Integral Word128, Bounded Word128, WordEncoding Word128,
+ FiniteBits Word128) =&gt;
+Bool
+forall a.
+(Integral a, Bounded a, WordEncoding a, FiniteBits a) =&gt;
+Bool
+</span><a href="Data.Word.Encoding.html#prop_littleEndian"><span class="hs-identifier hs-var">prop_littleEndian</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Word128</span></span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;Word128 big endian encoding&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Property) -&gt; Bool -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Integral Word128, Bounded Word128, WordEncoding Word128,
+ FiniteBits Word128) =&gt;
+Bool
+forall a.
+(Integral a, Bounded a, WordEncoding a, FiniteBits a) =&gt;
+Bool
+</span><a href="Data.Word.Encoding.html#prop_bigEndian"><span class="hs-identifier hs-var">prop_bigEndian</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Word128</span></span><span class="hs-special">)</span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;Word256 big endian encoding&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Property) -&gt; Bool -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Integral Word128, Bounded Word128, WordEncoding Word128,
+ FiniteBits Word128) =&gt;
+Bool
+forall a.
+(Integral a, Bounded a, WordEncoding a, FiniteBits a) =&gt;
+Bool
+</span><a href="Data.Word.Encoding.html#prop_bigEndian"><span class="hs-identifier hs-var">prop_bigEndian</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Word128</span></span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-141"></span></pre></body></html>

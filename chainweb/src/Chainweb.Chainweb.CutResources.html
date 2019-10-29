@@ -1,0 +1,576 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Module: Chainweb.Chainweb.CutResources</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Chainweb.CutResources</span><span>
+</span><span id="line-21"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutSyncResources"><span class="hs-identifier">CutSyncResources</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier">CutResources</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#cutsCutDb"><span class="hs-identifier">cutsCutDb</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#withCutResources"><span class="hs-identifier">withCutResources</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#cutNetworks"><span class="hs-identifier">cutNetworks</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;.&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">log</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Client</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HTTP</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html"><span class="hs-identifier">Chainweb.Chainweb.PeerResources</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Sync.html"><span class="hs-identifier">Chainweb.CutDB.Sync</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">C</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Logger.html"><span class="hs-identifier">Chainweb.Logger</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html"><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.html"><span class="hs-identifier">Chainweb.Sync.WebBlockHeaderStore</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.html"><span class="hs-identifier">Chainweb.WebBlockHeaderDB</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.WebPactExecutionService.html"><span class="hs-identifier">Chainweb.WebPactExecutionService</span></a></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS.RocksDB</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.html"><span class="hs-identifier">P2P.Node</span></a></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Peer.html"><span class="hs-identifier">P2P.Peer</span></a></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Session.html"><span class="hs-identifier">P2P.Session</span></a></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html"><span class="hs-identifier">P2P.TaskQueue</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- Cuts Resources</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">data</span><span> </span><span id="CutSyncResources"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutSyncResources"><span class="hs-identifier hs-var">CutSyncResources</span></a></span></span><span> </span><span id="local-6989586621681508719"><span class="annot"><a href="#local-6989586621681508719"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CutSyncResources"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutSyncResources"><span class="hs-identifier hs-var">CutSyncResources</span></a></span></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_cutResSyncSession"><span class="annot"><span class="annottext">CutSyncResources logger -&gt; P2pSession
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncSession"><span class="hs-identifier hs-var hs-var">_cutResSyncSession</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.Session.html#P2pSession"><span class="hs-identifier hs-type">P2pSession</span></a></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutResSyncLogger"><span class="annot"><span class="annottext">CutSyncResources logger -&gt; logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncLogger"><span class="hs-identifier hs-var hs-var">_cutResSyncLogger</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621681508719"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">data</span><span> </span><span id="CutResources"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-var">CutResources</span></a></span></span><span> </span><span id="local-6989586621681508747"><span class="annot"><a href="#local-6989586621681508747"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span id="local-6989586621681508746"><span class="annot"><a href="#local-6989586621681508746"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CutResources"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-var">CutResources</span></a></span></span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_cutResCutConfig"><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutDbConfig
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutConfig"><span class="hs-identifier hs-var hs-var">_cutResCutConfig</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.CutDB.html#CutDbConfig"><span class="hs-identifier hs-type">CutDbConfig</span></a></span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutResPeer"><span class="annot"><span class="annottext">CutResources logger cas -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPeer"><span class="hs-identifier hs-var hs-var">_cutResPeer</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-type">PeerResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508747"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutResCutDb"><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutDb cas
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutDb"><span class="hs-identifier hs-var hs-var">_cutResCutDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508746"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutResLogger"><span class="annot"><span class="annottext">CutResources logger cas -&gt; logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResLogger"><span class="hs-identifier hs-var hs-var">_cutResLogger</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621681508747"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutResCutSync"><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutSync"><span class="hs-identifier hs-var hs-var">_cutResCutSync</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutSyncResources"><span class="hs-identifier hs-type">CutSyncResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508747"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutResHeaderSync"><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResHeaderSync"><span class="hs-identifier hs-var hs-var">_cutResHeaderSync</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutSyncResources"><span class="hs-identifier hs-type">CutSyncResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508747"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_cutResPayloadSync"><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPayloadSync"><span class="hs-identifier hs-var hs-var">_cutResPayloadSync</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutSyncResources"><span class="hs-identifier hs-type">CutSyncResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508747"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span id="local-6989586621681508656"><span id="cutsCutDb"><span id="local-6989586621681508746"><span id="local-6989586621681508747"><span class="hs-identifier">makeLensesFor</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="hs-string">&quot;_cutResCutDb&quot;</span><span class="hs-special">,</span><span> </span><span class="hs-string">&quot;cutsCutDb&quot;</span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-special">]</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">CutResources</span></span></span></span></span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span id="local-6989586621681508654"><span id="local-6989586621681508655"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681508651"><span class="annot"><a href="Chainweb.Version.html#HasChainwebVersion"><span class="hs-identifier hs-type">HasChainwebVersion</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-type">CutResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508655"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508654"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681508649"><span class="annot"><span class="annottext">_chainwebVersion :: CutResources logger cas -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutDb cas -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(CutDb cas -&gt; ChainwebVersion)
+-&gt; (CutResources logger cas -&gt; CutDb cas)
+-&gt; CutResources logger cas
+-&gt; ChainwebVersion
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutDb cas
+forall logger (cas :: * -&gt; *). CutResources logger cas -&gt; CutDb cas
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutDb"><span class="hs-identifier hs-var hs-var">_cutResCutDb</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-pragma hs-type">_chainwebVersion</span></a></span><span> </span><span class="hs-pragma">#-}</span></span></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span id="local-6989586621681508644"><span id="local-6989586621681508645"><span id="local-6989586621681508646"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#withCutResources"><span class="hs-identifier hs-type">withCutResources</span></a></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508646"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508645"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html#CutDbConfig"><span class="hs-identifier hs-type">CutDbConfig</span></a></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-type">PeerResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508646"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681508646"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508645"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.WebPactExecutionService.Types.html#WebPactExecutionService"><span class="hs-identifier hs-type">WebPactExecutionService</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-type">CutResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508646"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508645"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508644"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508644"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-99"></span><span id="withCutResources"><span class="annot"><span class="annottext">withCutResources :: CutDbConfig
+-&gt; PeerResources logger
+-&gt; logger
+-&gt; RocksDb
+-&gt; WebBlockHeaderDb
+-&gt; PayloadDb cas
+-&gt; Manager
+-&gt; WebPactExecutionService
+-&gt; (CutResources logger cas -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Chainweb.CutResources.html#withCutResources"><span class="hs-identifier hs-var hs-var">withCutResources</span></a></span></span><span> </span><span id="local-6989586621681508643"><span class="annot"><span class="annottext">cutDbConfig :: CutDbConfig
+</span><a href="#local-6989586621681508643"><span class="hs-identifier hs-var">cutDbConfig</span></a></span></span><span> </span><span id="local-6989586621681508642"><span class="annot"><span class="annottext">peer :: PeerResources logger
+</span><a href="#local-6989586621681508642"><span class="hs-identifier hs-var">peer</span></a></span></span><span> </span><span id="local-6989586621681508641"><span class="annot"><span class="annottext">logger :: logger
+</span><a href="#local-6989586621681508641"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681508640"><span class="annot"><span class="annottext">rdb :: RocksDb
+</span><a href="#local-6989586621681508640"><span class="hs-identifier hs-var">rdb</span></a></span></span><span> </span><span id="local-6989586621681508639"><span class="annot"><span class="annottext">webchain :: WebBlockHeaderDb
+</span><a href="#local-6989586621681508639"><span class="hs-identifier hs-var">webchain</span></a></span></span><span> </span><span id="local-6989586621681508638"><span class="annot"><span class="annottext">payloadDb :: PayloadDb cas
+</span><a href="#local-6989586621681508638"><span class="hs-identifier hs-var">payloadDb</span></a></span></span><span> </span><span id="local-6989586621681508637"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681508637"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span id="local-6989586621681508636"><span class="annot"><span class="annottext">pact :: WebPactExecutionService
+</span><a href="#local-6989586621681508636"><span class="hs-identifier hs-var">pact</span></a></span></span><span> </span><span id="local-6989586621681508635"><span class="annot"><span class="annottext">f :: CutResources logger cas -&gt; IO a
+</span><a href="#local-6989586621681508635"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-comment">-- initialize blockheader store</span><span>
+</span><span id="line-102"></span><span>    </span><span id="local-6989586621681508634"><span class="annot"><span class="annottext">WebBlockHeaderStore
+</span><a href="#local-6989586621681508634"><span class="hs-identifier hs-var">headerStore</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Manager
+-&gt; WebBlockHeaderDb -&gt; LogFunction -&gt; IO WebBlockHeaderStore
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.html#newWebBlockHeaderStore"><span class="hs-identifier hs-var">newWebBlockHeaderStore</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508637"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb
+</span><a href="#local-6989586621681508639"><span class="hs-identifier hs-var">webchain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">logger -&gt; LogFunction
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508641"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-comment">-- initialize payload store</span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621681508631"><span class="annot"><span class="annottext">WebBlockPayloadStore cas
+</span><a href="#local-6989586621681508631"><span class="hs-identifier hs-var">payloadStore</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Manager
+-&gt; WebPactExecutionService
+-&gt; PayloadDb cas
+-&gt; LogFunction
+-&gt; IO (WebBlockPayloadStore cas)
+forall (cas :: * -&gt; *).
+Manager
+-&gt; WebPactExecutionService
+-&gt; PayloadDb cas
+-&gt; LogFunction
+-&gt; IO (WebBlockPayloadStore cas)
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.html#newWebPayloadStore"><span class="hs-identifier hs-var">newWebPayloadStore</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508637"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">WebPactExecutionService
+</span><a href="#local-6989586621681508636"><span class="hs-identifier hs-var">pact</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681508638"><span class="hs-identifier hs-var">payloadDb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">logger -&gt; LogFunction
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508641"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-comment">-- initialize cutHashes store</span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681508629"><span class="annot"><span class="annottext">cutHashesStore :: RocksDbCas CutHashes
+</span><a href="#local-6989586621681508629"><span class="hs-identifier hs-var hs-var">cutHashesStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RocksDb -&gt; RocksDbCas CutHashes
+</span><a href="Chainweb.CutDB.html#cutHashesTable"><span class="hs-identifier hs-var">cutHashesTable</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681508640"><span class="hs-identifier hs-var">rdb</span></a></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span>    </span><span class="annot"><span class="annottext">CutDbConfig
+-&gt; LogFunction
+-&gt; WebBlockHeaderStore
+-&gt; WebBlockPayloadStore cas
+-&gt; RocksDbCas CutHashes
+-&gt; (CutDb cas -&gt; IO a)
+-&gt; IO a
+forall (cas :: * -&gt; *) a.
+PayloadCas cas =&gt;
+CutDbConfig
+-&gt; LogFunction
+-&gt; WebBlockHeaderStore
+-&gt; WebBlockPayloadStore cas
+-&gt; RocksDbCas CutHashes
+-&gt; (CutDb cas -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.CutDB.html#withCutDb"><span class="hs-identifier hs-var">withCutDb</span></a></span><span> </span><span class="annot"><span class="annottext">CutDbConfig
+</span><a href="#local-6989586621681508643"><span class="hs-identifier hs-var">cutDbConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">logger -&gt; LogFunction
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508641"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderStore
+</span><a href="#local-6989586621681508634"><span class="hs-identifier hs-var">headerStore</span></a></span><span> </span><span class="annot"><span class="annottext">WebBlockPayloadStore cas
+</span><a href="#local-6989586621681508631"><span class="hs-identifier hs-var">payloadStore</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDbCas CutHashes
+</span><a href="#local-6989586621681508629"><span class="hs-identifier hs-var">cutHashesStore</span></a></span><span> </span><span class="annot"><span class="annottext">((CutDb cas -&gt; IO a) -&gt; IO a) -&gt; (CutDb cas -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681508626"><span class="annot"><span class="annottext">cutDb :: CutDb cas
+</span><a href="#local-6989586621681508626"><span class="hs-identifier hs-var">cutDb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-111"></span><span>        </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; IO a
+</span><a href="#local-6989586621681508635"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(CutResources logger cas -&gt; IO a)
+-&gt; CutResources logger cas -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">$WCutResources :: forall logger (cas :: * -&gt; *).
+CutDbConfig
+-&gt; PeerResources logger
+-&gt; CutDb cas
+-&gt; logger
+-&gt; CutSyncResources logger
+-&gt; CutSyncResources logger
+-&gt; CutSyncResources logger
+-&gt; CutResources logger cas
+</span><a href="Chainweb.Chainweb.CutResources.html#%24WCutResources"><span class="hs-identifier hs-type hs-type">CutResources</span></a></span><span>
+</span><span id="line-112"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_cutResCutConfig :: CutDbConfig
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutConfig"><span class="hs-identifier hs-var">_cutResCutConfig</span></a></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutDbConfig
+</span><a href="#local-6989586621681508643"><span class="hs-identifier hs-var">cutDbConfig</span></a></span><span>
+</span><span id="line-113"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResPeer :: PeerResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPeer"><span class="hs-identifier hs-var">_cutResPeer</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerResources logger
+</span><a href="#local-6989586621681508642"><span class="hs-identifier hs-var">peer</span></a></span><span>
+</span><span id="line-114"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResCutDb :: CutDb cas
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutDb"><span class="hs-identifier hs-var">_cutResCutDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681508626"><span class="hs-identifier hs-var">cutDb</span></a></span><span>
+</span><span id="line-115"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResLogger :: logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResLogger"><span class="hs-identifier hs-var">_cutResLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508641"><span class="hs-identifier hs-var">logger</span></a></span><span>
+</span><span id="line-116"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResCutSync :: CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutSync"><span class="hs-identifier hs-var">_cutResCutSync</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WCutSyncResources :: forall logger. P2pSession -&gt; logger -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#%24WCutSyncResources"><span class="hs-identifier hs-type hs-type">CutSyncResources</span></a></span><span>
+</span><span id="line-117"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_cutResSyncSession :: P2pSession
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncSession"><span class="hs-identifier hs-var">_cutResSyncSession</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; Bool -&gt; PeerInfo -&gt; CutDb cas -&gt; P2pSession
+forall (cas :: * -&gt; *).
+ChainwebVersion -&gt; Bool -&gt; PeerInfo -&gt; CutDb cas -&gt; P2pSession
+</span><a href="Chainweb.CutDB.Sync.html#syncSession"><span class="hs-identifier hs-var">C.syncSession</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508622"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681508621"><span class="hs-identifier hs-var">useOrigin</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Peer -&gt; PeerInfo
+</span><a href="P2P.Peer.html#_peerInfo"><span class="hs-identifier hs-var hs-var">_peerInfo</span></a></span><span> </span><span class="annot"><span class="annottext">(Peer -&gt; PeerInfo) -&gt; Peer -&gt; PeerInfo
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PeerResources logger -&gt; Peer
+forall logger. PeerResources logger -&gt; Peer
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResPeer"><span class="hs-identifier hs-var hs-var">_peerResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">PeerResources logger
+</span><a href="#local-6989586621681508642"><span class="hs-identifier hs-var">peer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681508626"><span class="hs-identifier hs-var">cutDb</span></a></span><span>
+</span><span id="line-118"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResSyncLogger :: logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncLogger"><span class="hs-identifier hs-var">_cutResSyncLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;sync&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;cut&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508617"><span class="hs-identifier hs-var">syncLogger</span></a></span><span>
+</span><span id="line-119"></span><span>                </span><span class="hs-special">}</span><span>
+</span><span id="line-120"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResHeaderSync :: CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResHeaderSync"><span class="hs-identifier hs-var">_cutResHeaderSync</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WCutSyncResources :: forall logger. P2pSession -&gt; logger -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#%24WCutSyncResources"><span class="hs-identifier hs-type hs-type">CutSyncResources</span></a></span><span>
+</span><span id="line-121"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_cutResSyncSession :: P2pSession
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncSession"><span class="hs-identifier hs-var">_cutResSyncSession</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+-&gt; PQueue (Task ClientEnv (ChainValue BlockHeader)) -&gt; P2pSession
+forall env a.
+AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; PeerInfo -&gt; IO Bool
+</span><a href="P2P.TaskQueue.html#session"><span class="hs-identifier hs-var">session</span></a></span><span> </span><span class="annot"><span class="hs-number">10</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">WebBlockHeaderStore
+-&gt; PQueue (Task ClientEnv (ChainValue BlockHeader))
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreQueue"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreQueue</span></a></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderStore
+</span><a href="#local-6989586621681508634"><span class="hs-identifier hs-var">headerStore</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResSyncLogger :: logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncLogger"><span class="hs-identifier hs-var">_cutResSyncLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;sync&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;header&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508617"><span class="hs-identifier hs-var">syncLogger</span></a></span><span>
+</span><span id="line-123"></span><span>                </span><span class="hs-special">}</span><span>
+</span><span id="line-124"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResPayloadSync :: CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPayloadSync"><span class="hs-identifier hs-var">_cutResPayloadSync</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WCutSyncResources :: forall logger. P2pSession -&gt; logger -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#%24WCutSyncResources"><span class="hs-identifier hs-type hs-type">CutSyncResources</span></a></span><span>
+</span><span id="line-125"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_cutResSyncSession :: P2pSession
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncSession"><span class="hs-identifier hs-var">_cutResSyncSession</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AttemptsCount -&gt; PQueue (Task ClientEnv PayloadData) -&gt; P2pSession
+forall env a.
+AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; PeerInfo -&gt; IO Bool
+</span><a href="P2P.TaskQueue.html#session"><span class="hs-identifier hs-var">session</span></a></span><span> </span><span class="annot"><span class="hs-number">10</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">WebBlockPayloadStore cas -&gt; PQueue (Task ClientEnv PayloadData)
+forall (cas :: * -&gt; *).
+WebBlockPayloadStore cas -&gt; PQueue (Task ClientEnv PayloadData)
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockPayloadStoreQueue"><span class="hs-identifier hs-var hs-var">_webBlockPayloadStoreQueue</span></a></span><span> </span><span class="annot"><span class="annottext">WebBlockPayloadStore cas
+</span><a href="#local-6989586621681508631"><span class="hs-identifier hs-var">payloadStore</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-126"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_cutResSyncLogger :: logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncLogger"><span class="hs-identifier hs-var">_cutResSyncLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;sync&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;payload&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508617"><span class="hs-identifier hs-var">syncLogger</span></a></span><span>
+</span><span id="line-127"></span><span>                </span><span class="hs-special">}</span><span>
+</span><span id="line-128"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-129"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-130"></span><span>    </span><span id="local-6989586621681508622"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681508622"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb
+</span><a href="#local-6989586621681508639"><span class="hs-identifier hs-var">webchain</span></a></span><span>
+</span><span id="line-131"></span><span>    </span><span id="local-6989586621681508617"><span class="annot"><span class="annottext">syncLogger :: logger
+</span><a href="#local-6989586621681508617"><span class="hs-identifier hs-var hs-var">syncLogger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;sub-component&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;sync&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508641"><span class="hs-identifier hs-var">logger</span></a></span><span>
+</span><span id="line-132"></span><span>    </span><span id="local-6989586621681508621"><span class="annot"><span class="annottext">useOrigin :: Bool
+</span><a href="#local-6989586621681508621"><span class="hs-identifier hs-var hs-var">useOrigin</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutDbConfig -&gt; Bool
+</span><a href="Chainweb.CutDB.html#_cutDbConfigUseOrigin"><span class="hs-identifier hs-var hs-var">_cutDbConfigUseOrigin</span></a></span><span> </span><span class="annot"><span class="annottext">CutDbConfig
+</span><a href="#local-6989586621681508643"><span class="hs-identifier hs-var">cutDbConfig</span></a></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- | The networks that are used by the cut DB.</span><span>
+</span><span id="line-135"></span><span class="hs-comment">--</span><span>
+</span><span id="line-136"></span><span id="local-6989586621681508611"><span id="local-6989586621681508612"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#cutNetworks"><span class="hs-identifier hs-type">cutNetworks</span></a></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508612"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-type">CutResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508612"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508611"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-141"></span><span id="cutNetworks"><span class="annot"><span class="annottext">cutNetworks :: Manager -&gt; CutResources logger cas -&gt; [IO ()]
+</span><a href="Chainweb.Chainweb.CutResources.html#cutNetworks"><span class="hs-identifier hs-var hs-var">cutNetworks</span></a></span></span><span> </span><span id="local-6989586621681508610"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681508610"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span id="local-6989586621681508609"><span class="annot"><span class="annottext">cuts :: CutResources logger cas
+</span><a href="#local-6989586621681508609"><span class="hs-identifier hs-var">cuts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Manager -&gt; CutResources logger cas -&gt; IO ()
+forall logger (cas :: * -&gt; *).
+Logger logger =&gt;
+Manager -&gt; CutResources logger cas -&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkCutSync"><span class="hs-identifier hs-var">runCutNetworkCutSync</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508610"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508609"><span class="hs-identifier hs-var">cuts</span></a></span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Manager -&gt; CutResources logger cas -&gt; IO ()
+forall logger (cas :: * -&gt; *).
+Logger logger =&gt;
+Manager -&gt; CutResources logger cas -&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkHeaderSync"><span class="hs-identifier hs-var">runCutNetworkHeaderSync</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508610"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508609"><span class="hs-identifier hs-var">cuts</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Manager -&gt; CutResources logger cas -&gt; IO ()
+forall logger (cas :: * -&gt; *).
+Logger logger =&gt;
+Manager -&gt; CutResources logger cas -&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkPayloadSync"><span class="hs-identifier hs-var">runCutNetworkPayloadSync</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508610"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508609"><span class="hs-identifier hs-var">cuts</span></a></span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-comment">-- | P2P Network for pushing Cuts</span><span>
+</span><span id="line-148"></span><span class="hs-comment">--</span><span>
+</span><span id="line-149"></span><span id="local-6989586621681508699"><span id="local-6989586621681508700"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkCutSync"><span class="hs-identifier hs-type">runCutNetworkCutSync</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508700"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-type">CutResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508700"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508699"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-154"></span><span id="runCutNetworkCutSync"><span class="annot"><span class="annottext">runCutNetworkCutSync :: Manager -&gt; CutResources logger cas -&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkCutSync"><span class="hs-identifier hs-var hs-var">runCutNetworkCutSync</span></a></span></span><span> </span><span id="local-6989586621681508605"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681508605"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span id="local-6989586621681508604"><span class="annot"><span class="annottext">c :: CutResources logger cas
+</span><a href="#local-6989586621681508604"><span class="hs-identifier hs-var">c</span></a></span></span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Manager
+-&gt; CutResources logger cas
+-&gt; Text
+-&gt; CutSyncResources logger
+-&gt; IO ()
+forall logger (cas :: * -&gt; *).
+Logger logger =&gt;
+Manager
+-&gt; CutResources logger cas
+-&gt; Text
+-&gt; CutSyncResources logger
+-&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#mkCutNetworkSync"><span class="hs-identifier hs-var">mkCutNetworkSync</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508605"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508604"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;cut sync&quot;</span></span><span> </span><span class="annot"><span class="annottext">(CutSyncResources logger -&gt; IO ())
+-&gt; CutSyncResources logger -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutSyncResources logger
+forall logger (cas :: * -&gt; *).
+CutResources logger cas -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResCutSync"><span class="hs-identifier hs-var hs-var">_cutResCutSync</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508604"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-156"></span><span>
+</span><span id="line-157"></span><span class="hs-comment">-- | P2P Network for Block Headers</span><span>
+</span><span id="line-158"></span><span class="hs-comment">--</span><span>
+</span><span id="line-159"></span><span id="local-6989586621681508601"><span id="local-6989586621681508602"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkHeaderSync"><span class="hs-identifier hs-type">runCutNetworkHeaderSync</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508602"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-type">CutResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508602"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508601"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-163"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-164"></span><span id="runCutNetworkHeaderSync"><span class="annot"><span class="annottext">runCutNetworkHeaderSync :: Manager -&gt; CutResources logger cas -&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkHeaderSync"><span class="hs-identifier hs-var hs-var">runCutNetworkHeaderSync</span></a></span></span><span> </span><span id="local-6989586621681508600"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681508600"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span id="local-6989586621681508599"><span class="annot"><span class="annottext">c :: CutResources logger cas
+</span><a href="#local-6989586621681508599"><span class="hs-identifier hs-var">c</span></a></span></span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Manager
+-&gt; CutResources logger cas
+-&gt; Text
+-&gt; CutSyncResources logger
+-&gt; IO ()
+forall logger (cas :: * -&gt; *).
+Logger logger =&gt;
+Manager
+-&gt; CutResources logger cas
+-&gt; Text
+-&gt; CutSyncResources logger
+-&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#mkCutNetworkSync"><span class="hs-identifier hs-var">mkCutNetworkSync</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508600"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508599"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;block header sync&quot;</span></span><span> </span><span class="annot"><span class="annottext">(CutSyncResources logger -&gt; IO ())
+-&gt; CutSyncResources logger -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutSyncResources logger
+forall logger (cas :: * -&gt; *).
+CutResources logger cas -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResHeaderSync"><span class="hs-identifier hs-var hs-var">_cutResHeaderSync</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508599"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- | P2P Network for Block Payloads</span><span>
+</span><span id="line-168"></span><span class="hs-comment">--</span><span>
+</span><span id="line-169"></span><span id="local-6989586621681508597"><span id="local-6989586621681508598"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkPayloadSync"><span class="hs-identifier hs-type">runCutNetworkPayloadSync</span></a></span><span>
+</span><span id="line-170"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508598"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-type">CutResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508598"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508597"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-174"></span><span id="runCutNetworkPayloadSync"><span class="annot"><span class="annottext">runCutNetworkPayloadSync :: Manager -&gt; CutResources logger cas -&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#runCutNetworkPayloadSync"><span class="hs-identifier hs-var hs-var">runCutNetworkPayloadSync</span></a></span></span><span> </span><span id="local-6989586621681508596"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681508596"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span id="local-6989586621681508595"><span class="annot"><span class="annottext">c :: CutResources logger cas
+</span><a href="#local-6989586621681508595"><span class="hs-identifier hs-var">c</span></a></span></span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Manager
+-&gt; CutResources logger cas
+-&gt; Text
+-&gt; CutSyncResources logger
+-&gt; IO ()
+forall logger (cas :: * -&gt; *).
+Logger logger =&gt;
+Manager
+-&gt; CutResources logger cas
+-&gt; Text
+-&gt; CutSyncResources logger
+-&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#mkCutNetworkSync"><span class="hs-identifier hs-var">mkCutNetworkSync</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508596"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508595"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;block payload sync&quot;</span></span><span> </span><span class="annot"><span class="annottext">(CutSyncResources logger -&gt; IO ())
+-&gt; CutSyncResources logger -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; CutSyncResources logger
+forall logger (cas :: * -&gt; *).
+CutResources logger cas -&gt; CutSyncResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPayloadSync"><span class="hs-identifier hs-var hs-var">_cutResPayloadSync</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508595"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span class="hs-comment">-- | P2P Network for Block Payloads</span><span>
+</span><span id="line-178"></span><span class="hs-comment">--</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- This uses the 'CutNetwork' for syncing peers. The network doesn't restrict</span><span>
+</span><span id="line-180"></span><span class="hs-comment">-- the API network endpoints that are used in the client sessions.</span><span>
+</span><span id="line-181"></span><span class="hs-comment">--</span><span>
+</span><span id="line-182"></span><span id="local-6989586621681508695"><span id="local-6989586621681508696"><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#mkCutNetworkSync"><span class="hs-identifier hs-type">mkCutNetworkSync</span></a></span><span>
+</span><span id="line-183"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508696"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-184"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-185"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutResources"><span class="hs-identifier hs-type">CutResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508696"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508695"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-186"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-187"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.CutResources.html#CutSyncResources"><span class="hs-identifier hs-type">CutSyncResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508696"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-188"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-189"></span><span id="mkCutNetworkSync"><span class="annot"><span class="annottext">mkCutNetworkSync :: Manager
+-&gt; CutResources logger cas
+-&gt; Text
+-&gt; CutSyncResources logger
+-&gt; IO ()
+</span><a href="Chainweb.Chainweb.CutResources.html#mkCutNetworkSync"><span class="hs-identifier hs-var hs-var">mkCutNetworkSync</span></a></span></span><span> </span><span id="local-6989586621681508594"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681508594"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span id="local-6989586621681508593"><span class="annot"><span class="annottext">cuts :: CutResources logger cas
+</span><a href="#local-6989586621681508593"><span class="hs-identifier hs-var">cuts</span></a></span></span><span> </span><span id="local-6989586621681508592"><span class="annot"><span class="annottext">label :: Text
+</span><a href="#local-6989586621681508592"><span class="hs-keyword hs-var">label</span></a></span></span><span> </span><span id="local-6989586621681508591"><span class="annot"><span class="annottext">cutSync :: CutSyncResources logger
+</span><a href="#local-6989586621681508591"><span class="hs-identifier hs-var">cutSync</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO P2pNode -&gt; (P2pNode -&gt; IO ()) -&gt; (P2pNode -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="annot"><span class="annottext">IO P2pNode
+</span><a href="#local-6989586621681508589"><span class="hs-identifier hs-var">create</span></a></span><span> </span><span class="annot"><span class="annottext">P2pNode -&gt; IO ()
+</span><a href="#local-6989586621681508588"><span class="hs-identifier hs-var">destroy</span></a></span><span> </span><span class="annot"><span class="annottext">((P2pNode -&gt; IO ()) -&gt; IO ()) -&gt; (P2pNode -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681508587"><span class="annot"><span class="annottext">n :: P2pNode
+</span><a href="#local-6989586621681508587"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-190"></span><span>    </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; P2pNode -&gt; IO ()
+</span><a href="P2P.Node.html#p2pStartNode"><span class="hs-identifier hs-var">p2pStartNode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PeerResources logger -&gt; P2pConfiguration
+forall logger. PeerResources logger -&gt; P2pConfiguration
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResConfig"><span class="hs-identifier hs-var hs-var">_peerResConfig</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerResources logger -&gt; P2pConfiguration)
+-&gt; PeerResources logger -&gt; P2pConfiguration
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; PeerResources logger
+forall logger (cas :: * -&gt; *).
+CutResources logger cas -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPeer"><span class="hs-identifier hs-var hs-var">_cutResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508593"><span class="hs-identifier hs-var">cuts</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">P2pNode
+</span><a href="#local-6989586621681508587"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-191"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-192"></span><span>    </span><span id="local-6989586621681508584"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681508584"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508593"><span class="hs-identifier hs-var">cuts</span></a></span><span>
+</span><span id="line-193"></span><span>    </span><span id="local-6989586621681508583"><span class="annot"><span class="annottext">peer :: Peer
+</span><a href="#local-6989586621681508583"><span class="hs-identifier hs-var hs-var">peer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerResources logger -&gt; Peer
+forall logger. PeerResources logger -&gt; Peer
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResPeer"><span class="hs-identifier hs-var hs-var">_peerResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerResources logger -&gt; Peer) -&gt; PeerResources logger -&gt; Peer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; PeerResources logger
+forall logger (cas :: * -&gt; *).
+CutResources logger cas -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPeer"><span class="hs-identifier hs-var hs-var">_cutResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508593"><span class="hs-identifier hs-var">cuts</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span id="local-6989586621681508582"><span class="annot"><span class="annottext">logger :: logger
+</span><a href="#local-6989586621681508582"><span class="hs-identifier hs-var hs-var">logger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutSyncResources logger -&gt; logger
+forall logger. CutSyncResources logger -&gt; logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncLogger"><span class="hs-identifier hs-var hs-var">_cutResSyncLogger</span></a></span><span> </span><span class="annot"><span class="annottext">CutSyncResources logger
+</span><a href="#local-6989586621681508591"><span class="hs-identifier hs-var">cutSync</span></a></span><span>
+</span><span id="line-195"></span><span>    </span><span id="local-6989586621681508581"><span class="annot"><span class="annottext">peerDb :: PeerDb
+</span><a href="#local-6989586621681508581"><span class="hs-identifier hs-var hs-var">peerDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerResources logger -&gt; PeerDb
+forall logger. PeerResources logger -&gt; PeerDb
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResDb"><span class="hs-identifier hs-var hs-var">_peerResDb</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerResources logger -&gt; PeerDb) -&gt; PeerResources logger -&gt; PeerDb
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas -&gt; PeerResources logger
+forall logger (cas :: * -&gt; *).
+CutResources logger cas -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResPeer"><span class="hs-identifier hs-var hs-var">_cutResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">CutResources logger cas
+</span><a href="#local-6989586621681508593"><span class="hs-identifier hs-var">cuts</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span id="local-6989586621681508579"><span class="annot"><span class="annottext">s :: P2pSession
+</span><a href="#local-6989586621681508579"><span class="hs-identifier hs-var hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutSyncResources logger -&gt; P2pSession
+forall logger. CutSyncResources logger -&gt; P2pSession
+</span><a href="Chainweb.Chainweb.CutResources.html#_cutResSyncSession"><span class="hs-identifier hs-var hs-var">_cutResSyncSession</span></a></span><span> </span><span class="annot"><span class="annottext">CutSyncResources logger
+</span><a href="#local-6989586621681508591"><span class="hs-identifier hs-var">cutSync</span></a></span><span>
+</span><span id="line-197"></span><span>
+</span><span id="line-198"></span><span>    </span><span id="local-6989586621681508589"><span class="annot"><span class="annottext">create :: IO P2pNode
+</span><a href="#local-6989586621681508589"><span class="hs-identifier hs-var hs-var">create</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-199"></span><span>        </span><span class="hs-glyph">!</span><span id="local-6989586621681508578"><span class="annot"><span class="annottext">P2pNode
+</span><a href="#local-6989586621681508578"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; NetworkId
+-&gt; Peer
+-&gt; LogFunction
+-&gt; PeerDb
+-&gt; Manager
+-&gt; P2pSession
+-&gt; IO P2pNode
+</span><a href="P2P.Node.html#p2pCreateNode"><span class="hs-identifier hs-var">p2pCreateNode</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508584"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-var">CutNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681508583"><span class="hs-identifier hs-var">peer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">logger -&gt; LogFunction
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508582"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PeerDb
+</span><a href="#local-6989586621681508581"><span class="hs-identifier hs-var">peerDb</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508594"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">P2pSession
+</span><a href="#local-6989586621681508579"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-200"></span><span>        </span><span class="annot"><span class="annottext">logger -&gt; LogFunctionText
+forall l. Logger l =&gt; l -&gt; LogFunctionText
+</span><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-var">logFunctionText</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508582"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681508592"><span class="hs-keyword hs-var">label</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;: initialized&quot;</span></span><span>
+</span><span id="line-201"></span><span>        </span><span class="annot"><span class="annottext">P2pNode -&gt; IO P2pNode
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">P2pNode
+</span><a href="#local-6989586621681508578"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-202"></span><span>
+</span><span id="line-203"></span><span>    </span><span id="local-6989586621681508588"><span class="annot"><span class="annottext">destroy :: P2pNode -&gt; IO ()
+</span><a href="#local-6989586621681508588"><span class="hs-identifier hs-var hs-var">destroy</span></a></span></span><span> </span><span id="local-6989586621681508573"><span class="annot"><span class="annottext">n :: P2pNode
+</span><a href="#local-6989586621681508573"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-204"></span><span>        </span><span class="annot"><span class="annottext">P2pNode -&gt; IO ()
+</span><a href="P2P.Node.html#p2pStopNode"><span class="hs-identifier hs-var">p2pStopNode</span></a></span><span> </span><span class="annot"><span class="annottext">P2pNode
+</span><a href="#local-6989586621681508573"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-205"></span><span>        </span><span class="annot"><span class="annottext">logger -&gt; LogFunctionText
+forall l. Logger l =&gt; l -&gt; LogFunctionText
+</span><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-var">logFunctionText</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508582"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681508592"><span class="hs-keyword hs-var">label</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;: stopped&quot;</span></span><span>
+</span><span id="line-206"></span></pre></body></html>

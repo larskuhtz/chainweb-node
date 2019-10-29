@@ -1,0 +1,683 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ConstraintKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE StandaloneDeriving #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Module: Chainweb.Payload.PayloadStore.Types</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Payload.PayloadStore.Types</span><span>
+</span><span id="line-20"></span><span class="hs-special">(</span><span>
+</span><span id="line-21"></span><span class="annot"><span class="hs-comment">-- * Transaction Database</span></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier">BlockTransactionsStore</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier">BlockPayloadStore</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier">TransactionDb</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDbCas"><span class="hs-identifier">TransactionDbCas</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#transactionDbBlockTransactions"><span class="hs-identifier">transactionDbBlockTransactions</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#transactionDbBlockPayloads"><span class="hs-identifier">transactionDbBlockPayloads</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Caches</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier">OutputTreeStore</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier">TransactionTreeStore</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier">BlockOutputsStore</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier">PayloadCache</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCacheCas"><span class="hs-identifier">PayloadCacheCas</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#payloadCacheBlockOutputs"><span class="hs-identifier">payloadCacheBlockOutputs</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#payloadCacheOutputTrees"><span class="hs-identifier">payloadCacheOutputTrees</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#payloadCacheTransactionTrees"><span class="hs-identifier">payloadCacheTransactionTrees</span></a></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="annot"><span class="hs-comment">-- * Payload Database</span></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier">PayloadDb</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier">PayloadCas</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#payloadCache"><span class="hs-identifier">payloadCache</span></a></span><span>
+</span><span id="line-47"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#transactionDb"><span class="hs-identifier">transactionDb</span></a></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><span class="hs-comment">-- * Exceptions</span></span><span>
+</span><span id="line-51"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadNotFoundException"><span class="hs-identifier">PayloadNotFoundException</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="annot"><span class="hs-comment">-- **  insert new payload</span></span><span>
+</span><span id="line-54"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#addPayload"><span class="hs-identifier">addPayload</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#addNewPayload"><span class="hs-identifier">addNewPayload</span></a></span><span>
+</span><span id="line-56"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Trans.Maybe</span></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span id="local-6989586621681470549"><span id="local-6989586621681470550"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="PayloadNotFoundException"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadNotFoundException"><span class="hs-identifier hs-var">PayloadNotFoundException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PayloadNotFoundException"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadNotFoundException"><span class="hs-identifier hs-var">PayloadNotFoundException</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681470542"><span id="local-6989586621681470544"><span id="local-6989586621681470546"><span class="annot"><span class="annottext">Int -&gt; PayloadNotFoundException -&gt; ShowS
+[PayloadNotFoundException] -&gt; ShowS
+PayloadNotFoundException -&gt; String
+(Int -&gt; PayloadNotFoundException -&gt; ShowS)
+-&gt; (PayloadNotFoundException -&gt; String)
+-&gt; ([PayloadNotFoundException] -&gt; ShowS)
+-&gt; Show PayloadNotFoundException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [PayloadNotFoundException] -&gt; ShowS
+$cshowList :: [PayloadNotFoundException] -&gt; ShowS
+show :: PayloadNotFoundException -&gt; String
+$cshow :: PayloadNotFoundException -&gt; String
+showsPrec :: Int -&gt; PayloadNotFoundException -&gt; ShowS
+$cshowsPrec :: Int -&gt; PayloadNotFoundException -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681470537"><span id="local-6989586621681470539"><span class="annot"><span class="annottext">PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+(PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool)
+-&gt; (PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool)
+-&gt; Eq PayloadNotFoundException
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+$c/= :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+== :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+$c== :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681470521"><span id="local-6989586621681470523"><span id="local-6989586621681470525"><span id="local-6989586621681470527"><span id="local-6989586621681470529"><span id="local-6989586621681470531"><span id="local-6989586621681470533"><span class="annot"><span class="annottext">Eq PayloadNotFoundException
+Eq PayloadNotFoundException =&gt;
+(PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Ordering)
+-&gt; (PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool)
+-&gt; (PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool)
+-&gt; (PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool)
+-&gt; (PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool)
+-&gt; (PayloadNotFoundException
+    -&gt; PayloadNotFoundException -&gt; PayloadNotFoundException)
+-&gt; (PayloadNotFoundException
+    -&gt; PayloadNotFoundException -&gt; PayloadNotFoundException)
+-&gt; Ord PayloadNotFoundException
+PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Ordering
+PayloadNotFoundException
+-&gt; PayloadNotFoundException -&gt; PayloadNotFoundException
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: PayloadNotFoundException
+-&gt; PayloadNotFoundException -&gt; PayloadNotFoundException
+$cmin :: PayloadNotFoundException
+-&gt; PayloadNotFoundException -&gt; PayloadNotFoundException
+max :: PayloadNotFoundException
+-&gt; PayloadNotFoundException -&gt; PayloadNotFoundException
+$cmax :: PayloadNotFoundException
+-&gt; PayloadNotFoundException -&gt; PayloadNotFoundException
+&gt;= :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+$c&gt;= :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+&gt; :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+$c&gt; :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+&lt;= :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+$c&lt;= :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+&lt; :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+$c&lt; :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Bool
+compare :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Ordering
+$ccompare :: PayloadNotFoundException -&gt; PayloadNotFoundException -&gt; Ordering
+$cp1Ord :: Eq PayloadNotFoundException
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x.
+ PayloadNotFoundException -&gt; Rep PayloadNotFoundException x)
+-&gt; (forall x.
+    Rep PayloadNotFoundException x -&gt; PayloadNotFoundException)
+-&gt; Generic PayloadNotFoundException
+forall x.
+Rep PayloadNotFoundException x -&gt; PayloadNotFoundException
+forall x.
+PayloadNotFoundException -&gt; Rep PayloadNotFoundException x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x.
+Rep PayloadNotFoundException x -&gt; PayloadNotFoundException
+$cfrom :: forall x.
+PayloadNotFoundException -&gt; Rep PayloadNotFoundException x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681470515"><span class="annot"><span class="annottext">PayloadNotFoundException -&gt; ()
+(PayloadNotFoundException -&gt; ()) -&gt; NFData PayloadNotFoundException
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: PayloadNotFoundException -&gt; ()
+$crnf :: PayloadNotFoundException -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681470510"><span id="local-6989586621681470512"><span class="annot"><span class="annottext">Int -&gt; PayloadNotFoundException -&gt; Int
+PayloadNotFoundException -&gt; Int
+(Int -&gt; PayloadNotFoundException -&gt; Int)
+-&gt; (PayloadNotFoundException -&gt; Int)
+-&gt; Hashable PayloadNotFoundException
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: PayloadNotFoundException -&gt; Int
+$chash :: PayloadNotFoundException -&gt; Int
+hashWithSalt :: Int -&gt; PayloadNotFoundException -&gt; Int
+$chashWithSalt :: Int -&gt; PayloadNotFoundException -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681470501"><span id="local-6989586621681470503"><span id="local-6989586621681470505"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadNotFoundException"><span class="hs-identifier hs-type">PayloadNotFoundException</span></a></span></span></span></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-81"></span><span class="hs-comment">-- Transaction Database</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- | Store of the 'BlockPayloads' for all blocks</span><span>
+</span><span id="line-84"></span><span class="hs-comment">--</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- Primary Key: '_blockPayloadHash'</span><span>
+</span><span id="line-86"></span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span class="hs-keyword">newtype</span><span> </span><span id="BlockPayloadStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-var">BlockPayloadStore</span></a></span></span><span> </span><span id="local-6989586621681470499"><span class="annot"><a href="#local-6989586621681470499"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BlockPayloadStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-var">BlockPayloadStore</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681470499"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayload"><span class="hs-identifier hs-type">BlockPayload</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span id="local-6989586621681470482"><span id="local-6989586621681470484"><span id="local-6989586621681470486"><span id="local-6989586621681470488"><span id="local-6989586621681470490"><span id="local-6989586621681470492"><span id="local-6989586621681470494"><span id="local-6989586621681470497"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681470497"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayload"><span class="hs-identifier hs-type">BlockPayload</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-type">BlockPayloadStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470497"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="hs-comment">-- | Store of the 'BlockTransactions' for all blocks.</span><span>
+</span><span id="line-91"></span><span class="hs-comment">--</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- Primary Key: '_blockTransactionsHash'</span><span>
+</span><span id="line-93"></span><span class="hs-comment">--</span><span>
+</span><span id="line-94"></span><span class="hs-keyword">newtype</span><span> </span><span id="BlockTransactionsStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-var">BlockTransactionsStore</span></a></span></span><span> </span><span id="local-6989586621681470480"><span class="annot"><a href="#local-6989586621681470480"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BlockTransactionsStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-var">BlockTransactionsStore</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681470480"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockTransactions"><span class="hs-identifier hs-type">BlockTransactions</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span id="local-6989586621681470463"><span id="local-6989586621681470465"><span id="local-6989586621681470467"><span id="local-6989586621681470469"><span id="local-6989586621681470471"><span id="local-6989586621681470473"><span id="local-6989586621681470475"><span id="local-6989586621681470478"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681470478"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockTransactions"><span class="hs-identifier hs-type">BlockTransactions</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-type">BlockTransactionsStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470478"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-comment">-- | The authoritative CAS stores for a block chain.</span><span>
+</span><span id="line-98"></span><span class="hs-comment">--</span><span>
+</span><span id="line-99"></span><span class="hs-keyword">data</span><span> </span><span id="TransactionDb"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier hs-var">TransactionDb</span></a></span></span><span> </span><span id="local-6989586621681470591"><span class="annot"><a href="#local-6989586621681470591"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TransactionDb"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier hs-var">TransactionDb</span></a></span></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_transactionDbBlockTransactions"><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockTransactionsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockTransactions"><span class="hs-identifier hs-var hs-var">_transactionDbBlockTransactions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-type">BlockTransactionsStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470591"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>        </span><span class="hs-comment">-- ^ The block transactions of the block chain. This data is strictly</span><span>
+</span><span id="line-102"></span><span>        </span><span class="hs-comment">-- needed to rebuild the payload data.</span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_transactionDbBlockPayloads"><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockPayloads"><span class="hs-identifier hs-var hs-var">_transactionDbBlockPayloads</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-type">BlockPayloadStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470591"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span>        </span><span class="hs-comment">-- ^ While the content of this store can be computed from the block</span><span>
+</span><span id="line-106"></span><span>        </span><span class="hs-comment">-- transactions, it is needed as an index into the block transaction</span><span>
+</span><span id="line-107"></span><span>        </span><span class="hs-comment">-- store. If it would be lost one would have to recompute all of it in</span><span>
+</span><span id="line-108"></span><span>        </span><span class="hs-comment">-- order to look up the data for a single transation.</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span id="transactionDbBlockPayloads"><span id="transactionDbBlockTransactions"><span id="local-6989586621681470591"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">TransactionDb</span></span></span></span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">type</span><span> </span><span id="TransactionDbCas"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDbCas"><span class="hs-identifier hs-var">TransactionDbCas</span></a></span></span><span> </span><span id="local-6989586621681470459"><span class="annot"><a href="#local-6989586621681470459"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470459"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayload"><span class="hs-identifier hs-type">BlockPayload</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470459"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockTransactions"><span class="hs-identifier hs-type">BlockTransactions</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- Caches</span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="hs-comment">-- | Store of the 'BlockOutputs' for all blocks.</span><span>
+</span><span id="line-122"></span><span class="hs-comment">--</span><span>
+</span><span id="line-123"></span><span class="hs-keyword">newtype</span><span> </span><span id="BlockOutputsStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-var">BlockOutputsStore</span></a></span></span><span> </span><span id="local-6989586621681470458"><span class="annot"><a href="#local-6989586621681470458"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BlockOutputsStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-var">BlockOutputsStore</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681470458"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockOutputs"><span class="hs-identifier hs-type">BlockOutputs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-124"></span><span id="local-6989586621681470441"><span id="local-6989586621681470443"><span id="local-6989586621681470445"><span id="local-6989586621681470447"><span id="local-6989586621681470449"><span id="local-6989586621681470451"><span id="local-6989586621681470453"><span id="local-6989586621681470456"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470456"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockOutputs"><span class="hs-identifier hs-type">BlockOutputs</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-type">BlockOutputsStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470456"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- | Store of the 'TransactionTree' Merkle trees for all blocks.</span><span>
+</span><span id="line-127"></span><span class="hs-comment">--</span><span>
+</span><span id="line-128"></span><span class="hs-keyword">newtype</span><span> </span><span id="TransactionTreeStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-var">TransactionTreeStore</span></a></span></span><span> </span><span id="local-6989586621681470440"><span class="annot"><a href="#local-6989586621681470440"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TransactionTreeStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-var">TransactionTreeStore</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681470440"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#TransactionTree"><span class="hs-identifier hs-type">TransactionTree</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span id="local-6989586621681470423"><span id="local-6989586621681470425"><span id="local-6989586621681470427"><span id="local-6989586621681470429"><span id="local-6989586621681470431"><span id="local-6989586621681470433"><span id="local-6989586621681470435"><span id="local-6989586621681470438"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470438"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#TransactionTree"><span class="hs-identifier hs-type">TransactionTree</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-type">TransactionTreeStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470438"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- | Store of the 'OutputTree' Merkle trees for all blocks.</span><span>
+</span><span id="line-132"></span><span class="hs-comment">--</span><span>
+</span><span id="line-133"></span><span class="hs-keyword">newtype</span><span> </span><span id="OutputTreeStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-var">OutputTreeStore</span></a></span></span><span> </span><span id="local-6989586621681470422"><span class="annot"><a href="#local-6989586621681470422"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="OutputTreeStore"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-var">OutputTreeStore</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681470422"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#OutputTree"><span class="hs-identifier hs-type">OutputTree</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-134"></span><span id="local-6989586621681470405"><span id="local-6989586621681470407"><span id="local-6989586621681470409"><span id="local-6989586621681470411"><span id="local-6989586621681470413"><span id="local-6989586621681470415"><span id="local-6989586621681470417"><span id="local-6989586621681470420"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470420"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#OutputTree"><span class="hs-identifier hs-type">OutputTree</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-type">OutputTreeStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470420"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="hs-comment">-- | The CAS caches for a block chain.</span><span>
+</span><span id="line-137"></span><span class="hs-comment">--</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- If an entry is missing it can be rebuild from the PayloadDb</span><span>
+</span><span id="line-139"></span><span class="hs-comment">--</span><span>
+</span><span id="line-140"></span><span class="hs-keyword">data</span><span> </span><span id="PayloadCache"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier hs-var">PayloadCache</span></a></span></span><span> </span><span id="local-6989586621681470586"><span class="annot"><a href="#local-6989586621681470586"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PayloadCache"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier hs-var">PayloadCache</span></a></span></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_payloadCacheBlockOutputs"><span class="annot"><span class="annottext">PayloadCache cas -&gt; BlockOutputsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheBlockOutputs"><span class="hs-identifier hs-var hs-var">_payloadCacheBlockOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-type">BlockOutputsStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470586"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>        </span><span class="hs-comment">-- ^ This is relatively expensive to rebuild.</span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_payloadCacheTransactionTrees"><span class="annot"><span class="annottext">PayloadCache cas -&gt; TransactionTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheTransactionTrees"><span class="hs-identifier hs-var hs-var">_payloadCacheTransactionTrees</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-type">TransactionTreeStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470586"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>        </span><span class="hs-comment">-- ^ This are relatively cheap to rebuild.</span><span>
+</span><span id="line-146"></span><span>        </span><span class="hs-comment">-- (tens of thousands of blocks per second)</span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_payloadCacheOutputTrees"><span class="annot"><span class="annottext">PayloadCache cas -&gt; OutputTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheOutputTrees"><span class="hs-identifier hs-var hs-var">_payloadCacheOutputTrees</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-type">OutputTreeStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470586"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>        </span><span class="hs-comment">-- ^ This are relatively cheap to rebuild.</span><span>
+</span><span id="line-150"></span><span>        </span><span class="hs-comment">-- (tens of thousands blocks per second)</span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-152"></span><span>
+</span><span id="line-153"></span><span id="payloadCacheTransactionTrees"><span id="payloadCacheOutputTrees"><span id="payloadCacheBlockOutputs"><span id="local-6989586621681470586"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">PayloadCache</span></span></span></span></span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span class="hs-keyword">type</span><span> </span><span id="PayloadCacheCas"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCacheCas"><span class="hs-identifier hs-var">PayloadCacheCas</span></a></span></span><span> </span><span id="local-6989586621681470400"><span class="annot"><a href="#local-6989586621681470400"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470400"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockOutputs"><span class="hs-identifier hs-type">BlockOutputs</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470400"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#TransactionTree"><span class="hs-identifier hs-type">TransactionTree</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470400"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#OutputTree"><span class="hs-identifier hs-type">OutputTree</span></a></span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>
+</span><span id="line-161"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-162"></span><span class="hs-comment">-- Payload Database</span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span class="hs-keyword">data</span><span> </span><span id="PayloadDb"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-var">PayloadDb</span></a></span></span><span> </span><span id="local-6989586621681470587"><span class="annot"><a href="#local-6989586621681470587"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PayloadDb"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-var">PayloadDb</span></a></span></span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_transactionDb"><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier hs-type">TransactionDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470587"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_payloadCache"><span class="annot"><span class="annottext">PayloadDb cas -&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCache"><span class="hs-identifier hs-var hs-var">_payloadCache</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier hs-type">PayloadCache</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470587"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-167"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span id="transactionDb"><span id="payloadCache"><span id="local-6989586621681470587"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">PayloadDb</span></span></span></span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="hs-keyword">type</span><span> </span><span id="PayloadCas"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-var">PayloadCas</span></a></span></span><span> </span><span id="local-6989586621681470396"><span class="annot"><a href="#local-6989586621681470396"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-172"></span><span>    </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470396"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockOutputs"><span class="hs-identifier hs-type">BlockOutputs</span></a></span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470396"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#TransactionTree"><span class="hs-identifier hs-type">TransactionTree</span></a></span><span>
+</span><span id="line-174"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470396"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#OutputTree"><span class="hs-identifier hs-type">OutputTree</span></a></span><span>
+</span><span id="line-175"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470396"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockTransactions"><span class="hs-identifier hs-type">BlockTransactions</span></a></span><span>
+</span><span id="line-176"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CasConstraint</span></span><span> </span><span class="annot"><a href="#local-6989586621681470396"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayload"><span class="hs-identifier hs-type">BlockPayload</span></a></span><span>
+</span><span id="line-177"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-180"></span><span class="hs-comment">-- Insert new Payload</span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span class="hs-comment">-- | Insert block payload data in to the database.</span><span>
+</span><span id="line-183"></span><span class="hs-comment">--</span><span>
+</span><span id="line-184"></span><span id="local-6989586621681470583"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#addPayload"><span class="hs-identifier hs-type">addPayload</span></a></span><span>
+</span><span id="line-185"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470583"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-186"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470583"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-187"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockTransactions"><span class="hs-identifier hs-type">BlockTransactions</span></a></span><span>
+</span><span id="line-188"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#TransactionTree"><span class="hs-identifier hs-type">TransactionTree</span></a></span><span>
+</span><span id="line-189"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockOutputs"><span class="hs-identifier hs-type">BlockOutputs</span></a></span><span>
+</span><span id="line-190"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#OutputTree"><span class="hs-identifier hs-type">OutputTree</span></a></span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-192"></span><span id="addPayload"><span class="annot"><span class="annottext">addPayload :: PayloadDb cas
+-&gt; BlockTransactions
+-&gt; TransactionTree
+-&gt; BlockOutputs
+-&gt; OutputTree
+-&gt; IO ()
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#addPayload"><span class="hs-identifier hs-var hs-var">addPayload</span></a></span></span><span> </span><span id="local-6989586621681470395"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681470395"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681470394"><span class="annot"><span class="annottext">txs :: BlockTransactions
+</span><a href="#local-6989586621681470394"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span id="local-6989586621681470393"><span class="annot"><span class="annottext">txTree :: TransactionTree
+</span><a href="#local-6989586621681470393"><span class="hs-identifier hs-var">txTree</span></a></span></span><span> </span><span id="local-6989586621681470392"><span class="annot"><span class="annottext">outs :: BlockOutputs
+</span><a href="#local-6989586621681470392"><span class="hs-identifier hs-var">outs</span></a></span></span><span> </span><span id="local-6989586621681470391"><span class="annot"><span class="annottext">outTree :: OutputTree
+</span><a href="#local-6989586621681470391"><span class="hs-identifier hs-var">outTree</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-193"></span><span>    </span><span class="annot"><span class="annottext">BlockPayloadStore cas
+-&gt; CasValueType (BlockPayloadStore cas) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasValueType a -&gt; IO ()
+</span><span class="hs-identifier hs-var">casInsert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockPayloadStore cas
+forall (cas :: * -&gt; *). TransactionDb cas -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockPayloads"><span class="hs-identifier hs-var hs-var">_transactionDbBlockPayloads</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockPayloadStore cas)
+-&gt; TransactionDb cas -&gt; BlockPayloadStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470395"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CasValueType (BlockPayloadStore cas)
+BlockPayload
+</span><a href="#local-6989586621681470389"><span class="hs-identifier hs-var">payload</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span class="annot"><span class="annottext">BlockTransactionsStore cas
+-&gt; CasValueType (BlockTransactionsStore cas) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasValueType a -&gt; IO ()
+</span><span class="hs-identifier hs-var">casInsert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockTransactionsStore cas
+forall (cas :: * -&gt; *).
+TransactionDb cas -&gt; BlockTransactionsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockTransactions"><span class="hs-identifier hs-var hs-var">_transactionDbBlockTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockTransactionsStore cas)
+-&gt; TransactionDb cas -&gt; BlockTransactionsStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470395"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CasValueType (BlockTransactionsStore cas)
+BlockTransactions
+</span><a href="#local-6989586621681470394"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-195"></span><span>    </span><span class="annot"><span class="annottext">BlockOutputsStore cas
+-&gt; CasValueType (BlockOutputsStore cas) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasValueType a -&gt; IO ()
+</span><span class="hs-identifier hs-var">casInsert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadCache cas -&gt; BlockOutputsStore cas
+forall (cas :: * -&gt; *). PayloadCache cas -&gt; BlockOutputsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheBlockOutputs"><span class="hs-identifier hs-var hs-var">_payloadCacheBlockOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadCache cas -&gt; BlockOutputsStore cas)
+-&gt; PayloadCache cas -&gt; BlockOutputsStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; PayloadCache cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCache"><span class="hs-identifier hs-var hs-var">_payloadCache</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470395"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CasValueType (BlockOutputsStore cas)
+BlockOutputs
+</span><a href="#local-6989586621681470392"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="annot"><span class="annottext">TransactionTreeStore cas
+-&gt; CasValueType (TransactionTreeStore cas) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasValueType a -&gt; IO ()
+</span><span class="hs-identifier hs-var">casInsert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadCache cas -&gt; TransactionTreeStore cas
+forall (cas :: * -&gt; *).
+PayloadCache cas -&gt; TransactionTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheTransactionTrees"><span class="hs-identifier hs-var hs-var">_payloadCacheTransactionTrees</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadCache cas -&gt; TransactionTreeStore cas)
+-&gt; PayloadCache cas -&gt; TransactionTreeStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; PayloadCache cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCache"><span class="hs-identifier hs-var hs-var">_payloadCache</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470395"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CasValueType (TransactionTreeStore cas)
+TransactionTree
+</span><a href="#local-6989586621681470393"><span class="hs-identifier hs-var">txTree</span></a></span><span>
+</span><span id="line-197"></span><span>    </span><span class="annot"><span class="annottext">OutputTreeStore cas -&gt; CasValueType (OutputTreeStore cas) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasValueType a -&gt; IO ()
+</span><span class="hs-identifier hs-var">casInsert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadCache cas -&gt; OutputTreeStore cas
+forall (cas :: * -&gt; *). PayloadCache cas -&gt; OutputTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheOutputTrees"><span class="hs-identifier hs-var hs-var">_payloadCacheOutputTrees</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadCache cas -&gt; OutputTreeStore cas)
+-&gt; PayloadCache cas -&gt; OutputTreeStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; PayloadCache cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCache"><span class="hs-identifier hs-var hs-var">_payloadCache</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470395"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CasValueType (OutputTreeStore cas)
+OutputTree
+</span><a href="#local-6989586621681470391"><span class="hs-identifier hs-var">outTree</span></a></span><span>
+</span><span id="line-198"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-199"></span><span>    </span><span id="local-6989586621681470389"><span class="annot"><span class="annottext">payload :: BlockPayload
+</span><a href="#local-6989586621681470389"><span class="hs-identifier hs-var hs-var">payload</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockTransactions -&gt; BlockOutputs -&gt; BlockPayload
+</span><a href="Chainweb.Payload.html#blockPayload"><span class="hs-identifier hs-var">blockPayload</span></a></span><span> </span><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681470394"><span class="hs-identifier hs-var">txs</span></a></span><span> </span><span class="annot"><span class="annottext">BlockOutputs
+</span><a href="#local-6989586621681470392"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="hs-comment">-- | Create block payload data from a sequence of transaction and insert it into</span><span>
+</span><span id="line-203"></span><span class="hs-comment">-- the database.</span><span>
+</span><span id="line-204"></span><span class="hs-comment">--</span><span>
+</span><span id="line-205"></span><span id="local-6989586621681470576"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#addNewPayload"><span class="hs-identifier hs-type">addNewPayload</span></a></span><span>
+</span><span id="line-206"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470576"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-207"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470576"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-208"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span>
+</span><span id="line-209"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-210"></span><span id="addNewPayload"><span class="annot"><span class="annottext">addNewPayload :: PayloadDb cas -&gt; PayloadWithOutputs -&gt; IO ()
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#addNewPayload"><span class="hs-identifier hs-var hs-var">addNewPayload</span></a></span></span><span> </span><span id="local-6989586621681470387"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681470387"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681470386"><span class="annot"><span class="annottext">s :: PayloadWithOutputs
+</span><a href="#local-6989586621681470386"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+-&gt; BlockTransactions
+-&gt; TransactionTree
+-&gt; BlockOutputs
+-&gt; OutputTree
+-&gt; IO ()
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+PayloadDb cas
+-&gt; BlockTransactions
+-&gt; TransactionTree
+-&gt; BlockOutputs
+-&gt; OutputTree
+-&gt; IO ()
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#addPayload"><span class="hs-identifier hs-var">addPayload</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470387"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681470385"><span class="hs-identifier hs-var">txs</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionTree
+</span><a href="#local-6989586621681470384"><span class="hs-identifier hs-var">txTree</span></a></span><span> </span><span class="annot"><span class="annottext">BlockOutputs
+</span><a href="#local-6989586621681470383"><span class="hs-identifier hs-var">outs</span></a></span><span> </span><span class="annot"><span class="annottext">OutputTree
+</span><a href="#local-6989586621681470382"><span class="hs-identifier hs-var">outTree</span></a></span><span>
+</span><span id="line-211"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-212"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681470381"><span class="annot"><span class="annottext">bts :: BlockTransactions
+</span><a href="#local-6989586621681470381"><span class="hs-identifier hs-var">bts</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681470380"><span class="annot"><span class="annottext">bos :: BlockOutputs
+</span><a href="#local-6989586621681470380"><span class="hs-identifier hs-var">bos</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; (BlockTransactions, BlockOutputs)
+</span><a href="Chainweb.Payload.html#payloadWithOutputsToBlockObjects"><span class="hs-identifier hs-var">payloadWithOutputsToBlockObjects</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="#local-6989586621681470386"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-213"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681470384"><span class="annot"><span class="annottext">txTree :: TransactionTree
+</span><a href="#local-6989586621681470384"><span class="hs-identifier hs-var">txTree</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681470385"><span class="annot"><span class="annottext">txs :: BlockTransactions
+</span><a href="#local-6989586621681470385"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MinerData
+-&gt; Vector Transaction -&gt; (TransactionTree, BlockTransactions)
+</span><a href="Chainweb.Payload.html#newBlockTransactions"><span class="hs-identifier hs-var">newBlockTransactions</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockTransactions -&gt; MinerData
+</span><a href="Chainweb.Payload.html#_blockMinerData"><span class="hs-identifier hs-var hs-var">_blockMinerData</span></a></span><span> </span><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681470381"><span class="hs-identifier hs-var">bts</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockTransactions -&gt; Vector Transaction
+</span><a href="Chainweb.Payload.html#_blockTransactions"><span class="hs-identifier hs-var hs-var">_blockTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681470381"><span class="hs-identifier hs-var">bts</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681470382"><span class="annot"><span class="annottext">outTree :: OutputTree
+</span><a href="#local-6989586621681470382"><span class="hs-identifier hs-var">outTree</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681470383"><span class="annot"><span class="annottext">outs :: BlockOutputs
+</span><a href="#local-6989586621681470383"><span class="hs-identifier hs-var">outs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoinbaseOutput
+-&gt; Vector TransactionOutput -&gt; (OutputTree, BlockOutputs)
+</span><a href="Chainweb.Payload.html#newBlockOutputs"><span class="hs-identifier hs-var">newBlockOutputs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockOutputs -&gt; CoinbaseOutput
+</span><a href="Chainweb.Payload.html#_blockCoinbaseOutput"><span class="hs-identifier hs-var hs-var">_blockCoinbaseOutput</span></a></span><span> </span><span class="annot"><span class="annottext">BlockOutputs
+</span><a href="#local-6989586621681470380"><span class="hs-identifier hs-var">bos</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockOutputs -&gt; Vector TransactionOutput
+</span><a href="Chainweb.Payload.html#_blockOutputs"><span class="hs-identifier hs-var hs-var">_blockOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">BlockOutputs
+</span><a href="#local-6989586621681470380"><span class="hs-identifier hs-var">bos</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-215"></span><span>
+</span><span id="line-216"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-217"></span><span class="hs-comment">-- IsCas instance for PayloadDb</span><span>
+</span><span id="line-218"></span><span>
+</span><span id="line-219"></span><span class="hs-comment">-- | Combine all Payload related stores into a single content addressed</span><span>
+</span><span id="line-220"></span><span class="hs-comment">-- store. We want the invariant that if a key is present in the store also all</span><span>
+</span><span id="line-221"></span><span class="hs-comment">-- of its dependencies are present. For that we must be careful about the order</span><span>
+</span><span id="line-222"></span><span class="hs-comment">-- of insertion and deletions.</span><span>
+</span><span id="line-223"></span><span class="hs-comment">--</span><span>
+</span><span id="line-224"></span><span id="local-6989586621681470372"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681470360"><span id="local-6989586621681470362"><span id="local-6989586621681470364"><span id="local-6989586621681470366"><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470372"><span class="hs-identifier hs-type">cas</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCas</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470372"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-225"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="CasValueType"><span class="annot"><span class="hs-identifier hs-var">CasValueType</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681470372"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span>
+</span><span id="line-226"></span><span>    </span><span id="local-6989586621681470359"><span class="annot"><span class="annottext">casInsert :: PayloadDb cas -&gt; CasValueType (PayloadDb cas) -&gt; IO ()
+</span><a href="#local-6989586621681470359"><span class="hs-identifier hs-var hs-var hs-var hs-var">casInsert</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; CasValueType (PayloadDb cas) -&gt; IO ()
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+PayloadDb cas -&gt; PayloadWithOutputs -&gt; IO ()
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#addNewPayload"><span class="hs-identifier hs-var">addNewPayload</span></a></span><span>
+</span><span id="line-227"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">casInsert</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span>    </span><span id="local-6989586621681470358"><span class="annot"><span class="annottext">casLookup :: PayloadDb cas
+-&gt; CasKeyType (CasValueType (PayloadDb cas))
+-&gt; IO (Maybe (CasValueType (PayloadDb cas)))
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">casLookup</span></span></span><span> </span><span id="local-6989586621681470356"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681470356"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681470355"><span class="annot"><span class="annottext">k :: CasKeyType (CasValueType (PayloadDb cas))
+</span><a href="#local-6989586621681470355"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MaybeT IO PayloadWithOutputs
+-&gt; IO (Maybe (CasValueType (PayloadDb cas)))
+forall (m :: * -&gt; *) a. MaybeT m a -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var hs-var">runMaybeT</span></span><span> </span><span class="annot"><span class="annottext">(MaybeT IO PayloadWithOutputs
+ -&gt; IO (Maybe (CasValueType (PayloadDb cas))))
+-&gt; MaybeT IO PayloadWithOutputs
+-&gt; IO (Maybe (CasValueType (PayloadDb cas)))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-230"></span><span>        </span><span id="local-6989586621681470353"><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681470353"><span class="hs-identifier hs-var">pd</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Maybe BlockPayload) -&gt; MaybeT IO BlockPayload
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe BlockPayload) -&gt; MaybeT IO BlockPayload)
+-&gt; IO (Maybe BlockPayload) -&gt; MaybeT IO BlockPayload
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockPayloadStore cas
+-&gt; CasKeyType (CasValueType (BlockPayloadStore cas))
+-&gt; IO (Maybe (CasValueType (BlockPayloadStore cas)))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span>
+</span><span id="line-231"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockPayloadStore cas
+forall (cas :: * -&gt; *). TransactionDb cas -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockPayloads"><span class="hs-identifier hs-var hs-var">_transactionDbBlockPayloads</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockPayloadStore cas)
+-&gt; TransactionDb cas -&gt; BlockPayloadStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470356"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-232"></span><span>            </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (BlockPayloadStore cas))
+CasKeyType (CasValueType (PayloadDb cas))
+</span><a href="#local-6989586621681470355"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-233"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681470351"><span class="annot"><span class="annottext">txsHash :: BlockTransactionsHash
+</span><a href="#local-6989586621681470351"><span class="hs-identifier hs-var hs-var">txsHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockPayload -&gt; BlockTransactionsHash
+</span><a href="Chainweb.Payload.html#_blockPayloadTransactionsHash"><span class="hs-identifier hs-var hs-var">_blockPayloadTransactionsHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681470353"><span class="hs-identifier hs-var">pd</span></a></span><span>
+</span><span id="line-234"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681470349"><span class="annot"><span class="annottext">outsHash :: BlockOutputsHash
+</span><a href="#local-6989586621681470349"><span class="hs-identifier hs-var hs-var">outsHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockPayload -&gt; BlockOutputsHash
+</span><a href="Chainweb.Payload.html#_blockPayloadOutputsHash"><span class="hs-identifier hs-var hs-var">_blockPayloadOutputsHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681470353"><span class="hs-identifier hs-var">pd</span></a></span><span>
+</span><span id="line-235"></span><span>        </span><span id="local-6989586621681470347"><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681470347"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Maybe BlockTransactions) -&gt; MaybeT IO BlockTransactions
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe BlockTransactions) -&gt; MaybeT IO BlockTransactions)
+-&gt; IO (Maybe BlockTransactions) -&gt; MaybeT IO BlockTransactions
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockTransactionsStore cas
+-&gt; CasKeyType (CasValueType (BlockTransactionsStore cas))
+-&gt; IO (Maybe (CasValueType (BlockTransactionsStore cas)))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span>
+</span><span id="line-236"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockTransactionsStore cas
+forall (cas :: * -&gt; *).
+TransactionDb cas -&gt; BlockTransactionsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockTransactions"><span class="hs-identifier hs-var hs-var">_transactionDbBlockTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockTransactionsStore cas)
+-&gt; TransactionDb cas -&gt; BlockTransactionsStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470356"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-237"></span><span>            </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (BlockTransactionsStore cas))
+BlockTransactionsHash
+</span><a href="#local-6989586621681470351"><span class="hs-identifier hs-var">txsHash</span></a></span><span>
+</span><span id="line-238"></span><span>        </span><span id="local-6989586621681470346"><span class="annot"><span class="annottext">BlockOutputs
+</span><a href="#local-6989586621681470346"><span class="hs-identifier hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Maybe BlockOutputs) -&gt; MaybeT IO BlockOutputs
+forall (m :: * -&gt; *) a. m (Maybe a) -&gt; MaybeT m a
+</span><span class="hs-identifier hs-var">MaybeT</span></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe BlockOutputs) -&gt; MaybeT IO BlockOutputs)
+-&gt; IO (Maybe BlockOutputs) -&gt; MaybeT IO BlockOutputs
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockOutputsStore cas
+-&gt; CasKeyType (CasValueType (BlockOutputsStore cas))
+-&gt; IO (Maybe (CasValueType (BlockOutputsStore cas)))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span>
+</span><span id="line-239"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadCache cas -&gt; BlockOutputsStore cas
+forall (cas :: * -&gt; *). PayloadCache cas -&gt; BlockOutputsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheBlockOutputs"><span class="hs-identifier hs-var hs-var">_payloadCacheBlockOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadCache cas -&gt; BlockOutputsStore cas)
+-&gt; PayloadCache cas -&gt; BlockOutputsStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; PayloadCache cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCache"><span class="hs-identifier hs-var hs-var">_payloadCache</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470356"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-240"></span><span>            </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (BlockOutputsStore cas))
+BlockOutputsHash
+</span><a href="#local-6989586621681470349"><span class="hs-identifier hs-var">outsHash</span></a></span><span>
+</span><span id="line-241"></span><span>        </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; MaybeT IO PayloadWithOutputs
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(PayloadWithOutputs -&gt; MaybeT IO PayloadWithOutputs)
+-&gt; PayloadWithOutputs -&gt; MaybeT IO PayloadWithOutputs
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">$WPayloadWithOutputs :: Vector (Transaction, TransactionOutput)
+-&gt; MinerData
+-&gt; CoinbaseOutput
+-&gt; BlockPayloadHash
+-&gt; BlockTransactionsHash
+-&gt; BlockOutputsHash
+-&gt; PayloadWithOutputs
+</span><a href="Chainweb.Payload.html#%24WPayloadWithOutputs"><span class="hs-identifier hs-type hs-type">PayloadWithOutputs</span></a></span><span>
+</span><span id="line-242"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_payloadWithOutputsTransactions :: Vector (Transaction, TransactionOutput)
+</span><a href="#local-6989586621681470343"><span class="hs-identifier hs-var">_payloadWithOutputsTransactions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector Transaction
+-&gt; Vector TransactionOutput
+-&gt; Vector (Transaction, TransactionOutput)
+forall a b. Vector a -&gt; Vector b -&gt; Vector (a, b)
+</span><span class="hs-identifier hs-var">V.zip</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockTransactions -&gt; Vector Transaction
+</span><a href="Chainweb.Payload.html#_blockTransactions"><span class="hs-identifier hs-var hs-var">_blockTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681470347"><span class="hs-identifier hs-var">txs</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockOutputs -&gt; Vector TransactionOutput
+</span><a href="Chainweb.Payload.html#_blockOutputs"><span class="hs-identifier hs-var hs-var">_blockOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">BlockOutputs
+</span><a href="#local-6989586621681470346"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-243"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_payloadWithOutputsMiner :: MinerData
+</span><a href="#local-6989586621681470341"><span class="hs-identifier hs-var">_payloadWithOutputsMiner</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockTransactions -&gt; MinerData
+</span><a href="Chainweb.Payload.html#_blockMinerData"><span class="hs-identifier hs-var hs-var">_blockMinerData</span></a></span><span> </span><span class="annot"><span class="annottext">BlockTransactions
+</span><a href="#local-6989586621681470347"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-244"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_payloadWithOutputsCoinbase :: CoinbaseOutput
+</span><a href="#local-6989586621681470340"><span class="hs-identifier hs-var">_payloadWithOutputsCoinbase</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockOutputs -&gt; CoinbaseOutput
+</span><a href="Chainweb.Payload.html#_blockCoinbaseOutput"><span class="hs-identifier hs-var hs-var">_blockCoinbaseOutput</span></a></span><span> </span><span class="annot"><span class="annottext">BlockOutputs
+</span><a href="#local-6989586621681470346"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><span id="line-245"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_payloadWithOutputsPayloadHash :: BlockPayloadHash
+</span><a href="#local-6989586621681470339"><span class="hs-identifier hs-var">_payloadWithOutputsPayloadHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (PayloadDb cas))
+BlockPayloadHash
+</span><a href="#local-6989586621681470355"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-246"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_payloadWithOutputsTransactionsHash :: BlockTransactionsHash
+</span><a href="#local-6989586621681470338"><span class="hs-identifier hs-var">_payloadWithOutputsTransactionsHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockTransactionsHash
+</span><a href="#local-6989586621681470351"><span class="hs-identifier hs-var">txsHash</span></a></span><span>
+</span><span id="line-247"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_payloadWithOutputsOutputsHash :: BlockOutputsHash
+</span><a href="#local-6989586621681470337"><span class="hs-identifier hs-var">_payloadWithOutputsOutputsHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockOutputsHash
+</span><a href="#local-6989586621681470349"><span class="hs-identifier hs-var">outsHash</span></a></span><span>
+</span><span id="line-248"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-249"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">casLookup</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-250"></span><span>
+</span><span id="line-251"></span><span>    </span><span id="local-6989586621681470336"><span class="annot"><span class="annottext">casDelete :: PayloadDb cas -&gt; CasKeyType (CasValueType (PayloadDb cas)) -&gt; IO ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">casDelete</span></span></span><span> </span><span id="local-6989586621681470334"><span class="annot"><span class="annottext">db :: PayloadDb cas
+</span><a href="#local-6989586621681470334"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681470333"><span class="annot"><span class="annottext">k :: CasKeyType (CasValueType (PayloadDb cas))
+</span><a href="#local-6989586621681470333"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-252"></span><span>        </span><span class="annot"><span class="annottext">BlockPayloadStore cas
+-&gt; CasKeyType (CasValueType (BlockPayloadStore cas))
+-&gt; IO (Maybe (CasValueType (BlockPayloadStore cas)))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (Maybe (CasValueType a))
+</span><span class="hs-identifier hs-var">casLookup</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockPayloadStore cas
+forall (cas :: * -&gt; *). TransactionDb cas -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockPayloads"><span class="hs-identifier hs-var hs-var">_transactionDbBlockPayloads</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockPayloadStore cas)
+-&gt; TransactionDb cas -&gt; BlockPayloadStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470334"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (BlockPayloadStore cas))
+CasKeyType (CasValueType (PayloadDb cas))
+</span><a href="#local-6989586621681470333"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Maybe BlockPayload) -&gt; (Maybe BlockPayload -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-253"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681470332"><span class="annot"><span class="annottext">pd :: BlockPayload
+</span><a href="#local-6989586621681470332"><span class="hs-identifier hs-var">pd</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-254"></span><span>                </span><span class="annot"><span class="annottext">BlockPayloadStore cas
+-&gt; CasKeyType (CasValueType (BlockPayloadStore cas)) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasKeyType (CasValueType a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">casDelete</span></span><span>
+</span><span id="line-255"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockPayloadStore cas
+forall (cas :: * -&gt; *). TransactionDb cas -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockPayloads"><span class="hs-identifier hs-var hs-var">_transactionDbBlockPayloads</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockPayloadStore cas)
+-&gt; TransactionDb cas -&gt; BlockPayloadStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470334"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-256"></span><span>                    </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (BlockPayloadStore cas))
+CasKeyType (CasValueType (PayloadDb cas))
+</span><a href="#local-6989586621681470333"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-257"></span><span>                </span><span class="annot"><span class="annottext">BlockTransactionsStore cas
+-&gt; CasKeyType (CasValueType (BlockTransactionsStore cas)) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasKeyType (CasValueType a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">casDelete</span></span><span>
+</span><span id="line-258"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionDb cas -&gt; BlockTransactionsStore cas
+forall (cas :: * -&gt; *).
+TransactionDb cas -&gt; BlockTransactionsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDbBlockTransactions"><span class="hs-identifier hs-var hs-var">_transactionDbBlockTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">(TransactionDb cas -&gt; BlockTransactionsStore cas)
+-&gt; TransactionDb cas -&gt; BlockTransactionsStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; TransactionDb cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_transactionDb"><span class="hs-identifier hs-var hs-var">_transactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470334"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-259"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockPayload -&gt; BlockTransactionsHash
+</span><a href="Chainweb.Payload.html#_blockPayloadTransactionsHash"><span class="hs-identifier hs-var hs-var">_blockPayloadTransactionsHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681470332"><span class="hs-identifier hs-var">pd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-260"></span><span>                </span><span class="annot"><span class="annottext">BlockOutputsStore cas
+-&gt; CasKeyType (CasValueType (BlockOutputsStore cas)) -&gt; IO ()
+forall a. IsCas a =&gt; a -&gt; CasKeyType (CasValueType a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">casDelete</span></span><span>
+</span><span id="line-261"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PayloadCache cas -&gt; BlockOutputsStore cas
+forall (cas :: * -&gt; *). PayloadCache cas -&gt; BlockOutputsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCacheBlockOutputs"><span class="hs-identifier hs-var hs-var">_payloadCacheBlockOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadCache cas -&gt; BlockOutputsStore cas)
+-&gt; PayloadCache cas -&gt; BlockOutputsStore cas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; PayloadCache cas
+forall (cas :: * -&gt; *). PayloadDb cas -&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#_payloadCache"><span class="hs-identifier hs-var hs-var">_payloadCache</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681470334"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-262"></span><span>                    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockPayload -&gt; BlockOutputsHash
+</span><a href="Chainweb.Payload.html#_blockPayloadOutputsHash"><span class="hs-identifier hs-var hs-var">_blockPayloadOutputsHash</span></a></span><span> </span><span class="annot"><span class="annottext">BlockPayload
+</span><a href="#local-6989586621681470332"><span class="hs-identifier hs-var">pd</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-263"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-264"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">casDelete</span></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-265"></span></pre></body></html>

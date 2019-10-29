@@ -1,0 +1,600 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE AllowAmbiguousTypes #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Mempool.RestAPI.Client</span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#insertClient"><span class="hs-identifier">insertClient</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#getPendingClient"><span class="hs-identifier">getPendingClient</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#memberClient"><span class="hs-identifier">memberClient</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#lookupClient"><span class="hs-identifier">lookupClient</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#toMempool"><span class="hs-identifier">toMempool</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Identity</span></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">lookup</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.API</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html"><span class="hs-identifier">Chainweb.Mempool.Mempool</span></a></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html"><span class="hs-identifier">Chainweb.Mempool.RestAPI</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- TODO: all of these operations need timeout support.</span><span>
+</span><span id="line-48"></span><span id="local-6989586621681497317"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#toMempool"><span class="hs-identifier hs-type">toMempool</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681497317"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NFData</span></span><span> </span><span class="annot"><a href="#local-6989586621681497317"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionConfig"><span class="hs-identifier hs-type">TransactionConfig</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497317"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">GasLimit</span></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497317"><span class="hs-identifier hs-type">t</span></a></span></span><span>
+</span><span id="line-56"></span><span id="toMempool"><span class="annot"><span class="annottext">toMempool :: ChainwebVersion
+-&gt; ChainId
+-&gt; TransactionConfig t
+-&gt; GasLimit
+-&gt; ClientEnv
+-&gt; MempoolBackend t
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#toMempool"><span class="hs-identifier hs-var hs-var">toMempool</span></a></span></span><span> </span><span id="local-6989586621681497315"><span class="annot"><span class="annottext">version :: ChainwebVersion
+</span><a href="#local-6989586621681497315"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681497314"><span class="annot"><span class="annottext">chain :: ChainId
+</span><a href="#local-6989586621681497314"><span class="hs-identifier hs-var">chain</span></a></span></span><span> </span><span id="local-6989586621681497313"><span class="annot"><span class="annottext">txcfg :: TransactionConfig t
+</span><a href="#local-6989586621681497313"><span class="hs-identifier hs-var">txcfg</span></a></span></span><span> </span><span id="local-6989586621681497312"><span class="annot"><span class="annottext">blocksizeLimit :: GasLimit
+</span><a href="#local-6989586621681497312"><span class="hs-identifier hs-var">blocksizeLimit</span></a></span></span><span> </span><span id="local-6989586621681497311"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681497311"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">$WMempoolBackend :: forall t.
+TransactionConfig t
+-&gt; GasLimit
+-&gt; (Vector TransactionHash -&gt; IO (Vector Bool))
+-&gt; (Vector TransactionHash -&gt; IO (Vector (LookupResult t)))
+-&gt; (InsertType -&gt; Vector t -&gt; IO ())
+-&gt; (Vector t -&gt; IO (Either (T2 TransactionHash InsertError) ()))
+-&gt; (Vector TransactionHash -&gt; IO ())
+-&gt; (MempoolPreBlockCheck t
+    -&gt; BlockHeight -&gt; BlockHash -&gt; GasLimit -&gt; IO (Vector t))
+-&gt; (Maybe HighwaterMark
+    -&gt; (Vector TransactionHash -&gt; IO ()) -&gt; IO HighwaterMark)
+-&gt; IO ()
+-&gt; MempoolBackend t
+</span><a href="Chainweb.Mempool.Mempool.html#%24WMempoolBackend"><span class="hs-identifier hs-type hs-type">MempoolBackend</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">mempoolTxConfig :: TransactionConfig t
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolTxConfig"><span class="hs-identifier hs-var">mempoolTxConfig</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionConfig t
+</span><a href="#local-6989586621681497313"><span class="hs-identifier hs-var">txcfg</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolBlockGasLimit :: GasLimit
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolBlockGasLimit"><span class="hs-identifier hs-var">mempoolBlockGasLimit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GasLimit
+</span><a href="#local-6989586621681497312"><span class="hs-identifier hs-var">blocksizeLimit</span></a></span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolMember :: Vector TransactionHash -&gt; IO (Vector Bool)
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolMember"><span class="hs-identifier hs-var">mempoolMember</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash -&gt; IO (Vector Bool)
+</span><a href="#local-6989586621681497305"><span class="hs-identifier hs-var">member</span></a></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolLookup :: Vector TransactionHash -&gt; IO (Vector (LookupResult t))
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolLookup"><span class="hs-identifier hs-var">mempoolLookup</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash -&gt; IO (Vector (LookupResult t))
+</span><a href="#local-6989586621681497303"><span class="hs-identifier hs-var">lookup</span></a></span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolInsert :: InsertType -&gt; Vector t -&gt; IO ()
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolInsert"><span class="hs-identifier hs-var">mempoolInsert</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">InsertType -&gt; Vector t -&gt; IO ()
+forall p. p -&gt; Vector t -&gt; IO ()
+</span><a href="#local-6989586621681497301"><span class="hs-identifier hs-var">insert</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolInsertCheck :: Vector t -&gt; IO (Either (T2 TransactionHash InsertError) ())
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolInsertCheck"><span class="hs-identifier hs-var">mempoolInsertCheck</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO (Either (T2 TransactionHash InsertError) ())
+forall a. IO a
+</span><a href="#local-6989586621681497299"><span class="hs-identifier hs-var">unsupported</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolMarkValidated :: Vector TransactionHash -&gt; IO ()
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolMarkValidated"><span class="hs-identifier hs-var">mempoolMarkValidated</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO ()
+forall a. IO a
+</span><a href="#local-6989586621681497299"><span class="hs-identifier hs-var">unsupported</span></a></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolGetBlock :: MempoolPreBlockCheck t
+-&gt; BlockHeight -&gt; BlockHash -&gt; GasLimit -&gt; IO (Vector t)
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolGetBlock"><span class="hs-identifier hs-var">mempoolGetBlock</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO (Vector t)
+forall a. IO a
+</span><a href="#local-6989586621681497299"><span class="hs-identifier hs-var">unsupported</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolGetPendingTransactions :: Maybe HighwaterMark
+-&gt; (Vector TransactionHash -&gt; IO ()) -&gt; IO HighwaterMark
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolGetPendingTransactions"><span class="hs-identifier hs-var">mempoolGetPendingTransactions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe HighwaterMark
+-&gt; (Vector TransactionHash -&gt; IO ()) -&gt; IO HighwaterMark
+forall a.
+Maybe HighwaterMark
+-&gt; (Vector TransactionHash -&gt; IO a) -&gt; IO HighwaterMark
+</span><a href="#local-6989586621681497295"><span class="hs-identifier hs-var">getPending</span></a></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">mempoolClear :: IO ()
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolClear"><span class="hs-identifier hs-var">mempoolClear</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO ()
+forall a. IO a
+</span><a href="#local-6989586621681497293"><span class="hs-identifier hs-var">clear</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-70"></span><span>    </span><span id="local-6989586621681497292"><span class="annot"><span class="annottext">go :: ClientM b -&gt; IO b
+</span><a href="#local-6989586621681497292"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621681497291"><span class="annot"><span class="annottext">m :: ClientM b
+</span><a href="#local-6989586621681497291"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClientM b -&gt; ClientEnv -&gt; IO (Either ClientError b)
+forall a. ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+</span><span class="hs-identifier hs-var">runClientM</span></span><span> </span><span class="annot"><span class="annottext">ClientM b
+</span><a href="#local-6989586621681497291"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681497311"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either ClientError b) -&gt; (Either ClientError b -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">(ClientError -&gt; IO b)
+-&gt; (b -&gt; IO b) -&gt; Either ClientError b -&gt; IO b
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; IO b
+forall e a. Exception e =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; IO b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span>    </span><span id="local-6989586621681497305"><span class="annot"><span class="annottext">member :: Vector TransactionHash -&gt; IO (Vector Bool)
+</span><a href="#local-6989586621681497305"><span class="hs-identifier hs-var hs-var">member</span></a></span></span><span> </span><span id="local-6989586621681497287"><span class="annot"><span class="annottext">v :: Vector TransactionHash
+</span><a href="#local-6989586621681497287"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Bool] -&gt; Vector Bool
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">([Bool] -&gt; Vector Bool) -&gt; IO [Bool] -&gt; IO (Vector Bool)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ClientM [Bool] -&gt; IO [Bool]
+forall b. ClientM b -&gt; IO b
+</span><a href="#local-6989586621681497292"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainId -&gt; [TransactionHash] -&gt; ClientM [Bool]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#memberClient"><span class="hs-identifier hs-var">memberClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497315"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497314"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector TransactionHash -&gt; [TransactionHash]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash
+</span><a href="#local-6989586621681497287"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>    </span><span id="local-6989586621681497303"><span class="annot"><span class="annottext">lookup :: Vector TransactionHash -&gt; IO (Vector (LookupResult t))
+</span><a href="#local-6989586621681497303"><span class="hs-identifier hs-var hs-var">lookup</span></a></span></span><span> </span><span id="local-6989586621681497283"><span class="annot"><span class="annottext">v :: Vector TransactionHash
+</span><a href="#local-6989586621681497283"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[LookupResult t] -&gt; Vector (LookupResult t)
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">([LookupResult t] -&gt; Vector (LookupResult t))
+-&gt; IO [LookupResult t] -&gt; IO (Vector (LookupResult t))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ClientM [LookupResult t] -&gt; IO [LookupResult t]
+forall b. ClientM b -&gt; IO b
+</span><a href="#local-6989586621681497292"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionConfig t
+-&gt; ChainwebVersion
+-&gt; ChainId
+-&gt; [TransactionHash]
+-&gt; ClientM [LookupResult t]
+forall t.
+TransactionConfig t
+-&gt; ChainwebVersion
+-&gt; ChainId
+-&gt; [TransactionHash]
+-&gt; ClientM [LookupResult t]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#lookupClient"><span class="hs-identifier hs-var">lookupClient</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionConfig t
+</span><a href="#local-6989586621681497313"><span class="hs-identifier hs-var">txcfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497315"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497314"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector TransactionHash -&gt; [TransactionHash]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash
+</span><a href="#local-6989586621681497283"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>    </span><span id="local-6989586621681497301"><span class="annot"><span class="annottext">insert :: p -&gt; Vector t -&gt; IO ()
+</span><a href="#local-6989586621681497301"><span class="hs-identifier hs-var hs-var">insert</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681497282"><span class="annot"><span class="annottext">v :: Vector t
+</span><a href="#local-6989586621681497282"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO NoContent -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO NoContent -&gt; IO ()) -&gt; IO NoContent -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientM NoContent -&gt; IO NoContent
+forall b. ClientM b -&gt; IO b
+</span><a href="#local-6989586621681497292"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionConfig t
+-&gt; ChainwebVersion -&gt; ChainId -&gt; [t] -&gt; ClientM NoContent
+forall t.
+TransactionConfig t
+-&gt; ChainwebVersion -&gt; ChainId -&gt; [t] -&gt; ClientM NoContent
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#insertClient"><span class="hs-identifier hs-var">insertClient</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionConfig t
+</span><a href="#local-6989586621681497313"><span class="hs-identifier hs-var">txcfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497315"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497314"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Vector t -&gt; [t]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">Vector t
+</span><a href="#local-6989586621681497282"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span>    </span><span id="local-6989586621681497295"><span class="annot"><span class="annottext">getPending :: Maybe HighwaterMark
+-&gt; (Vector TransactionHash -&gt; IO a) -&gt; IO HighwaterMark
+</span><a href="#local-6989586621681497295"><span class="hs-identifier hs-var hs-var">getPending</span></a></span></span><span> </span><span id="local-6989586621681497280"><span class="annot"><span class="annottext">hw :: Maybe HighwaterMark
+</span><a href="#local-6989586621681497280"><span class="hs-identifier hs-var">hw</span></a></span></span><span> </span><span id="local-6989586621681497279"><span class="annot"><span class="annottext">cb :: Vector TransactionHash -&gt; IO a
+</span><a href="#local-6989586621681497279"><span class="hs-identifier hs-var">cb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-77"></span><span>        </span><span class="annot"><span class="annottext">ClientM PendingTransactions
+-&gt; ClientEnv -&gt; IO (Either ClientError PendingTransactions)
+forall a. ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+</span><span class="hs-identifier hs-var">runClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId -&gt; Maybe HighwaterMark -&gt; ClientM PendingTransactions
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#getPendingClient"><span class="hs-identifier hs-var">getPendingClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497315"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497314"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe HighwaterMark
+</span><a href="#local-6989586621681497280"><span class="hs-identifier hs-var">hw</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681497311"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either ClientError PendingTransactions)
+-&gt; (Either ClientError PendingTransactions -&gt; IO HighwaterMark)
+-&gt; IO HighwaterMark
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-78"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681497278"><span class="annot"><span class="annottext">e :: ClientError
+</span><a href="#local-6989586621681497278"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; IO HighwaterMark
+forall e a. Exception e =&gt; e -&gt; IO a
+</span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">ClientError
+</span><a href="#local-6989586621681497278"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-79"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681497277"><span class="annot"><span class="annottext">ptxs :: PendingTransactions
+</span><a href="#local-6989586621681497277"><span class="hs-identifier hs-var">ptxs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-80"></span><span>                </span><span class="annot"><span class="annottext">IO a -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; IO ()) -&gt; IO a -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Vector TransactionHash -&gt; IO a
+</span><a href="#local-6989586621681497279"><span class="hs-identifier hs-var">cb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TransactionHash] -&gt; Vector TransactionHash
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span> </span><span class="annot"><span class="annottext">([TransactionHash] -&gt; Vector TransactionHash)
+-&gt; [TransactionHash] -&gt; Vector TransactionHash
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PendingTransactions -&gt; [TransactionHash]
+</span><a href="Chainweb.Mempool.RestAPI.html#_pendingTransationsHashes"><span class="hs-identifier hs-var hs-var">_pendingTransationsHashes</span></a></span><span> </span><span class="annot"><span class="annottext">PendingTransactions
+</span><a href="#local-6989586621681497277"><span class="hs-identifier hs-var">ptxs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span>                </span><span class="annot"><span class="annottext">HighwaterMark -&gt; IO HighwaterMark
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PendingTransactions -&gt; HighwaterMark
+</span><a href="Chainweb.Mempool.RestAPI.html#_pendingTransactionsHighwaterMark"><span class="hs-identifier hs-var hs-var">_pendingTransactionsHighwaterMark</span></a></span><span> </span><span class="annot"><span class="annottext">PendingTransactions
+</span><a href="#local-6989586621681497277"><span class="hs-identifier hs-var">ptxs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681497299"><span class="annot"><span class="annottext">unsupported :: IO a
+</span><a href="#local-6989586621681497299"><span class="hs-identifier hs-var hs-var">unsupported</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="hs-string">&quot;unsupported&quot;</span></span><span>
+</span><span id="line-84"></span><span>    </span><span id="local-6989586621681497293"><span class="annot"><span class="annottext">clear :: IO a
+</span><a href="#local-6989586621681497293"><span class="hs-identifier hs-var hs-var">clear</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO a
+forall a. IO a
+</span><a href="#local-6989586621681497299"><span class="hs-identifier hs-var">unsupported</span></a></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#insertClient_"><span class="hs-identifier hs-type">insertClient_</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497374"><span class="annot"><a href="#local-6989586621681497374"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersionT"><span class="hs-identifier hs-type">ChainwebVersionT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497372"><span class="annot"><a href="#local-6989586621681497372"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497374"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497372"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NoContent</span></span><span>
+</span><span id="line-92"></span><span id="insertClient_"><span class="annot"><span class="annottext">insertClient_ :: [Text] -&gt; ClientM NoContent
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#insertClient_"><span class="hs-identifier hs-var hs-var">insertClient_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (MempoolInsertApi v c)
+-&gt; Client ClientM (MempoolInsertApi v c)
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (MempoolInsertApi v c)
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+Proxy (MempoolInsertApi v c)
+</span><a href="Chainweb.Mempool.RestAPI.html#mempoolInsertApi"><span class="hs-identifier hs-var">mempoolInsertApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497374"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497372"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span id="local-6989586621681497408"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#insertClient"><span class="hs-identifier hs-type">insertClient</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionConfig"><span class="hs-identifier hs-type">TransactionConfig</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497408"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621681497408"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">NoContent</span></span></span><span>
+</span><span id="line-100"></span><span id="insertClient"><span class="annot"><span class="annottext">insertClient :: TransactionConfig t
+-&gt; ChainwebVersion -&gt; ChainId -&gt; [t] -&gt; ClientM NoContent
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#insertClient"><span class="hs-identifier hs-var hs-var">insertClient</span></a></span></span><span> </span><span id="local-6989586621681497271"><span class="annot"><span class="annottext">txcfg :: TransactionConfig t
+</span><a href="#local-6989586621681497271"><span class="hs-identifier hs-var">txcfg</span></a></span></span><span> </span><span id="local-6989586621681497270"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681497270"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681497269"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681497269"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621681497268"><span class="annot"><span class="annottext">k0 :: [t]
+</span><a href="#local-6989586621681497268"><span class="hs-identifier hs-var">k0</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity (ClientM NoContent) -&gt; ClientM NoContent
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity (ClientM NoContent) -&gt; ClientM NoContent)
+-&gt; Identity (ClientM NoContent) -&gt; ClientM NoContent
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681497266"><span class="annot"><span class="annottext">k :: [Text]
+</span><a href="#local-6989586621681497266"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(t -&gt; Text) -&gt; [t] -&gt; [Text]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; (t -&gt; ByteString) -&gt; t -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Codec t -&gt; t -&gt; ByteString
+forall t. Codec t -&gt; t -&gt; ByteString
+</span><a href="Chainweb.Utils.html#codecEncode"><span class="hs-identifier hs-var hs-var">codecEncode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionConfig t -&gt; Codec t
+forall t. TransactionConfig t -&gt; Codec t
+</span><a href="Chainweb.Mempool.Mempool.html#txCodec"><span class="hs-identifier hs-var hs-var">txCodec</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionConfig t
+</span><a href="#local-6989586621681497271"><span class="hs-identifier hs-var">txcfg</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[t]
+</span><a href="#local-6989586621681497268"><span class="hs-identifier hs-var">k0</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="annot"><a href="Chainweb.Version.html#SomeChainwebVersionT"><span class="hs-identifier hs-type">SomeChainwebVersionT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497260"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497260"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT)
+-&gt; SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; SomeChainwebVersionT
+</span><a href="Chainweb.Version.html#someChainwebVersionVal"><span class="hs-identifier hs-var">someChainwebVersionVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497270"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-103"></span><span>    </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497257"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497257"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainIdT -&gt; Identity SomeChainIdT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainIdT -&gt; Identity SomeChainIdT)
+-&gt; SomeChainIdT -&gt; Identity SomeChainIdT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var">someChainIdVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497269"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-104"></span><span>    </span><span class="annot"><span class="annottext">ClientM NoContent -&gt; Identity (ClientM NoContent)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(ClientM NoContent -&gt; Identity (ClientM NoContent))
+-&gt; ClientM NoContent -&gt; Identity (ClientM NoContent)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; ClientM NoContent
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+(KnownChainwebVersionSymbol v, KnownChainIdSymbol c) =&gt;
+[Text] -&gt; ClientM NoContent
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#insertClient_"><span class="hs-identifier hs-var">insertClient_</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497260"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497257"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621681497266"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-108"></span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#memberClient_"><span class="hs-identifier hs-type">memberClient_</span></a></span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497363"><span class="annot"><a href="#local-6989586621681497363"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersionT"><span class="hs-identifier hs-type">ChainwebVersionT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497362"><span class="annot"><a href="#local-6989586621681497362"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497363"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497362"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionHash"><span class="hs-identifier hs-type">TransactionHash</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">]</span><span>
+</span><span id="line-113"></span><span id="memberClient_"><span class="annot"><span class="annottext">memberClient_ :: [TransactionHash] -&gt; ClientM [Bool]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#memberClient_"><span class="hs-identifier hs-var hs-var">memberClient_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (MempoolMemberApi v c)
+-&gt; Client ClientM (MempoolMemberApi v c)
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (MempoolMemberApi v c)
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+Proxy (MempoolMemberApi v c)
+</span><a href="Chainweb.Mempool.RestAPI.html#mempoolMemberApi"><span class="hs-identifier hs-var">mempoolMemberApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497363"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497362"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#memberClient"><span class="hs-identifier hs-type">memberClient</span></a></span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-117"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-118"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionHash"><span class="hs-identifier hs-type">TransactionHash</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-119"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">]</span><span>
+</span><span id="line-120"></span><span id="memberClient"><span class="annot"><span class="annottext">memberClient :: ChainwebVersion -&gt; ChainId -&gt; [TransactionHash] -&gt; ClientM [Bool]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#memberClient"><span class="hs-identifier hs-var hs-var">memberClient</span></a></span></span><span> </span><span id="local-6989586621681497253"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681497253"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681497252"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681497252"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621681497251"><span class="annot"><span class="annottext">txs :: [TransactionHash]
+</span><a href="#local-6989586621681497251"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity (ClientM [Bool]) -&gt; ClientM [Bool]
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity (ClientM [Bool]) -&gt; ClientM [Bool])
+-&gt; Identity (ClientM [Bool]) -&gt; ClientM [Bool]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><a href="Chainweb.Version.html#SomeChainwebVersionT"><span class="hs-identifier hs-type">SomeChainwebVersionT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497250"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497250"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT)
+-&gt; SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; SomeChainwebVersionT
+</span><a href="Chainweb.Version.html#someChainwebVersionVal"><span class="hs-identifier hs-var">someChainwebVersionVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497253"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-122"></span><span>    </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497249"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497249"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainIdT -&gt; Identity SomeChainIdT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainIdT -&gt; Identity SomeChainIdT)
+-&gt; SomeChainIdT -&gt; Identity SomeChainIdT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var">someChainIdVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497252"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="annot"><span class="annottext">ClientM [Bool] -&gt; Identity (ClientM [Bool])
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(ClientM [Bool] -&gt; Identity (ClientM [Bool]))
+-&gt; ClientM [Bool] -&gt; Identity (ClientM [Bool])
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[TransactionHash] -&gt; ClientM [Bool]
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+(KnownChainwebVersionSymbol v, KnownChainIdSymbol c) =&gt;
+[TransactionHash] -&gt; ClientM [Bool]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#memberClient_"><span class="hs-identifier hs-var">memberClient_</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497250"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497249"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="annottext">[TransactionHash]
+</span><a href="#local-6989586621681497251"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-127"></span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#lookupClient_"><span class="hs-identifier hs-type">lookupClient_</span></a></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497353"><span class="annot"><a href="#local-6989586621681497353"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersionT"><span class="hs-identifier hs-type">ChainwebVersionT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497352"><span class="annot"><a href="#local-6989586621681497352"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497353"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497352"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionHash"><span class="hs-identifier hs-type">TransactionHash</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-131"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#LookupResult"><span class="hs-identifier hs-type">LookupResult</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">]</span><span>
+</span><span id="line-132"></span><span id="lookupClient_"><span class="annot"><span class="annottext">lookupClient_ :: [TransactionHash] -&gt; ClientM [LookupResult Text]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#lookupClient_"><span class="hs-identifier hs-var hs-var">lookupClient_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (MempoolLookupApi v c)
+-&gt; Client ClientM (MempoolLookupApi v c)
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (MempoolLookupApi v c)
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+Proxy (MempoolLookupApi v c)
+</span><a href="Chainweb.Mempool.RestAPI.html#mempoolLookupApi"><span class="hs-identifier hs-var">mempoolLookupApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497353"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497352"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span id="local-6989586621681497415"><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#lookupClient"><span class="hs-identifier hs-type">lookupClient</span></a></span><span>
+</span><span id="line-135"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionConfig"><span class="hs-identifier hs-type">TransactionConfig</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497415"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-136"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-137"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-138"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#TransactionHash"><span class="hs-identifier hs-type">TransactionHash</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-139"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#LookupResult"><span class="hs-identifier hs-type">LookupResult</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497415"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">]</span></span><span>
+</span><span id="line-140"></span><span id="lookupClient"><span class="annot"><span class="annottext">lookupClient :: TransactionConfig t
+-&gt; ChainwebVersion
+-&gt; ChainId
+-&gt; [TransactionHash]
+-&gt; ClientM [LookupResult t]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#lookupClient"><span class="hs-identifier hs-var hs-var">lookupClient</span></a></span></span><span> </span><span id="local-6989586621681497246"><span class="annot"><span class="annottext">txcfg :: TransactionConfig t
+</span><a href="#local-6989586621681497246"><span class="hs-identifier hs-var">txcfg</span></a></span></span><span> </span><span id="local-6989586621681497245"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681497245"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681497244"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681497244"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621681497243"><span class="annot"><span class="annottext">txs :: [TransactionHash]
+</span><a href="#local-6989586621681497243"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-141"></span><span>    </span><span class="annot"><a href="Chainweb.Version.html#SomeChainwebVersionT"><span class="hs-identifier hs-type">SomeChainwebVersionT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497242"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497242"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainwebVersionT -&gt; ClientM SomeChainwebVersionT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainwebVersionT -&gt; ClientM SomeChainwebVersionT)
+-&gt; SomeChainwebVersionT -&gt; ClientM SomeChainwebVersionT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; SomeChainwebVersionT
+</span><a href="Chainweb.Version.html#someChainwebVersionVal"><span class="hs-identifier hs-var">someChainwebVersionVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497245"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-142"></span><span>    </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497241"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497241"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainIdT -&gt; ClientM SomeChainIdT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainIdT -&gt; ClientM SomeChainIdT)
+-&gt; SomeChainIdT -&gt; ClientM SomeChainIdT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var">someChainIdVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497244"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-143"></span><span>    </span><span id="local-6989586621681497240"><span class="annot"><span class="annottext">[LookupResult Text]
+</span><a href="#local-6989586621681497240"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[TransactionHash] -&gt; ClientM [LookupResult Text]
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+(KnownChainwebVersionSymbol v, KnownChainIdSymbol c) =&gt;
+[TransactionHash] -&gt; ClientM [LookupResult Text]
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#lookupClient_"><span class="hs-identifier hs-var">lookupClient_</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497242"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497241"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="annottext">[TransactionHash]
+</span><a href="#local-6989586621681497243"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="annot"><span class="annottext">(LookupResult Text -&gt; ClientM (LookupResult t))
+-&gt; [LookupResult Text] -&gt; ClientM [LookupResult t]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m (t b)
+</span><span class="hs-identifier hs-var">mapM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Text -&gt; ClientM t)
+-&gt; LookupResult Text -&gt; ClientM (LookupResult t)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ClientM t
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m t
+</span><a href="#local-6989586621681497237"><span class="hs-identifier hs-var">go</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[LookupResult Text]
+</span><a href="#local-6989586621681497240"><span class="hs-identifier hs-var">cs</span></a></span><span>
+</span><span id="line-145"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-146"></span><span>    </span><span id="local-6989586621681497237"><span class="annot"><span class="annottext">go :: Text -&gt; m t
+</span><a href="#local-6989586621681497237"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621681497236"><span class="annot"><span class="annottext">h :: Text
+</span><a href="#local-6989586621681497236"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either String t
+</span><a href="#local-6989586621681497235"><span class="hs-identifier hs-var">decode</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681497236"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-147"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681497234"><span class="annot"><span class="annottext">e :: String
+</span><a href="#local-6989586621681497234"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">EncodingException -&gt; m t
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(EncodingException -&gt; m t)
+-&gt; (Text -&gt; EncodingException) -&gt; Text -&gt; m t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EncodingException
+</span><a href="Chainweb.Utils.html#DecodeException"><span class="hs-identifier hs-var">DecodeException</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m t) -&gt; Text -&gt; m t
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681497234"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-148"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681497230"><span class="annot"><span class="annottext">t :: t
+</span><a href="#local-6989586621681497230"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">t -&gt; m t
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">t
+</span><a href="#local-6989586621681497230"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span>    </span><span id="local-6989586621681497235"><span class="annot"><span class="annottext">decode :: Text -&gt; Either String t
+</span><a href="#local-6989586621681497235"><span class="hs-identifier hs-var hs-var">decode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Codec t -&gt; ByteString -&gt; Either String t
+forall t. Codec t -&gt; ByteString -&gt; Either String t
+</span><a href="Chainweb.Utils.html#codecDecode"><span class="hs-identifier hs-var hs-var">codecDecode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TransactionConfig t -&gt; Codec t
+forall t. TransactionConfig t -&gt; Codec t
+</span><a href="Chainweb.Mempool.Mempool.html#txCodec"><span class="hs-identifier hs-var hs-var">txCodec</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionConfig t
+</span><a href="#local-6989586621681497246"><span class="hs-identifier hs-var">txcfg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either String t)
+-&gt; (Text -&gt; ByteString) -&gt; Text -&gt; Either String t
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span class="hs-identifier hs-var">T.encodeUtf8</span></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span>
+</span><span id="line-153"></span><span class="hs-comment">------------------------------------------------------------------------------</span><span>
+</span><span id="line-154"></span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#getPendingClient_"><span class="hs-identifier hs-type">getPendingClient_</span></a></span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497325"><span class="annot"><a href="#local-6989586621681497325"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersionT"><span class="hs-identifier hs-type">ChainwebVersionT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497324"><span class="annot"><a href="#local-6989586621681497324"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497325"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681497324"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#ServerNonce"><span class="hs-identifier hs-type">ServerNonce</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolTxId"><span class="hs-identifier hs-type">MempoolTxId</span></a></span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#PendingTransactions"><span class="hs-identifier hs-type">PendingTransactions</span></a></span><span>
+</span><span id="line-160"></span><span id="getPendingClient_"><span class="annot"><span class="annottext">getPendingClient_ :: Maybe ServerNonce
+-&gt; Maybe MempoolTxId -&gt; ClientM PendingTransactions
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#getPendingClient_"><span class="hs-identifier hs-var hs-var">getPendingClient_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (MempoolGetPendingApi v c)
+-&gt; Client ClientM (MempoolGetPendingApi v c)
+forall api.
+HasClient ClientM api =&gt;
+Proxy api -&gt; Client ClientM api
+</span><span class="hs-identifier hs-var">client</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (MempoolGetPendingApi v c)
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+Proxy (MempoolGetPendingApi v c)
+</span><a href="Chainweb.Mempool.RestAPI.html#mempoolGetPendingApi"><span class="hs-identifier hs-var">mempoolGetPendingApi</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497325"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497324"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html#getPendingClient"><span class="hs-identifier hs-type">getPendingClient</span></a></span><span>
+</span><span id="line-163"></span><span>  </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-164"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-165"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#ServerNonce"><span class="hs-identifier hs-type">ServerNonce</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolTxId"><span class="hs-identifier hs-type">MempoolTxId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.html#PendingTransactions"><span class="hs-identifier hs-type">PendingTransactions</span></a></span><span>
+</span><span id="line-167"></span><span id="getPendingClient"><span class="annot"><span class="annottext">getPendingClient :: ChainwebVersion
+-&gt; ChainId -&gt; Maybe HighwaterMark -&gt; ClientM PendingTransactions
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#getPendingClient"><span class="hs-identifier hs-var hs-var">getPendingClient</span></a></span></span><span> </span><span id="local-6989586621681497225"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681497225"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681497224"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681497224"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621681497223"><span class="annot"><span class="annottext">hw :: Maybe HighwaterMark
+</span><a href="#local-6989586621681497223"><span class="hs-identifier hs-var">hw</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity (ClientM PendingTransactions)
+-&gt; ClientM PendingTransactions
+forall a. Identity a -&gt; a
+</span><span class="hs-identifier hs-var hs-var">runIdentity</span></span><span> </span><span class="annot"><span class="annottext">(Identity (ClientM PendingTransactions)
+ -&gt; ClientM PendingTransactions)
+-&gt; Identity (ClientM PendingTransactions)
+-&gt; ClientM PendingTransactions
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-168"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681497222"><span class="annot"><span class="annottext">nonce :: Maybe ServerNonce
+</span><a href="#local-6989586621681497222"><span class="hs-identifier hs-var hs-var">nonce</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HighwaterMark -&gt; ServerNonce
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">(HighwaterMark -&gt; ServerNonce)
+-&gt; Maybe HighwaterMark -&gt; Maybe ServerNonce
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe HighwaterMark
+</span><a href="#local-6989586621681497223"><span class="hs-identifier hs-var">hw</span></a></span><span>
+</span><span id="line-169"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681497221"><span class="annot"><span class="annottext">tx :: Maybe MempoolTxId
+</span><a href="#local-6989586621681497221"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HighwaterMark -&gt; MempoolTxId
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">(HighwaterMark -&gt; MempoolTxId)
+-&gt; Maybe HighwaterMark -&gt; Maybe MempoolTxId
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Maybe HighwaterMark
+</span><a href="#local-6989586621681497223"><span class="hs-identifier hs-var">hw</span></a></span><span>
+</span><span id="line-170"></span><span>    </span><span class="annot"><a href="Chainweb.Version.html#SomeChainwebVersionT"><span class="hs-identifier hs-type">SomeChainwebVersionT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497220"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497220"><span class="hs-identifier hs-type">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT)
+-&gt; SomeChainwebVersionT -&gt; Identity SomeChainwebVersionT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; SomeChainwebVersionT
+</span><a href="Chainweb.Version.html#someChainwebVersionVal"><span class="hs-identifier hs-var">someChainwebVersionVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681497225"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-171"></span><span>    </span><span class="annot"><a href="Chainweb.ChainId.html#SomeChainIdT"><span class="hs-identifier hs-type">SomeChainIdT</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681497219"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681497219"><span class="hs-identifier hs-type">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SomeChainIdT -&gt; Identity SomeChainIdT
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SomeChainIdT -&gt; Identity SomeChainIdT)
+-&gt; SomeChainIdT -&gt; Identity SomeChainIdT
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; SomeChainIdT
+</span><a href="Chainweb.ChainId.html#someChainIdVal"><span class="hs-identifier hs-var">someChainIdVal</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681497224"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="annot"><span class="annottext">ClientM PendingTransactions
+-&gt; Identity (ClientM PendingTransactions)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(ClientM PendingTransactions
+ -&gt; Identity (ClientM PendingTransactions))
+-&gt; ClientM PendingTransactions
+-&gt; Identity (ClientM PendingTransactions)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Maybe ServerNonce
+-&gt; Maybe MempoolTxId -&gt; ClientM PendingTransactions
+forall (v :: ChainwebVersionT) (c :: ChainIdT).
+(KnownChainwebVersionSymbol v, KnownChainIdSymbol c) =&gt;
+Maybe ServerNonce
+-&gt; Maybe MempoolTxId -&gt; ClientM PendingTransactions
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#getPendingClient_"><span class="hs-identifier hs-var">getPendingClient_</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497220"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681497219"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe ServerNonce
+</span><a href="#local-6989586621681497222"><span class="hs-identifier hs-var">nonce</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MempoolTxId
+</span><a href="#local-6989586621681497221"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-173"></span></pre></body></html>

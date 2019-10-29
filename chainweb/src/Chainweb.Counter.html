@@ -1,0 +1,1031 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveFoldable #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveFunctor #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE DeriveTraversable #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE KindSignatures #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-14"></span><span class="hs-pragma">{-# LANGUAGE TupleSections #-}</span><span>
+</span><span id="line-15"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- Module: Chainweb.Counter</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-23"></span><span class="hs-comment">--</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-25"></span><span class="hs-comment">--</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Counter</span><span>
+</span><span id="line-27"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier">Counter</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#newCounter"><span class="hs-identifier">newCounter</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#inc"><span class="hs-identifier">inc</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#incBy"><span class="hs-identifier">incBy</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="annot"><span class="hs-comment">-- * Counter Map</span></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier">CounterMap</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#newCounterMap"><span class="hs-identifier">newCounterMap</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#incKey"><span class="hs-identifier">incKey</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#incKeyBy"><span class="hs-identifier">incKeyBy</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><span class="hs-comment">-- * Rolling of Counters</span></span><span>
+</span><span id="line-39"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier">CounterValue</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#roll"><span class="hs-identifier">roll</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="annot"><span class="hs-comment">-- * Logging of Counters</span></span><span>
+</span><span id="line-43"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterLog"><span class="hs-identifier">CounterLog</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#LogFunctionCounter"><span class="hs-identifier">LogFunctionCounter</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#logFunctionCounter"><span class="hs-identifier">logFunctionCounter</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Foldable</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.HashMap.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HM</span></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.TypeLits</span></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Logger.html"><span class="hs-identifier">Chainweb.Logger</span></a></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- Typelevel Labeled Values</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span id="local-6989586621681474193"><span id="local-6989586621681474194"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="Labeled"><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-var">Labeled</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474277"><span class="annot"><a href="#local-6989586621681474277"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Symbol</span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681474278"><span class="annot"><a href="#local-6989586621681474278"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Labeled"><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-var">Labeled</span></a></span></span><span> </span><span class="annot"><a href="#local-6989586621681474278"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474186"><span id="local-6989586621681474188"><span id="local-6989586621681474190"><span class="annot"><span class="annottext">Int -&gt; Labeled s a -&gt; ShowS
+[Labeled s a] -&gt; ShowS
+Labeled s a -&gt; String
+(Int -&gt; Labeled s a -&gt; ShowS)
+-&gt; (Labeled s a -&gt; String)
+-&gt; ([Labeled s a] -&gt; ShowS)
+-&gt; Show (Labeled s a)
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+forall (s :: Symbol) a. Show a =&gt; Int -&gt; Labeled s a -&gt; ShowS
+forall (s :: Symbol) a. Show a =&gt; [Labeled s a] -&gt; ShowS
+forall (s :: Symbol) a. Show a =&gt; Labeled s a -&gt; String
+showList :: [Labeled s a] -&gt; ShowS
+$cshowList :: forall (s :: Symbol) a. Show a =&gt; [Labeled s a] -&gt; ShowS
+show :: Labeled s a -&gt; String
+$cshow :: forall (s :: Symbol) a. Show a =&gt; Labeled s a -&gt; String
+showsPrec :: Int -&gt; Labeled s a -&gt; ShowS
+$cshowsPrec :: forall (s :: Symbol) a. Show a =&gt; Int -&gt; Labeled s a -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474181"><span id="local-6989586621681474183"><span class="annot"><span class="annottext">Labeled s a -&gt; Labeled s a -&gt; Bool
+(Labeled s a -&gt; Labeled s a -&gt; Bool)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Bool) -&gt; Eq (Labeled s a)
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+forall (s :: Symbol) a. Eq a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+/= :: Labeled s a -&gt; Labeled s a -&gt; Bool
+$c/= :: forall (s :: Symbol) a. Eq a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+== :: Labeled s a -&gt; Labeled s a -&gt; Bool
+$c== :: forall (s :: Symbol) a. Eq a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474165"><span id="local-6989586621681474167"><span id="local-6989586621681474169"><span id="local-6989586621681474171"><span id="local-6989586621681474173"><span id="local-6989586621681474175"><span id="local-6989586621681474177"><span class="annot"><span class="annottext">Eq (Labeled s a)
+Eq (Labeled s a) =&gt;
+(Labeled s a -&gt; Labeled s a -&gt; Ordering)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Bool)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Bool)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Bool)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Bool)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; Ord (Labeled s a)
+Labeled s a -&gt; Labeled s a -&gt; Bool
+Labeled s a -&gt; Labeled s a -&gt; Ordering
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+forall (s :: Symbol) a. Ord a =&gt; Eq (Labeled s a)
+forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+forall (s :: Symbol) a.
+Ord a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Ordering
+forall (s :: Symbol) a.
+Ord a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+min :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$cmin :: forall (s :: Symbol) a.
+Ord a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+max :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$cmax :: forall (s :: Symbol) a.
+Ord a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+&gt;= :: Labeled s a -&gt; Labeled s a -&gt; Bool
+$c&gt;= :: forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+&gt; :: Labeled s a -&gt; Labeled s a -&gt; Bool
+$c&gt; :: forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+&lt;= :: Labeled s a -&gt; Labeled s a -&gt; Bool
+$c&lt;= :: forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+&lt; :: Labeled s a -&gt; Labeled s a -&gt; Bool
+$c&lt; :: forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; Labeled s a -&gt; Bool
+compare :: Labeled s a -&gt; Labeled s a -&gt; Ordering
+$ccompare :: forall (s :: Symbol) a.
+Ord a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Ordering
+$cp1Ord :: forall (s :: Symbol) a. Ord a =&gt; Eq (Labeled s a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Labeled s a -&gt; Rep (Labeled s a) x)
+-&gt; (forall x. Rep (Labeled s a) x -&gt; Labeled s a)
+-&gt; Generic (Labeled s a)
+forall x. Rep (Labeled s a) x -&gt; Labeled s a
+forall x. Labeled s a -&gt; Rep (Labeled s a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall (s :: Symbol) a x. Rep (Labeled s a) x -&gt; Labeled s a
+forall (s :: Symbol) a x. Labeled s a -&gt; Rep (Labeled s a) x
+$cto :: forall (s :: Symbol) a x. Rep (Labeled s a) x -&gt; Labeled s a
+$cfrom :: forall (s :: Symbol) a x. Labeled s a -&gt; Rep (Labeled s a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474157"><span id="local-6989586621681474159"><span class="annot"><span class="annottext">a -&gt; Labeled s b -&gt; Labeled s a
+(a -&gt; b) -&gt; Labeled s a -&gt; Labeled s b
+(forall a b. (a -&gt; b) -&gt; Labeled s a -&gt; Labeled s b)
+-&gt; (forall a b. a -&gt; Labeled s b -&gt; Labeled s a)
+-&gt; Functor (Labeled s)
+forall a b. a -&gt; Labeled s b -&gt; Labeled s a
+forall a b. (a -&gt; b) -&gt; Labeled s a -&gt; Labeled s b
+forall (s :: Symbol) a b. a -&gt; Labeled s b -&gt; Labeled s a
+forall (s :: Symbol) a b. (a -&gt; b) -&gt; Labeled s a -&gt; Labeled s b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; Labeled s b -&gt; Labeled s a
+$c&lt;$ :: forall (s :: Symbol) a b. a -&gt; Labeled s b -&gt; Labeled s a
+fmap :: (a -&gt; b) -&gt; Labeled s a -&gt; Labeled s b
+$cfmap :: forall (s :: Symbol) a b. (a -&gt; b) -&gt; Labeled s a -&gt; Labeled s b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474122"><span id="local-6989586621681474124"><span id="local-6989586621681474126"><span id="local-6989586621681474128"><span id="local-6989586621681474130"><span id="local-6989586621681474132"><span id="local-6989586621681474134"><span id="local-6989586621681474136"><span id="local-6989586621681474138"><span id="local-6989586621681474140"><span id="local-6989586621681474142"><span id="local-6989586621681474144"><span id="local-6989586621681474146"><span id="local-6989586621681474148"><span id="local-6989586621681474150"><span id="local-6989586621681474152"><span id="local-6989586621681474154"><span class="annot"><span class="annottext">Labeled s a -&gt; Bool
+(a -&gt; m) -&gt; Labeled s a -&gt; m
+(a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+(forall m. Monoid m =&gt; Labeled s m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; Labeled s a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; Labeled s a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a)
+-&gt; (forall a. Labeled s a -&gt; [a])
+-&gt; (forall a. Labeled s a -&gt; Bool)
+-&gt; (forall a. Labeled s a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; Labeled s a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; Labeled s a -&gt; a)
+-&gt; (forall a. Ord a =&gt; Labeled s a -&gt; a)
+-&gt; (forall a. Num a =&gt; Labeled s a -&gt; a)
+-&gt; (forall a. Num a =&gt; Labeled s a -&gt; a)
+-&gt; Foldable (Labeled s)
+forall a. Eq a =&gt; a -&gt; Labeled s a -&gt; Bool
+forall a. Num a =&gt; Labeled s a -&gt; a
+forall a. Ord a =&gt; Labeled s a -&gt; a
+forall m. Monoid m =&gt; Labeled s m -&gt; m
+forall a. Labeled s a -&gt; Bool
+forall a. Labeled s a -&gt; Int
+forall a. Labeled s a -&gt; [a]
+forall a. (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a
+forall m a. Monoid m =&gt; (a -&gt; m) -&gt; Labeled s a -&gt; m
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+forall (s :: Symbol) a. Eq a =&gt; a -&gt; Labeled s a -&gt; Bool
+forall (s :: Symbol) a. Num a =&gt; Labeled s a -&gt; a
+forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; a
+forall (s :: Symbol) m. Monoid m =&gt; Labeled s m -&gt; m
+forall (s :: Symbol) a. Labeled s a -&gt; Bool
+forall (s :: Symbol) a. Labeled s a -&gt; Int
+forall (s :: Symbol) a. Labeled s a -&gt; [a]
+forall (s :: Symbol) a. (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a
+forall (s :: Symbol) m a. Monoid m =&gt; (a -&gt; m) -&gt; Labeled s a -&gt; m
+forall (s :: Symbol) b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+forall (s :: Symbol) a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+forall (t :: * -&gt; *).
+(forall m. Monoid m =&gt; t m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. t a -&gt; [a])
+-&gt; (forall a. t a -&gt; Bool)
+-&gt; (forall a. t a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; t a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; Foldable t
+product :: Labeled s a -&gt; a
+$cproduct :: forall (s :: Symbol) a. Num a =&gt; Labeled s a -&gt; a
+sum :: Labeled s a -&gt; a
+$csum :: forall (s :: Symbol) a. Num a =&gt; Labeled s a -&gt; a
+minimum :: Labeled s a -&gt; a
+$cminimum :: forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; a
+maximum :: Labeled s a -&gt; a
+$cmaximum :: forall (s :: Symbol) a. Ord a =&gt; Labeled s a -&gt; a
+elem :: a -&gt; Labeled s a -&gt; Bool
+$celem :: forall (s :: Symbol) a. Eq a =&gt; a -&gt; Labeled s a -&gt; Bool
+length :: Labeled s a -&gt; Int
+$clength :: forall (s :: Symbol) a. Labeled s a -&gt; Int
+null :: Labeled s a -&gt; Bool
+$cnull :: forall (s :: Symbol) a. Labeled s a -&gt; Bool
+toList :: Labeled s a -&gt; [a]
+$ctoList :: forall (s :: Symbol) a. Labeled s a -&gt; [a]
+foldl1 :: (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a
+$cfoldl1 :: forall (s :: Symbol) a. (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a
+foldr1 :: (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a
+$cfoldr1 :: forall (s :: Symbol) a. (a -&gt; a -&gt; a) -&gt; Labeled s a -&gt; a
+foldl' :: (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+$cfoldl' :: forall (s :: Symbol) b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+foldl :: (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+$cfoldl :: forall (s :: Symbol) b a. (b -&gt; a -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+foldr' :: (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+$cfoldr' :: forall (s :: Symbol) a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+foldr :: (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+$cfoldr :: forall (s :: Symbol) a b. (a -&gt; b -&gt; b) -&gt; b -&gt; Labeled s a -&gt; b
+foldMap' :: (a -&gt; m) -&gt; Labeled s a -&gt; m
+$cfoldMap' :: forall (s :: Symbol) m a. Monoid m =&gt; (a -&gt; m) -&gt; Labeled s a -&gt; m
+foldMap :: (a -&gt; m) -&gt; Labeled s a -&gt; m
+$cfoldMap :: forall (s :: Symbol) m a. Monoid m =&gt; (a -&gt; m) -&gt; Labeled s a -&gt; m
+fold :: Labeled s m -&gt; m
+$cfold :: forall (s :: Symbol) m. Monoid m =&gt; Labeled s m -&gt; m
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Foldable</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474111"><span id="local-6989586621681474113"><span id="local-6989586621681474115"><span id="local-6989586621681474117"><span class="annot"><span class="annottext">Functor (Labeled s)
+Foldable (Labeled s)
+(Functor (Labeled s), Foldable (Labeled s)) =&gt;
+(forall (f :: * -&gt; *) a b.
+ Applicative f =&gt;
+ (a -&gt; f b) -&gt; Labeled s a -&gt; f (Labeled s b))
+-&gt; (forall (f :: * -&gt; *) a.
+    Applicative f =&gt;
+    Labeled s (f a) -&gt; f (Labeled s a))
+-&gt; (forall (m :: * -&gt; *) a b.
+    Monad m =&gt;
+    (a -&gt; m b) -&gt; Labeled s a -&gt; m (Labeled s b))
+-&gt; (forall (m :: * -&gt; *) a.
+    Monad m =&gt;
+    Labeled s (m a) -&gt; m (Labeled s a))
+-&gt; Traversable (Labeled s)
+(a -&gt; f b) -&gt; Labeled s a -&gt; f (Labeled s b)
+forall (s :: Symbol). Functor (Labeled s)
+forall (s :: Symbol). Foldable (Labeled s)
+forall (s :: Symbol) (m :: * -&gt; *) a.
+Monad m =&gt;
+Labeled s (m a) -&gt; m (Labeled s a)
+forall (s :: Symbol) (f :: * -&gt; *) a.
+Applicative f =&gt;
+Labeled s (f a) -&gt; f (Labeled s a)
+forall (s :: Symbol) (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Labeled s a -&gt; m (Labeled s b)
+forall (s :: Symbol) (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; Labeled s a -&gt; f (Labeled s b)
+forall (t :: * -&gt; *).
+(Functor t, Foldable t) =&gt;
+(forall (f :: * -&gt; *) a b.
+ Applicative f =&gt;
+ (a -&gt; f b) -&gt; t a -&gt; f (t b))
+-&gt; (forall (f :: * -&gt; *) a. Applicative f =&gt; t (f a) -&gt; f (t a))
+-&gt; (forall (m :: * -&gt; *) a b.
+    Monad m =&gt;
+    (a -&gt; m b) -&gt; t a -&gt; m (t b))
+-&gt; (forall (m :: * -&gt; *) a. Monad m =&gt; t (m a) -&gt; m (t a))
+-&gt; Traversable t
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+Labeled s (m a) -&gt; m (Labeled s a)
+forall (f :: * -&gt; *) a.
+Applicative f =&gt;
+Labeled s (f a) -&gt; f (Labeled s a)
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Labeled s a -&gt; m (Labeled s b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; Labeled s a -&gt; f (Labeled s b)
+sequence :: Labeled s (m a) -&gt; m (Labeled s a)
+$csequence :: forall (s :: Symbol) (m :: * -&gt; *) a.
+Monad m =&gt;
+Labeled s (m a) -&gt; m (Labeled s a)
+mapM :: (a -&gt; m b) -&gt; Labeled s a -&gt; m (Labeled s b)
+$cmapM :: forall (s :: Symbol) (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Labeled s a -&gt; m (Labeled s b)
+sequenceA :: Labeled s (f a) -&gt; f (Labeled s a)
+$csequenceA :: forall (s :: Symbol) (f :: * -&gt; *) a.
+Applicative f =&gt;
+Labeled s (f a) -&gt; f (Labeled s a)
+traverse :: (a -&gt; f b) -&gt; Labeled s a -&gt; f (Labeled s b)
+$ctraverse :: forall (s :: Symbol) (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; Labeled s a -&gt; f (Labeled s b)
+$cp2Traversable :: forall (s :: Symbol). Foldable (Labeled s)
+$cp1Traversable :: forall (s :: Symbol). Functor (Labeled s)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Traversable</span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474096"><span id="local-6989586621681474098"><span id="local-6989586621681474100"><span id="local-6989586621681474102"><span id="local-6989586621681474104"><span id="local-6989586621681474106"><span id="local-6989586621681474108"><span class="annot"><span class="annottext">Integer -&gt; Labeled s a
+Labeled s a -&gt; Labeled s a
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+(Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a)
+-&gt; (Integer -&gt; Labeled s a)
+-&gt; Num (Labeled s a)
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Integer -&gt; a)
+-&gt; Num a
+forall (s :: Symbol) a. Num a =&gt; Integer -&gt; Labeled s a
+forall (s :: Symbol) a. Num a =&gt; Labeled s a -&gt; Labeled s a
+forall (s :: Symbol) a.
+Num a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+fromInteger :: Integer -&gt; Labeled s a
+$cfromInteger :: forall (s :: Symbol) a. Num a =&gt; Integer -&gt; Labeled s a
+signum :: Labeled s a -&gt; Labeled s a
+$csignum :: forall (s :: Symbol) a. Num a =&gt; Labeled s a -&gt; Labeled s a
+abs :: Labeled s a -&gt; Labeled s a
+$cabs :: forall (s :: Symbol) a. Num a =&gt; Labeled s a -&gt; Labeled s a
+negate :: Labeled s a -&gt; Labeled s a
+$cnegate :: forall (s :: Symbol) a. Num a =&gt; Labeled s a -&gt; Labeled s a
+* :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$c* :: forall (s :: Symbol) a.
+Num a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+- :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$c- :: forall (s :: Symbol) a.
+Num a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
++ :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$c+ :: forall (s :: Symbol) a.
+Num a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474079"><span id="local-6989586621681474081"><span id="local-6989586621681474083"><span id="local-6989586621681474085"><span id="local-6989586621681474087"><span id="local-6989586621681474089"><span id="local-6989586621681474091"><span id="local-6989586621681474093"><span class="annot"><span class="annottext">Int -&gt; Labeled s a
+Labeled s a -&gt; Int
+Labeled s a -&gt; [Labeled s a]
+Labeled s a -&gt; Labeled s a
+Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+(Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a)
+-&gt; (Int -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Int)
+-&gt; (Labeled s a -&gt; [Labeled s a])
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; [Labeled s a])
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; [Labeled s a])
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a -&gt; [Labeled s a])
+-&gt; Enum (Labeled s a)
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+forall (s :: Symbol) a. Enum a =&gt; Int -&gt; Labeled s a
+forall (s :: Symbol) a. Enum a =&gt; Labeled s a -&gt; Int
+forall (s :: Symbol) a. Enum a =&gt; Labeled s a -&gt; [Labeled s a]
+forall (s :: Symbol) a. Enum a =&gt; Labeled s a -&gt; Labeled s a
+forall (s :: Symbol) a.
+Enum a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+forall (s :: Symbol) a.
+Enum a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+enumFromThenTo :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+$cenumFromThenTo :: forall (s :: Symbol) a.
+Enum a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+enumFromTo :: Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+$cenumFromTo :: forall (s :: Symbol) a.
+Enum a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+enumFromThen :: Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+$cenumFromThen :: forall (s :: Symbol) a.
+Enum a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; [Labeled s a]
+enumFrom :: Labeled s a -&gt; [Labeled s a]
+$cenumFrom :: forall (s :: Symbol) a. Enum a =&gt; Labeled s a -&gt; [Labeled s a]
+fromEnum :: Labeled s a -&gt; Int
+$cfromEnum :: forall (s :: Symbol) a. Enum a =&gt; Labeled s a -&gt; Int
+toEnum :: Int -&gt; Labeled s a
+$ctoEnum :: forall (s :: Symbol) a. Enum a =&gt; Int -&gt; Labeled s a
+pred :: Labeled s a -&gt; Labeled s a
+$cpred :: forall (s :: Symbol) a. Enum a =&gt; Labeled s a -&gt; Labeled s a
+succ :: Labeled s a -&gt; Labeled s a
+$csucc :: forall (s :: Symbol) a. Enum a =&gt; Labeled s a -&gt; Labeled s a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474074"><span id="local-6989586621681474076"><span class="annot"><span class="annottext">Labeled s a
+Labeled s a -&gt; Labeled s a -&gt; Bounded (Labeled s a)
+forall a. a -&gt; a -&gt; Bounded a
+forall (s :: Symbol) a. Bounded a =&gt; Labeled s a
+maxBound :: Labeled s a
+$cmaxBound :: forall (s :: Symbol) a. Bounded a =&gt; Labeled s a
+minBound :: Labeled s a
+$cminBound :: forall (s :: Symbol) a. Bounded a =&gt; Labeled s a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474057"><span id="local-6989586621681474059"><span id="local-6989586621681474061"><span id="local-6989586621681474063"><span id="local-6989586621681474065"><span id="local-6989586621681474067"><span id="local-6989586621681474069"><span class="annot"><span class="annottext">Enum (Labeled s a)
+Real (Labeled s a)
+(Real (Labeled s a), Enum (Labeled s a)) =&gt;
+(Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; Labeled s a)
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a))
+-&gt; (Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a))
+-&gt; (Labeled s a -&gt; Integer)
+-&gt; Integral (Labeled s a)
+Labeled s a -&gt; Integer
+Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a)
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+forall a.
+(Real a, Enum a) =&gt;
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; Integer)
+-&gt; Integral a
+forall (s :: Symbol) a. Integral a =&gt; Enum (Labeled s a)
+forall (s :: Symbol) a. Integral a =&gt; Real (Labeled s a)
+forall (s :: Symbol) a. Integral a =&gt; Labeled s a -&gt; Integer
+forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a)
+forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+toInteger :: Labeled s a -&gt; Integer
+$ctoInteger :: forall (s :: Symbol) a. Integral a =&gt; Labeled s a -&gt; Integer
+divMod :: Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a)
+$cdivMod :: forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a)
+quotRem :: Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a)
+$cquotRem :: forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; (Labeled s a, Labeled s a)
+mod :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$cmod :: forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+div :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$cdiv :: forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+rem :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$crem :: forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+quot :: Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$cquot :: forall (s :: Symbol) a.
+Integral a =&gt;
+Labeled s a -&gt; Labeled s a -&gt; Labeled s a
+$cp2Integral :: forall (s :: Symbol) a. Integral a =&gt; Enum (Labeled s a)
+$cp1Integral :: forall (s :: Symbol) a. Integral a =&gt; Real (Labeled s a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Integral</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474052"><span class="annot"><span class="annottext">Num (Labeled s a)
+Ord (Labeled s a)
+(Num (Labeled s a), Ord (Labeled s a)) =&gt;
+(Labeled s a -&gt; Rational) -&gt; Real (Labeled s a)
+Labeled s a -&gt; Rational
+forall a. (Num a, Ord a) =&gt; (a -&gt; Rational) -&gt; Real a
+forall (s :: Symbol) a. Real a =&gt; Num (Labeled s a)
+forall (s :: Symbol) a. Real a =&gt; Ord (Labeled s a)
+forall (s :: Symbol) a. Real a =&gt; Labeled s a -&gt; Rational
+toRational :: Labeled s a -&gt; Rational
+$ctoRational :: forall (s :: Symbol) a. Real a =&gt; Labeled s a -&gt; Rational
+$cp2Real :: forall (s :: Symbol) a. Real a =&gt; Ord (Labeled s a)
+$cp1Real :: forall (s :: Symbol) a. Real a =&gt; Num (Labeled s a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681474049"><span class="annot"><span class="annottext">Labeled s a -&gt; ()
+(Labeled s a -&gt; ()) -&gt; NFData (Labeled s a)
+forall a. (a -&gt; ()) -&gt; NFData a
+forall (s :: Symbol) a. NFData a =&gt; Labeled s a -&gt; ()
+rnf :: Labeled s a -&gt; ()
+$crnf :: forall (s :: Symbol) a. NFData a =&gt; Labeled s a -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span id="local-6989586621681474046"><span id="local-6989586621681474047"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681474039"><span id="local-6989586621681474041"><span id="local-6989586621681474043"><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681474047"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681474046"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-type">Labeled</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474047"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474046"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-78"></span><span>    </span><span id="local-6989586621681474037"><span class="annot"><span class="annottext">toJSON :: Labeled s a -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-type">Labeled</span></a></span><span> </span><span id="local-6989586621681474035"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681474035"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-79"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">(KnownSymbol s, IsString Text) =&gt; Text
+forall (s :: Symbol) a. (KnownSymbol s, IsString a) =&gt; a
+</span><a href="Chainweb.Utils.html#symbolText"><span class="hs-identifier hs-var">symbolText</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681474047"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; a -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474035"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-80"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSON</span></span><span> </span><span class="hs-pragma">#-}</span></span></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="annot"><a href="Chainweb.Counter.html#pair"><span class="hs-identifier hs-type">pair</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681474295"><span class="annot"><a href="#local-6989586621681474295"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span id="local-6989586621681474294"><span class="annot"><a href="#local-6989586621681474294"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681474295"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-type">Labeled</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474295"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474294"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621681474294"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span id="pair"><span class="annot"><span class="annottext">pair :: Labeled s a -&gt; (Text, a)
+</span><a href="Chainweb.Counter.html#pair"><span class="hs-identifier hs-var hs-var">pair</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-type">Labeled</span></a></span><span> </span><span id="local-6989586621681474030"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681474030"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall a. (KnownSymbol s, IsString a) =&gt; a
+forall (s :: Symbol) a. (KnownSymbol s, IsString a) =&gt; a
+</span><a href="Chainweb.Utils.html#symbolText"><span class="hs-identifier hs-var">symbolText</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681474295"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474030"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#pair"><span class="hs-pragma hs-type">pair</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-86"></span><span>
+</span><span id="line-87"></span><span id="local-6989586621681474212"><span id="local-6989586621681474213"><span class="annot"><a href="Chainweb.Counter.html#jsonPair"><span class="hs-identifier hs-type">jsonPair</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681474213"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681474212"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-type">Labeled</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474213"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474212"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-88"></span><span id="jsonPair"><span class="annot"><span class="annottext">jsonPair :: Labeled s a -&gt; Pair
+</span><a href="Chainweb.Counter.html#jsonPair"><span class="hs-identifier hs-var hs-var">jsonPair</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; Value) -&gt; (Text, a) -&gt; Pair
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">((Text, a) -&gt; Pair)
+-&gt; (Labeled s a -&gt; (Text, a)) -&gt; Labeled s a -&gt; Pair
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Labeled s a -&gt; (Text, a)
+forall (s :: Symbol) a. KnownSymbol s =&gt; Labeled s a -&gt; (Text, a)
+</span><a href="Chainweb.Counter.html#pair"><span class="hs-identifier hs-var">pair</span></a></span><span>
+</span><span id="line-89"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#jsonPair"><span class="hs-pragma hs-type">jsonPair</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- Class of Counters</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="hs-keyword">class</span><span> </span><span id="IsCounter"><span class="annot"><a href="Chainweb.Counter.html#IsCounter"><span class="hs-identifier hs-var">IsCounter</span></a></span></span><span> </span><span id="local-6989586621681474289"><span class="annot"><a href="#local-6989586621681474289"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-95"></span><span>    </span><span id="roll"><span class="annot"><a href="Chainweb.Counter.html#roll"><span class="hs-identifier hs-type">roll</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681474289"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span id="local-6989586621681474027"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681474027"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#IsCounter"><span class="hs-identifier hs-type">IsCounter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474027"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-98"></span><span>    </span><span id="local-6989586621681474024"><span class="annot"><span class="annottext">roll :: Counter s -&gt; IO CounterValue
+</span><a href="#local-6989586621681474024"><span class="hs-identifier hs-var hs-var hs-var hs-var">roll</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Counter s -&gt; IO CounterValue
+forall (s :: Symbol). KnownSymbol s =&gt; Counter s -&gt; IO CounterValue
+</span><a href="Chainweb.Counter.html#rollCounter"><span class="hs-identifier hs-var">rollCounter</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#roll"><span class="hs-pragma hs-type">roll</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span id="local-6989586621681474022"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681474022"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#IsCounter"><span class="hs-identifier hs-type">IsCounter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-type">CounterMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474022"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-102"></span><span>    </span><span id="local-6989586621681474020"><span class="annot"><span class="annottext">roll :: CounterMap s -&gt; IO CounterValue
+</span><a href="#local-6989586621681474020"><span class="hs-identifier hs-var hs-var hs-var hs-var">roll</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CounterMap s -&gt; IO CounterValue
+forall (s :: Symbol).
+KnownSymbol s =&gt;
+CounterMap s -&gt; IO CounterValue
+</span><a href="Chainweb.Counter.html#rollCounterMap"><span class="hs-identifier hs-var">rollCounterMap</span></a></span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#roll"><span class="hs-pragma hs-type">roll</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- Counter</span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span id="local-6989586621681474017"><span id="local-6989586621681474018"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="Counter"><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-var">Counter</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474270"><span class="annot"><a href="#local-6989586621681474270"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Symbol</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Counter"><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-var">Counter</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474012"><span id="local-6989586621681474014"><span class="annot"><span class="annottext">Counter s -&gt; Counter s -&gt; Bool
+(Counter s -&gt; Counter s -&gt; Bool)
+-&gt; (Counter s -&gt; Counter s -&gt; Bool) -&gt; Eq (Counter s)
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+forall (s :: Symbol). Counter s -&gt; Counter s -&gt; Bool
+/= :: Counter s -&gt; Counter s -&gt; Bool
+$c/= :: forall (s :: Symbol). Counter s -&gt; Counter s -&gt; Bool
+== :: Counter s -&gt; Counter s -&gt; Bool
+$c== :: forall (s :: Symbol). Counter s -&gt; Counter s -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Counter s -&gt; Rep (Counter s) x)
+-&gt; (forall x. Rep (Counter s) x -&gt; Counter s)
+-&gt; Generic (Counter s)
+forall x. Rep (Counter s) x -&gt; Counter s
+forall x. Counter s -&gt; Rep (Counter s) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall (s :: Symbol) x. Rep (Counter s) x -&gt; Counter s
+forall (s :: Symbol) x. Counter s -&gt; Rep (Counter s) x
+$cto :: forall (s :: Symbol) x. Rep (Counter s) x -&gt; Counter s
+$cfrom :: forall (s :: Symbol) x. Counter s -&gt; Rep (Counter s) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474008"><span class="annot"><span class="annottext">Counter s -&gt; ()
+(Counter s -&gt; ()) -&gt; NFData (Counter s)
+forall a. (a -&gt; ()) -&gt; NFData a
+forall (s :: Symbol). Counter s -&gt; ()
+rnf :: Counter s -&gt; ()
+$crnf :: forall (s :: Symbol). Counter s -&gt; ()
+</span><a href="#local-6989586621681474008"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- | Roll the counter and return the value</span><span>
+</span><span id="line-113"></span><span class="hs-comment">--</span><span>
+</span><span id="line-114"></span><span class="annot"><a href="Chainweb.Counter.html#rollCounter"><span class="hs-identifier hs-type">rollCounter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681474007"><span class="annot"><a href="#local-6989586621681474007"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681474007"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474007"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span>
+</span><span id="line-115"></span><span id="rollCounter"><span class="annot"><span class="annottext">rollCounter :: Counter s -&gt; IO CounterValue
+</span><a href="Chainweb.Counter.html#rollCounter"><span class="hs-identifier hs-var hs-var">rollCounter</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span id="local-6989586621681474006"><span class="annot"><span class="annottext">ref :: IORef Int
+</span><a href="#local-6989586621681474006"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">KnownSymbol s =&gt; Labeled s Int -&gt; CounterValue
+forall (s :: Symbol).
+KnownSymbol s =&gt;
+Labeled s Int -&gt; CounterValue
+</span><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-var">CounterValue</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681474007"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="annottext">(Labeled s Int -&gt; CounterValue)
+-&gt; (Int -&gt; Labeled s Int) -&gt; Int -&gt; CounterValue
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Labeled s Int
+forall (s :: Symbol) a. a -&gt; Labeled s a
+</span><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-var">Labeled</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; CounterValue) -&gt; IO Int -&gt; IO CounterValue
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; (Int -&gt; (Int, Int)) -&gt; IO Int
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681474006"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">,</span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span id="local-6989586621681474002"><span class="annot"><a href="Chainweb.Counter.html#newCounter"><span class="hs-identifier hs-type">newCounter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474002"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-118"></span><span id="newCounter"><span class="annot"><span class="annottext">newCounter :: IO (Counter s)
+</span><a href="Chainweb.Counter.html#newCounter"><span class="hs-identifier hs-var hs-var">newCounter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; Counter s
+forall (s :: Symbol). IORef Int -&gt; Counter s
+</span><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-var">Counter</span></a></span><span> </span><span class="annot"><span class="annottext">(IORef Int -&gt; Counter s) -&gt; IO (IORef Int) -&gt; IO (Counter s)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-119"></span><span>
+</span><span id="line-120"></span><span id="local-6989586621681474000"><span class="annot"><a href="Chainweb.Counter.html#inc"><span class="hs-identifier hs-type">inc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474000"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-121"></span><span id="inc"><span class="annot"><span class="annottext">inc :: Counter s -&gt; IO ()
+</span><a href="Chainweb.Counter.html#inc"><span class="hs-identifier hs-var hs-var">inc</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span id="local-6989586621681473999"><span class="annot"><span class="annottext">ref :: IORef Int
+</span><a href="#local-6989586621681473999"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; (Int -&gt; (Int, ())) -&gt; IO ()
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681473999"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; (Int, ())) -&gt; IO ()) -&gt; (Int -&gt; (Int, ())) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-special">,</span></span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; (Int, ())) -&gt; (Int -&gt; Int) -&gt; Int -&gt; (Int, ())
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int
+forall a. Enum a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">succ</span></span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span id="local-6989586621681473996"><span id="local-6989586621681473997"><span class="annot"><a href="Chainweb.Counter.html#incBy"><span class="hs-identifier hs-type">incBy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621681473997"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473996"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473997"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-124"></span><span id="incBy"><span class="annot"><span class="annottext">incBy :: Counter s -&gt; a -&gt; IO ()
+</span><a href="Chainweb.Counter.html#incBy"><span class="hs-identifier hs-var hs-var">incBy</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Counter"><span class="hs-identifier hs-type">Counter</span></a></span><span> </span><span id="local-6989586621681473995"><span class="annot"><span class="annottext">ref :: IORef Int
+</span><a href="#local-6989586621681473995"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681473994"><span class="annot"><span class="annottext">i :: a
+</span><a href="#local-6989586621681473994"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; (Int -&gt; (Int, ())) -&gt; IO ()
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681473995"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; (Int, ())) -&gt; IO ()) -&gt; (Int -&gt; (Int, ())) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-special">,</span></span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; (Int, ())) -&gt; (Int -&gt; Int) -&gt; Int -&gt; (Int, ())
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(+)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681473994"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- CounterMap</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span id="local-6989586621681473990"><span id="local-6989586621681473991"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="CounterMap"><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-var">CounterMap</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681474254"><span class="annot"><a href="#local-6989586621681474254"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Symbol</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CounterMap"><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-var">CounterMap</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HM.HashMap</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681473985"><span id="local-6989586621681473987"><span class="annot"><span class="annottext">CounterMap s -&gt; CounterMap s -&gt; Bool
+(CounterMap s -&gt; CounterMap s -&gt; Bool)
+-&gt; (CounterMap s -&gt; CounterMap s -&gt; Bool) -&gt; Eq (CounterMap s)
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+forall (s :: Symbol). CounterMap s -&gt; CounterMap s -&gt; Bool
+/= :: CounterMap s -&gt; CounterMap s -&gt; Bool
+$c/= :: forall (s :: Symbol). CounterMap s -&gt; CounterMap s -&gt; Bool
+== :: CounterMap s -&gt; CounterMap s -&gt; Bool
+$c== :: forall (s :: Symbol). CounterMap s -&gt; CounterMap s -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. CounterMap s -&gt; Rep (CounterMap s) x)
+-&gt; (forall x. Rep (CounterMap s) x -&gt; CounterMap s)
+-&gt; Generic (CounterMap s)
+forall x. Rep (CounterMap s) x -&gt; CounterMap s
+forall x. CounterMap s -&gt; Rep (CounterMap s) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall (s :: Symbol) x. Rep (CounterMap s) x -&gt; CounterMap s
+forall (s :: Symbol) x. CounterMap s -&gt; Rep (CounterMap s) x
+$cto :: forall (s :: Symbol) x. Rep (CounterMap s) x -&gt; CounterMap s
+$cfrom :: forall (s :: Symbol) x. CounterMap s -&gt; Rep (CounterMap s) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span id="local-6989586621681473982"><span class="annot"><a href="Chainweb.Counter.html#newCounterMap"><span class="hs-identifier hs-type">newCounterMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-type">CounterMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473982"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-133"></span><span id="newCounterMap"><span class="annot"><span class="annottext">newCounterMap :: IO (CounterMap s)
+</span><a href="Chainweb.Counter.html#newCounterMap"><span class="hs-identifier hs-var hs-var">newCounterMap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef (HashMap Text (IORef Int)) -&gt; CounterMap s
+forall (s :: Symbol).
+IORef (HashMap Text (IORef Int)) -&gt; CounterMap s
+</span><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-var">CounterMap</span></a></span><span> </span><span class="annot"><span class="annottext">(IORef (HashMap Text (IORef Int)) -&gt; CounterMap s)
+-&gt; IO (IORef (HashMap Text (IORef Int))) -&gt; IO (CounterMap s)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (IORef Int) -&gt; IO (IORef (HashMap Text (IORef Int)))
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (IORef Int)
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- | Roll the counters in the map and return the values.</span><span>
+</span><span id="line-136"></span><span class="hs-comment">--</span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- This operation traverses the map twice. First for count the elements in the</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- map ('HM.size' is of /O(n)/) and then to copy the entries to the result</span><span>
+</span><span id="line-139"></span><span class="hs-comment">-- vector. Depending on the expected size of map this can take some time. When</span><span>
+</span><span id="line-140"></span><span class="hs-comment">-- this is a concern the log function should be called asynchronously.</span><span>
+</span><span id="line-141"></span><span class="hs-comment">--</span><span>
+</span><span id="line-142"></span><span class="annot"><a href="Chainweb.Counter.html#rollCounterMap"><span class="hs-identifier hs-type">rollCounterMap</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681473981"><span class="annot"><a href="#local-6989586621681473981"><span class="hs-identifier hs-type">s</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681473981"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-type">CounterMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473981"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span>
+</span><span id="line-143"></span><span id="rollCounterMap"><span class="annot"><span class="annottext">rollCounterMap :: CounterMap s -&gt; IO CounterValue
+</span><a href="Chainweb.Counter.html#rollCounterMap"><span class="hs-identifier hs-var hs-var">rollCounterMap</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-type">CounterMap</span></a></span><span> </span><span id="local-6989586621681473980"><span class="annot"><span class="annottext">ref :: IORef (HashMap Text (IORef Int))
+</span><a href="#local-6989586621681473980"><span class="hs-identifier hs-var">ref</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">KnownSymbol s =&gt; Labeled s (Vector (Text, Int)) -&gt; CounterValue
+forall (s :: Symbol).
+KnownSymbol s =&gt;
+Labeled s (Vector (Text, Int)) -&gt; CounterValue
+</span><a href="Chainweb.Counter.html#CounterMapValue"><span class="hs-identifier hs-var">CounterMapValue</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681473981"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="annottext">(Labeled s (Vector (Text, Int)) -&gt; CounterValue)
+-&gt; (Vector (Text, Int) -&gt; Labeled s (Vector (Text, Int)))
+-&gt; Vector (Text, Int)
+-&gt; CounterValue
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Vector (Text, Int) -&gt; Labeled s (Vector (Text, Int))
+forall (s :: Symbol) a. a -&gt; Labeled s a
+</span><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-var">Labeled</span></a></span><span> </span><span class="annot"><span class="annottext">(Vector (Text, Int) -&gt; CounterValue)
+-&gt; IO (Vector (Text, Int)) -&gt; IO CounterValue
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-144"></span><span>    </span><span id="local-6989586621681473978"><span class="annot"><span class="annottext">HashMap Text (IORef Int)
+</span><a href="#local-6989586621681473978"><span class="hs-identifier hs-var">old</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef (HashMap Text (IORef Int))
+-&gt; (HashMap Text (IORef Int)
+    -&gt; (HashMap Text (IORef Int), HashMap Text (IORef Int)))
+-&gt; IO (HashMap Text (IORef Int))
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (HashMap Text (IORef Int))
+</span><a href="#local-6989586621681473980"><span class="hs-identifier hs-var">ref</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashMap Text (IORef Int)
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span class="hs-special">,</span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>    </span><span class="annot"><span class="annottext">((Text, IORef Int) -&gt; IO (Text, Int))
+-&gt; Vector (Text, IORef Int) -&gt; IO (Vector (Text, Int))
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Vector a -&gt; m (Vector b)
+</span><span class="hs-identifier hs-var">V.mapM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(IORef Int -&gt; IO Int) -&gt; (Text, IORef Int) -&gt; IO (Text, Int)
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+</span><span class="hs-identifier hs-var">traverse</span></span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Int
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Vector (Text, IORef Int) -&gt; IO (Vector (Text, Int)))
+-&gt; Vector (Text, IORef Int) -&gt; IO (Vector (Text, Int))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [(Text, IORef Int)] -&gt; Vector (Text, IORef Int)
+forall a. Int -&gt; [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromListN</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashMap Text (IORef Int) -&gt; Int
+forall k v. HashMap k v -&gt; Int
+</span><span class="hs-identifier hs-var">HM.size</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (IORef Int)
+</span><a href="#local-6989586621681473978"><span class="hs-identifier hs-var">old</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([(Text, IORef Int)] -&gt; Vector (Text, IORef Int))
+-&gt; [(Text, IORef Int)] -&gt; Vector (Text, IORef Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (IORef Int) -&gt; [(Text, IORef Int)]
+forall k v. HashMap k v -&gt; [(k, v)]
+</span><span class="hs-identifier hs-var">HM.toList</span></span><span> </span><span class="annot"><span class="annottext">HashMap Text (IORef Int)
+</span><a href="#local-6989586621681473978"><span class="hs-identifier hs-var">old</span></a></span><span>
+</span><span id="line-146"></span><span>        </span><span class="hs-comment">-- We assume that 'V.mapM' and 'V.fromListN' get fused.</span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span id="local-6989586621681474227"><span id="local-6989586621681474228"><span class="annot"><a href="Chainweb.Counter.html#incKeyBy"><span class="hs-identifier hs-type">incKeyBy</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Integral</span></span><span> </span><span class="annot"><a href="#local-6989586621681474228"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-type">CounterMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474227"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474228"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-149"></span><span id="incKeyBy"><span class="annot"><span class="annottext">incKeyBy :: CounterMap s -&gt; Text -&gt; a -&gt; IO ()
+</span><a href="Chainweb.Counter.html#incKeyBy"><span class="hs-identifier hs-var hs-var">incKeyBy</span></a></span></span><span> </span><span id="local-6989586621681473970"><span class="annot"><span class="annottext">cm :: CounterMap s
+</span><a href="#local-6989586621681473970"><span class="hs-identifier hs-var">cm</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-type">CounterMap</span></a></span><span> </span><span id="local-6989586621681473969"><span class="annot"><span class="annottext">mref :: IORef (HashMap Text (IORef Int))
+</span><a href="#local-6989586621681473969"><span class="hs-identifier hs-var">mref</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681473968"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621681473968"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span id="local-6989586621681473967"><span class="annot"><span class="annottext">i :: a
+</span><a href="#local-6989586621681473967"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; HashMap Text (IORef Int) -&gt; Maybe (IORef Int)
+forall k v. (Eq k, Hashable k) =&gt; k -&gt; HashMap k v -&gt; Maybe v
+</span><span class="hs-identifier hs-var">HM.lookup</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681473968"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">(HashMap Text (IORef Int) -&gt; Maybe (IORef Int))
+-&gt; IO (HashMap Text (IORef Int)) -&gt; IO (Maybe (IORef Int))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IORef (HashMap Text (IORef Int)) -&gt; IO (HashMap Text (IORef Int))
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (HashMap Text (IORef Int))
+</span><a href="#local-6989586621681473969"><span class="hs-identifier hs-var">mref</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO (Maybe (IORef Int)) -&gt; (Maybe (IORef Int) -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-151"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681473965"><span class="annot"><span class="annottext">cref :: IORef Int
+</span><a href="#local-6989586621681473965"><span class="hs-identifier hs-var">cref</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; (Int -&gt; (Int, ())) -&gt; IO ()
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681473965"><span class="hs-identifier hs-var">cref</span></a></span><span> </span><span class="annot"><span class="annottext">((Int -&gt; (Int, ())) -&gt; IO ()) -&gt; (Int -&gt; (Int, ())) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-special">,</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; (Int, ())) -&gt; (Int -&gt; Int) -&gt; Int -&gt; (Int, ())
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(+)</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681473967"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-152"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-153"></span><span>            </span><span id="local-6989586621681473964"><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681473964"><span class="hs-identifier hs-var">cref</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-154"></span><span>            </span><span class="annot"><span class="annottext">IORef (HashMap Text (IORef Int))
+-&gt; (HashMap Text (IORef Int) -&gt; (HashMap Text (IORef Int), ()))
+-&gt; IO ()
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (HashMap Text (IORef Int))
+</span><a href="#local-6989586621681473969"><span class="hs-identifier hs-var">mref</span></a></span><span> </span><span class="annot"><span class="annottext">((HashMap Text (IORef Int) -&gt; (HashMap Text (IORef Int), ()))
+ -&gt; IO ())
+-&gt; (HashMap Text (IORef Int) -&gt; (HashMap Text (IORef Int), ()))
+-&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681473963"><span class="annot"><span class="annottext">m :: HashMap Text (IORef Int)
+</span><a href="#local-6989586621681473963"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+-&gt; IORef Int
+-&gt; HashMap Text (IORef Int)
+-&gt; HashMap Text (IORef Int)
+forall k v.
+(Eq k, Hashable k) =&gt;
+k -&gt; v -&gt; HashMap k v -&gt; HashMap k v
+</span><span class="hs-identifier hs-var">HM.insert</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681473968"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681473964"><span class="hs-identifier hs-var">cref</span></a></span><span> </span><span class="annot"><span class="annottext">HashMap Text (IORef Int)
+</span><a href="#local-6989586621681473963"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>                </span><span class="hs-comment">-- We don't for the result to reduce contention in the atomic</span><span>
+</span><span id="line-156"></span><span>                </span><span class="hs-comment">-- swap. (It might be that the implementation of</span><span>
+</span><span id="line-157"></span><span>                </span><span class="hs-comment">-- 'atomicModifyMutVar#' already takes care of this by adding</span><span>
+</span><span id="line-158"></span><span>                </span><span class="hs-comment">-- adding the thunk for the update before doing any computation.</span><span>
+</span><span id="line-159"></span><span>                </span><span class="hs-comment">-- But that's not obvious from the implementation of</span><span>
+</span><span id="line-160"></span><span>                </span><span class="hs-comment">-- @atomicModifyIORef'@ and the documentation isn't clear.</span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span>            </span><span class="annot"><span class="annottext">CounterMap s -&gt; Text -&gt; IO ()
+forall (s :: Symbol). CounterMap s -&gt; Text -&gt; IO ()
+</span><a href="Chainweb.Counter.html#incKey"><span class="hs-identifier hs-var">incKey</span></a></span><span> </span><span class="annot"><span class="annottext">CounterMap s
+</span><a href="#local-6989586621681473970"><span class="hs-identifier hs-var">cm</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681473968"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span id="local-6989586621681474230"><span class="annot"><a href="Chainweb.Counter.html#incKey"><span class="hs-identifier hs-type">incKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterMap"><span class="hs-identifier hs-type">CounterMap</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474230"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-165"></span><span id="incKey"><span class="annot"><span class="annottext">incKey :: CounterMap s -&gt; Text -&gt; IO ()
+</span><a href="Chainweb.Counter.html#incKey"><span class="hs-identifier hs-var hs-var">incKey</span></a></span></span><span> </span><span id="local-6989586621681473961"><span class="annot"><span class="annottext">c :: CounterMap s
+</span><a href="#local-6989586621681473961"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span id="local-6989586621681473960"><span class="annot"><span class="annottext">k :: Text
+</span><a href="#local-6989586621681473960"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CounterMap s -&gt; Text -&gt; Int -&gt; IO ()
+forall a (s :: Symbol).
+Integral a =&gt;
+CounterMap s -&gt; Text -&gt; a -&gt; IO ()
+</span><a href="Chainweb.Counter.html#incKeyBy"><span class="hs-identifier hs-var">incKeyBy</span></a></span><span> </span><span class="annot"><span class="annottext">CounterMap s
+</span><a href="#local-6989586621681473961"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681473960"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#incKey"><span class="hs-pragma hs-type">incKey</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-167"></span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-169"></span><span class="hs-comment">-- Counter Value</span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="hs-keyword">data</span><span> </span><span id="CounterValue"><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-var">CounterValue</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-172"></span><span>    </span><span id="local-6989586621681473959"><span id="CounterValue"><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-var">CounterValue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681473959"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-type">Labeled</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473959"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span></span><span>
+</span><span id="line-173"></span><span>    </span><span id="local-6989586621681473958"><span id="CounterMapValue"><span class="annot"><a href="Chainweb.Counter.html#CounterMapValue"><span class="hs-identifier hs-var">CounterMapValue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KnownSymbol</span></span><span> </span><span class="annot"><a href="#local-6989586621681473958"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#Labeled"><span class="hs-identifier hs-type">Labeled</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473958"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V.Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span></span><span>
+</span><span id="line-174"></span><span>
+</span><span id="line-175"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NFData</span></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-176"></span><span>    </span><span id="local-6989586621681473956"><span class="annot"><span class="annottext">rnf :: CounterValue -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">rnf</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span> </span><span id="local-6989586621681473954"><span class="annot"><span class="annottext">v :: Labeled s Int
+</span><a href="#local-6989586621681473954"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Labeled s Int -&gt; ()
+forall a. NFData a =&gt; a -&gt; ()
+</span><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="annot"><span class="annottext">Labeled s Int
+</span><a href="#local-6989586621681473954"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-177"></span><span>    </span><span class="annot"><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterMapValue"><span class="hs-identifier hs-type">CounterMapValue</span></a></span><span> </span><span id="local-6989586621681473953"><span class="annot"><span class="annottext">v :: Labeled s (Vector (Text, Int))
+</span><a href="#local-6989586621681473953"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Labeled s (Vector (Text, Int)) -&gt; ()
+forall a. NFData a =&gt; a -&gt; ()
+</span><span class="hs-identifier hs-var">rnf</span></span><span> </span><span class="annot"><span class="annottext">Labeled s (Vector (Text, Int))
+</span><a href="#local-6989586621681473953"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-178"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">rnf</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-179"></span><span>
+</span><span id="line-180"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-181"></span><span class="hs-comment">-- Logging of Counters</span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span class="hs-comment">-- | The Counters are rolled at the time the message is logged (not when it is</span><span>
+</span><span id="line-184"></span><span class="hs-comment">-- processed by the backend). This adds a small amount of overhead, but ensures</span><span>
+</span><span id="line-185"></span><span class="hs-comment">-- that the timestamp of the log matches the time when the logs are rolled. This</span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- means that logs are rolled even when the message ends up being discarded by</span><span>
+</span><span id="line-187"></span><span class="hs-comment">-- the backend, which means that counts are lost along with the discarded</span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- messages. This is consistent with the semantics of discarding log messages.</span><span>
+</span><span id="line-189"></span><span class="hs-comment">--</span><span>
+</span><span id="line-190"></span><span id="local-6989586621681473951"><span id="local-6989586621681473952"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="CounterLog"><span class="annot"><a href="Chainweb.Counter.html#CounterLog"><span class="hs-identifier hs-var">CounterLog</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CounterLog"><span class="annot"><a href="Chainweb.Counter.html#CounterLog"><span class="hs-identifier hs-var">CounterLog</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">V.Vector</span></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. CounterLog -&gt; Rep CounterLog x)
+-&gt; (forall x. Rep CounterLog x -&gt; CounterLog) -&gt; Generic CounterLog
+forall x. Rep CounterLog x -&gt; CounterLog
+forall x. CounterLog -&gt; Rep CounterLog x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep CounterLog x -&gt; CounterLog
+$cfrom :: forall x. CounterLog -&gt; Rep CounterLog x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681473946"><span class="annot"><span class="annottext">CounterLog -&gt; ()
+(CounterLog -&gt; ()) -&gt; NFData CounterLog
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: CounterLog -&gt; ()
+$crnf :: CounterLog -&gt; ()
+</span><a href="#local-6989586621681473946"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681473939"><span id="local-6989586621681473941"><span class="annot"><a href="Data.LogMessage.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterLog"><span class="hs-identifier hs-type">CounterLog</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-195"></span><span>    </span><span id="local-6989586621681473937"><span class="annot"><span class="annottext">logText :: CounterLog -&gt; Text
+</span><a href="Data.LogMessage.html#logText"><span class="hs-identifier hs-var hs-var hs-var hs-var">logText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CounterLog -&gt; Text
+forall a. ToJSON a =&gt; a -&gt; Text
+</span><a href="Chainweb.Utils.html#encodeToText"><span class="hs-identifier hs-var">encodeToText</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.LogMessage.html#logText"><span class="hs-pragma hs-type">logText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-197"></span><span>
+</span><span id="line-198"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681473928"><span id="local-6989586621681473930"><span id="local-6989586621681473932"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterLog"><span class="hs-identifier hs-type">CounterLog</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-199"></span><span>    </span><span id="local-6989586621681473927"><span class="annot"><span class="annottext">toJSON :: CounterLog -&gt; Value
+</span><a href="#local-6989586621681473927"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterLog"><span class="hs-identifier hs-type">CounterLog</span></a></span><span> </span><span id="local-6989586621681473926"><span class="annot"><span class="annottext">v :: Vector CounterValue
+</span><a href="#local-6989586621681473926"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="annot"><span class="annottext">([Pair] -&gt; Value) -&gt; [Pair] -&gt; Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Vector Pair -&gt; [Pair]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">(Vector Pair -&gt; [Pair]) -&gt; Vector Pair -&gt; [Pair]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(CounterValue -&gt; Pair) -&gt; Vector CounterValue -&gt; Vector Pair
+forall a b. (a -&gt; b) -&gt; Vector a -&gt; Vector b
+</span><span class="hs-identifier hs-var">V.map</span></span><span> </span><span class="annot"><span class="annottext">CounterValue -&gt; Pair
+</span><a href="#local-6989586621681473923"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Vector CounterValue
+</span><a href="#local-6989586621681473926"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-200"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-201"></span><span>        </span><span id="local-6989586621681473923"><span class="annot"><span class="annottext">f :: CounterValue -&gt; Pair
+</span><a href="#local-6989586621681473923"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span> </span><span id="local-6989586621681473922"><span class="annot"><span class="annottext">i :: Labeled s Int
+</span><a href="#local-6989586621681473922"><span class="hs-identifier hs-var">i</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Labeled s Int -&gt; Pair
+forall (s :: Symbol) a.
+(KnownSymbol s, ToJSON a) =&gt;
+Labeled s a -&gt; Pair
+</span><a href="Chainweb.Counter.html#jsonPair"><span class="hs-identifier hs-var">jsonPair</span></a></span><span> </span><span class="annot"><span class="annottext">Labeled s Int
+</span><a href="#local-6989586621681473922"><span class="hs-identifier hs-var">i</span></a></span><span>
+</span><span id="line-202"></span><span>        </span><span class="annot"><a href="#local-6989586621681473923"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Counter.html#CounterMapValue"><span class="hs-identifier hs-type">CounterMapValue</span></a></span><span> </span><span id="local-6989586621681473921"><span class="annot"><span class="annottext">m :: Labeled s (Vector (Text, Int))
+</span><a href="#local-6989586621681473921"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Labeled s Value -&gt; Pair
+forall (s :: Symbol) a.
+(KnownSymbol s, ToJSON a) =&gt;
+Labeled s a -&gt; Pair
+</span><a href="Chainweb.Counter.html#jsonPair"><span class="hs-identifier hs-var">jsonPair</span></a></span><span> </span><span class="annot"><span class="annottext">(Labeled s Value -&gt; Pair) -&gt; Labeled s Value -&gt; Pair
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Vector (Text, Int) -&gt; Value)
+-&gt; Labeled s (Vector (Text, Int)) -&gt; Labeled s Value
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="annot"><span class="annottext">([Pair] -&gt; Value)
+-&gt; (Vector (Text, Int) -&gt; [Pair]) -&gt; Vector (Text, Int) -&gt; Value
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Vector Pair -&gt; [Pair]
+forall a. Vector a -&gt; [a]
+</span><span class="hs-identifier hs-var">V.toList</span></span><span> </span><span class="annot"><span class="annottext">(Vector Pair -&gt; [Pair])
+-&gt; (Vector (Text, Int) -&gt; Vector Pair)
+-&gt; Vector (Text, Int)
+-&gt; [Pair]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">((Text, Int) -&gt; Pair) -&gt; Vector (Text, Int) -&gt; Vector Pair
+forall a b. (a -&gt; b) -&gt; Vector a -&gt; Vector b
+</span><span class="hs-identifier hs-var">V.map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Int -&gt; Value) -&gt; (Text, Int) -&gt; Pair
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Labeled s (Vector (Text, Int))
+</span><a href="#local-6989586621681473921"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-203"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">toJSON</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-204"></span><span>
+</span><span id="line-205"></span><span id="local-6989586621681473920"><span class="annot"><a href="Chainweb.Counter.html#logFunctionCounter"><span class="hs-identifier hs-type">logFunctionCounter</span></a></span><span>
+</span><span id="line-206"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473920"><span class="hs-identifier hs-type">l</span></a></span><span>
+</span><span id="line-207"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473920"><span class="hs-identifier hs-type">l</span></a></span><span>
+</span><span id="line-208"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#LogFunctionCounter"><span class="hs-identifier hs-type">LogFunctionCounter</span></a></span></span><span>
+</span><span id="line-209"></span><span id="logFunctionCounter"><span class="annot"><span class="annottext">logFunctionCounter :: l -&gt; LogFunctionCounter
+</span><a href="Chainweb.Counter.html#logFunctionCounter"><span class="hs-identifier hs-var hs-var">logFunctionCounter</span></a></span></span><span> </span><span id="local-6989586621681473919"><span class="annot"><span class="annottext">logger :: l
+</span><a href="#local-6989586621681473919"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681473918"><span class="annot"><span class="annottext">level :: LogLevel
+</span><a href="#local-6989586621681473918"><span class="hs-identifier hs-var">level</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">l -&gt; LogLevel -&gt; CounterLog -&gt; IO ()
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">l
+</span><a href="#local-6989586621681473919"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681473918"><span class="hs-identifier hs-var">level</span></a></span><span>
+</span><span id="line-210"></span><span>    </span><span class="annot"><span class="annottext">(CounterLog -&gt; IO ())
+-&gt; (f CounterValue -&gt; CounterLog) -&gt; f CounterValue -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Vector CounterValue -&gt; CounterLog
+</span><a href="Chainweb.Counter.html#CounterLog"><span class="hs-identifier hs-var">CounterLog</span></a></span><span>
+</span><span id="line-211"></span><span>    </span><span class="annot"><span class="annottext">(Vector CounterValue -&gt; CounterLog)
+-&gt; (f CounterValue -&gt; Vector CounterValue)
+-&gt; f CounterValue
+-&gt; CounterLog
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[CounterValue] -&gt; Vector CounterValue
+forall a. [a] -&gt; Vector a
+</span><span class="hs-identifier hs-var">V.fromList</span></span><span>
+</span><span id="line-212"></span><span>    </span><span class="annot"><span class="annottext">([CounterValue] -&gt; Vector CounterValue)
+-&gt; (f CounterValue -&gt; [CounterValue])
+-&gt; f CounterValue
+-&gt; Vector CounterValue
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">f CounterValue -&gt; [CounterValue]
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
+</span><span class="hs-identifier hs-var">toList</span></span><span>
+</span><span id="line-213"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Counter.html#logFunctionCounter"><span class="hs-pragma hs-type">logFunctionCounter</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-214"></span><span>
+</span><span id="line-215"></span><span class="hs-keyword">type</span><span> </span><span id="LogFunctionCounter"><span class="annot"><a href="Chainweb.Counter.html#LogFunctionCounter"><span class="hs-identifier hs-var">LogFunctionCounter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681473914"><span class="annot"><a href="#local-6989586621681473914"><span class="hs-identifier hs-type">f</span></a></span></span><span> </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Foldable</span></span><span> </span><span class="annot"><a href="#local-6989586621681473914"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">LogLevel</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473914"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="annot"><a href="Chainweb.Counter.html#CounterValue"><span class="hs-identifier hs-type">CounterValue</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span></pre></body></html>

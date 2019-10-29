@@ -1,0 +1,111 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- | An endpoint for toggleable health checking. Used to report</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- readiness/unreadiness for serving to a load balancer.</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.RestAPI.Health</span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthCheckApi"><span class="hs-identifier">HealthCheckApi</span></a></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthStatus"><span class="hs-identifier">HealthStatus</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#someHealthCheckApi"><span class="hs-identifier">someHealthCheckApi</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#someHealthCheckServer"><span class="hs-identifier">someHealthCheckServer</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#setHealth"><span class="hs-identifier">setHealth</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">void</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO.Unsafe</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html"><span class="hs-identifier">Chainweb.RestAPI.Utils</span></a></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">type</span><span> </span><span id="HealthCheckApi"><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthCheckApi"><span class="hs-identifier hs-var">HealthCheckApi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;health-check&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Get</span></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">PlainText</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><a href="Chainweb.RestAPI.Health.html#someHealthCheckApi"><span class="hs-identifier hs-type">someHealthCheckApi</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span>
+</span><span id="line-34"></span><span id="someHealthCheckApi"><span class="annot"><span class="annottext">someHealthCheckApi :: SomeApi
+</span><a href="Chainweb.RestAPI.Health.html#someHealthCheckApi"><span class="hs-identifier hs-var hs-var">someHealthCheckApi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy HealthCheckApi -&gt; SomeApi
+forall a.
+(HasSwagger a, HasServer a '[], HasClient ClientM a) =&gt;
+Proxy a -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-var">SomeApi</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy HealthCheckApi
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthCheckApi"><span class="hs-identifier hs-type">HealthCheckApi</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">data</span><span> </span><span id="HealthStatus"><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthStatus"><span class="hs-identifier hs-var">HealthStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Healthy"><span class="annot"><a href="Chainweb.RestAPI.Health.html#Healthy"><span class="hs-identifier hs-var">Healthy</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Unhealthy"><span class="annot"><a href="Chainweb.RestAPI.Health.html#Unhealthy"><span class="hs-identifier hs-var">Unhealthy</span></a></span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Chainweb.RestAPI.Health.html#globalHealthStatus"><span class="hs-identifier hs-type">globalHealthStatus</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthStatus"><span class="hs-identifier hs-type">HealthStatus</span></a></span><span>
+</span><span id="line-39"></span><span id="globalHealthStatus"><span class="annot"><span class="annottext">globalHealthStatus :: MVar HealthStatus
+</span><a href="Chainweb.RestAPI.Health.html#globalHealthStatus"><span class="hs-identifier hs-var hs-var">globalHealthStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (MVar HealthStatus) -&gt; MVar HealthStatus
+forall a. IO a -&gt; a
+</span><span class="hs-identifier hs-var">unsafePerformIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (MVar HealthStatus) -&gt; MVar HealthStatus)
+-&gt; IO (MVar HealthStatus) -&gt; MVar HealthStatus
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">HealthStatus -&gt; IO (MVar HealthStatus)
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">HealthStatus
+</span><a href="Chainweb.RestAPI.Health.html#Healthy"><span class="hs-identifier hs-var">Healthy</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-pragma">{-# NOINLINE</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#globalHealthStatus"><span class="hs-pragma hs-type">globalHealthStatus</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="annot"><a href="Chainweb.RestAPI.Health.html#someHealthCheckServer"><span class="hs-identifier hs-type">someHealthCheckServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span><span>
+</span><span id="line-44"></span><span id="someHealthCheckServer"><span class="annot"><span class="annottext">someHealthCheckServer :: SomeServer
+</span><a href="Chainweb.RestAPI.Health.html#someHealthCheckServer"><span class="hs-identifier hs-var hs-var">someHealthCheckServer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy HealthCheckApi -&gt; Server HealthCheckApi -&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy HealthCheckApi
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthCheckApi"><span class="hs-identifier hs-type">HealthCheckApi</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Server HealthCheckApi
+Handler Text
+</span><a href="#local-6989586621681496668"><span class="hs-identifier hs-var">handler</span></a></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-46"></span><span>    </span><span id="local-6989586621681496667"><span class="annot"><span class="annottext">drainMsg :: ByteString
+</span><a href="#local-6989586621681496667"><span class="hs-identifier hs-var hs-var">drainMsg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;Failed health check due to service drain.\n&quot;</span></span><span>
+</span><span id="line-47"></span><span>    </span><span id="local-6989586621681496668"><span class="annot"><span class="annottext">handler :: Handler Text
+</span><a href="#local-6989586621681496668"><span class="hs-identifier hs-var hs-var">handler</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-48"></span><span>        </span><span id="local-6989586621681496666"><span class="annot"><span class="annottext">HealthStatus
+</span><a href="#local-6989586621681496666"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO HealthStatus -&gt; Handler HealthStatus
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO HealthStatus -&gt; Handler HealthStatus)
+-&gt; IO HealthStatus -&gt; Handler HealthStatus
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MVar HealthStatus -&gt; IO HealthStatus
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar HealthStatus
+</span><a href="Chainweb.RestAPI.Health.html#globalHealthStatus"><span class="hs-identifier hs-var">globalHealthStatus</span></a></span><span>
+</span><span id="line-49"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HealthStatus
+</span><a href="#local-6989586621681496666"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-50"></span><span>          </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#Healthy"><span class="hs-identifier hs-type">Healthy</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Handler Text
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Health check OK.\n&quot;</span></span><span>
+</span><span id="line-51"></span><span>          </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#Unhealthy"><span class="hs-identifier hs-type">Unhealthy</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ServerError -&gt; Handler Text
+forall e (m :: * -&gt; *) a. MonadError e m =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwError</span></span><span> </span><span class="annot"><span class="annottext">(ServerError -&gt; Handler Text) -&gt; ServerError -&gt; Handler Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ServerError
+</span><span class="hs-identifier hs-var">err503</span></span><span> </span><span class="hs-special">{</span><span class="annot"><span class="annottext">errBody :: ByteString
+</span><span class="hs-identifier hs-var">errBody</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681496667"><span class="hs-identifier hs-var">drainMsg</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="annot"><a href="Chainweb.RestAPI.Health.html#setHealth"><span class="hs-identifier hs-type">setHealth</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html#HealthStatus"><span class="hs-identifier hs-type">HealthStatus</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span id="setHealth"><span class="annot"><span class="annottext">setHealth :: HealthStatus -&gt; IO ()
+</span><a href="Chainweb.RestAPI.Health.html#setHealth"><span class="hs-identifier hs-var hs-var">setHealth</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681496660"><span class="annot"><span class="annottext">HealthStatus
+</span><a href="#local-6989586621681496660"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO HealthStatus -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO HealthStatus -&gt; IO ()) -&gt; IO HealthStatus -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MVar HealthStatus -&gt; HealthStatus -&gt; IO HealthStatus
+forall a. MVar a -&gt; a -&gt; IO a
+</span><span class="hs-identifier hs-var">swapMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar HealthStatus
+</span><a href="Chainweb.RestAPI.Health.html#globalHealthStatus"><span class="hs-identifier hs-var">globalHealthStatus</span></a></span><span> </span><span class="annot"><span class="annottext">HealthStatus
+</span><a href="#local-6989586621681496660"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span></pre></body></html>

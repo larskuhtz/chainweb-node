@@ -1,0 +1,1073 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE AllowAmbiguousTypes #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE ExistentialQuantification #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE OverloadedLists #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE PatternSynonyms #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE PolyKinds #-}</span><span>
+</span><span id="line-14"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-15"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-16"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-17"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators #-}</span><span>
+</span><span id="line-18"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- Module: Chainweb.Utils.API</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-23"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-26"></span><span class="hs-comment">--</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- Utils for Chainweb REST APIs</span><span>
+</span><span id="line-28"></span><span class="hs-comment">--</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.RestAPI.Utils</span><span>
+</span><span id="line-30"></span><span class="hs-special">(</span><span>
+</span><span id="line-31"></span><span class="annot"><span class="hs-comment">-- * Servant Utils</span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#Reassoc"><span class="hs-identifier">Reassoc</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="annot"><span class="hs-comment">-- * API Version</span></span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#Version"><span class="hs-identifier">Version</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ApiVersion"><span class="hs-identifier">ApiVersion</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#apiVersion"><span class="hs-identifier">apiVersion</span></a></span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#prettyApiVersion"><span class="hs-identifier">prettyApiVersion</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><span class="hs-comment">-- * Paging</span></span><span>
+</span><span id="line-41"></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#PageParams"><span class="hs-identifier">PageParams</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#LimitParam"><span class="hs-identifier">LimitParam</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">type</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NextParam"><span class="hs-identifier">NextParam</span></a></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><span class="hs-comment">-- * Chainweb API Endpoints</span></span><span>
+</span><span id="line-46"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier">ChainwebEndpoint</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier">NetworkEndpoint</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainEndpoint"><span class="hs-identifier">ChainEndpoint</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#MempoolEndpoint"><span class="hs-identifier">MempoolEndpoint</span></a></span><span>
+</span><span id="line-50"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#CutEndpoint"><span class="hs-identifier">CutEndpoint</span></a></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><span class="hs-comment">-- * Some API</span></span><span>
+</span><span id="line-53"></span><span class="hs-comment">--</span><span>
+</span><span id="line-54"></span><span class="annot"><span class="hs-comment">-- $someapi</span></span><span>
+</span><span id="line-55"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier">SomeApi</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#someApi"><span class="hs-identifier">someApi</span></a></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="annot"><span class="hs-comment">-- ** Some Server</span></span><span>
+</span><span id="line-59"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier">SomeServer</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#someServerApplication"><span class="hs-identifier">someServerApplication</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="annot"><span class="hs-comment">-- * Misc Utils</span></span><span>
+</span><span id="line-63"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#bindPortTcp"><span class="hs-identifier">bindPortTcp</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Kind</span></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Streaming.Network</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">bindPortGen</span></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.TypeLits</span></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.Socket</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">N</span></span><span>
+</span><span id="line-77"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai.Handler.Warp</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HostPreference</span></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.API</span></span><span>
+</span><span id="line-80"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span>
+</span><span id="line-81"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Server</span></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Swagger</span></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-85"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-86"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html"><span class="hs-identifier">Chainweb.HostAddress</span></a></span><span>
+</span><span id="line-87"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html"><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span></a></span><span>
+</span><span id="line-88"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Orphans.html"><span class="hs-identifier">Chainweb.RestAPI.Orphans</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-90"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html"><span class="hs-identifier">Chainweb.Utils.Paging</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#properties"><span class="hs-identifier">properties</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- Servant Utils</span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span class="hs-keyword">type</span><span> </span><span id="Reassoc"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#Reassoc"><span class="hs-identifier hs-var">Reassoc</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495824"><span class="annot"><a href="#local-6989586621681495824"><span class="hs-identifier hs-type">api</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ReassocBranch"><span class="hs-identifier hs-type">ReassocBranch</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495824"><span class="hs-identifier hs-type">api</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-keyword">type</span><span> </span><span class="hs-keyword">family</span><span> </span><span id="ReassocBranch"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ReassocBranch"><span class="hs-identifier hs-var">ReassocBranch</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495822"><span class="annot"><a href="#local-6989586621681495822"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span id="local-6989586621681495821"><span class="annot"><a href="#local-6989586621681495821"><span class="hs-identifier hs-type hs-type">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495820"><span class="annot"><a href="#local-6989586621681495820"><span class="hs-identifier hs-type">b</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-99"></span><span>    </span><span id="ReassocBranch"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ReassocBranch"><span class="hs-identifier hs-var">ReassocBranch</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495819"><span class="annot"><a href="#local-6989586621681495819"><span class="hs-identifier hs-type hs-type">a</span></a></span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span id="local-6989586621681495818"><span class="annot"><a href="#local-6989586621681495818"><span class="hs-identifier hs-type hs-type">b</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495817"><span class="annot"><a href="#local-6989586621681495817"><span class="hs-identifier hs-type hs-type">rest</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ReassocBranch"><span class="hs-identifier hs-type">ReassocBranch</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495819"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681495818"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span class="annot"><a href="#local-6989586621681495817"><span class="hs-identifier hs-type">rest</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>    </span><span id="ReassocBranch"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ReassocBranch"><span class="hs-identifier hs-var">ReassocBranch</span></a></span></span><span> </span><span id="local-6989586621681495816"><span class="annot"><a href="#local-6989586621681495816"><span class="hs-identifier hs-type hs-type">a</span></a></span></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681495816"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-101"></span><span>    </span><span id="ReassocBranch"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ReassocBranch"><span class="hs-identifier hs-var">ReassocBranch</span></a></span></span><span> </span><span id="local-6989586621681495815"><span class="annot"><a href="#local-6989586621681495815"><span class="hs-identifier hs-type hs-type">a</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495814"><span class="annot"><a href="#local-6989586621681495814"><span class="hs-identifier hs-type hs-type">b</span></a></span></span><span> </span><span class="hs-special">'</span><span class="hs-glyph">:</span><span> </span><span id="local-6989586621681495813"><span class="annot"><a href="#local-6989586621681495813"><span class="hs-identifier hs-type hs-type">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681495815"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ReassocBranch"><span class="hs-identifier hs-type">ReassocBranch</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495814"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495813"><span class="hs-identifier hs-type">rest</span></a></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- API Version</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">type</span><span> </span><span id="Version"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#Version"><span class="hs-identifier hs-var">Version</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;0.0&quot;</span></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span id="local-6989586621681495811"><span id="local-6989586621681495812"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="ApiVersion"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ApiVersion"><span class="hs-identifier hs-var">ApiVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ApiVersion"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ApiVersion"><span class="hs-identifier hs-var">ApiVersion</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495804"><span id="local-6989586621681495806"><span id="local-6989586621681495808"><span class="annot"><span class="annottext">Int -&gt; ApiVersion -&gt; ShowS
+[ApiVersion] -&gt; ShowS
+ApiVersion -&gt; String
+(Int -&gt; ApiVersion -&gt; ShowS)
+-&gt; (ApiVersion -&gt; String)
+-&gt; ([ApiVersion] -&gt; ShowS)
+-&gt; Show ApiVersion
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [ApiVersion] -&gt; ShowS
+$cshowList :: [ApiVersion] -&gt; ShowS
+show :: ApiVersion -&gt; String
+$cshow :: ApiVersion -&gt; String
+showsPrec :: Int -&gt; ApiVersion -&gt; ShowS
+$cshowsPrec :: Int -&gt; ApiVersion -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681495799"><span id="local-6989586621681495801"><span class="annot"><span class="annottext">ApiVersion -&gt; ApiVersion -&gt; Bool
+(ApiVersion -&gt; ApiVersion -&gt; Bool)
+-&gt; (ApiVersion -&gt; ApiVersion -&gt; Bool) -&gt; Eq ApiVersion
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: ApiVersion -&gt; ApiVersion -&gt; Bool
+$c/= :: ApiVersion -&gt; ApiVersion -&gt; Bool
+== :: ApiVersion -&gt; ApiVersion -&gt; Bool
+$c== :: ApiVersion -&gt; ApiVersion -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681495783"><span id="local-6989586621681495785"><span id="local-6989586621681495787"><span id="local-6989586621681495789"><span id="local-6989586621681495791"><span id="local-6989586621681495793"><span id="local-6989586621681495795"><span class="annot"><span class="annottext">Eq ApiVersion
+Eq ApiVersion =&gt;
+(ApiVersion -&gt; ApiVersion -&gt; Ordering)
+-&gt; (ApiVersion -&gt; ApiVersion -&gt; Bool)
+-&gt; (ApiVersion -&gt; ApiVersion -&gt; Bool)
+-&gt; (ApiVersion -&gt; ApiVersion -&gt; Bool)
+-&gt; (ApiVersion -&gt; ApiVersion -&gt; Bool)
+-&gt; (ApiVersion -&gt; ApiVersion -&gt; ApiVersion)
+-&gt; (ApiVersion -&gt; ApiVersion -&gt; ApiVersion)
+-&gt; Ord ApiVersion
+ApiVersion -&gt; ApiVersion -&gt; Bool
+ApiVersion -&gt; ApiVersion -&gt; Ordering
+ApiVersion -&gt; ApiVersion -&gt; ApiVersion
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: ApiVersion -&gt; ApiVersion -&gt; ApiVersion
+$cmin :: ApiVersion -&gt; ApiVersion -&gt; ApiVersion
+max :: ApiVersion -&gt; ApiVersion -&gt; ApiVersion
+$cmax :: ApiVersion -&gt; ApiVersion -&gt; ApiVersion
+&gt;= :: ApiVersion -&gt; ApiVersion -&gt; Bool
+$c&gt;= :: ApiVersion -&gt; ApiVersion -&gt; Bool
+&gt; :: ApiVersion -&gt; ApiVersion -&gt; Bool
+$c&gt; :: ApiVersion -&gt; ApiVersion -&gt; Bool
+&lt;= :: ApiVersion -&gt; ApiVersion -&gt; Bool
+$c&lt;= :: ApiVersion -&gt; ApiVersion -&gt; Bool
+&lt; :: ApiVersion -&gt; ApiVersion -&gt; Bool
+$c&lt; :: ApiVersion -&gt; ApiVersion -&gt; Bool
+compare :: ApiVersion -&gt; ApiVersion -&gt; Ordering
+$ccompare :: ApiVersion -&gt; ApiVersion -&gt; Ordering
+$cp1Ord :: Eq ApiVersion
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. ApiVersion -&gt; Rep ApiVersion x)
+-&gt; (forall x. Rep ApiVersion x -&gt; ApiVersion) -&gt; Generic ApiVersion
+forall x. Rep ApiVersion x -&gt; ApiVersion
+forall x. ApiVersion -&gt; Rep ApiVersion x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep ApiVersion x -&gt; ApiVersion
+$cfrom :: forall x. ApiVersion -&gt; Rep ApiVersion x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495771"><span id="local-6989586621681495773"><span id="local-6989586621681495775"><span id="local-6989586621681495777"><span class="annot"><span class="annottext">[ApiVersion] -&gt; Encoding
+[ApiVersion] -&gt; Value
+ApiVersion -&gt; Encoding
+ApiVersion -&gt; Value
+(ApiVersion -&gt; Value)
+-&gt; (ApiVersion -&gt; Encoding)
+-&gt; ([ApiVersion] -&gt; Value)
+-&gt; ([ApiVersion] -&gt; Encoding)
+-&gt; ToJSON ApiVersion
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [ApiVersion] -&gt; Encoding
+$ctoEncodingList :: [ApiVersion] -&gt; Encoding
+toJSONList :: [ApiVersion] -&gt; Value
+$ctoJSONList :: [ApiVersion] -&gt; Value
+toEncoding :: ApiVersion -&gt; Encoding
+$ctoEncoding :: ApiVersion -&gt; Encoding
+toJSON :: ApiVersion -&gt; Value
+$ctoJSON :: ApiVersion -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681495766"><span id="local-6989586621681495768"><span class="annot"><span class="annottext">Value -&gt; Parser [ApiVersion]
+Value -&gt; Parser ApiVersion
+(Value -&gt; Parser ApiVersion)
+-&gt; (Value -&gt; Parser [ApiVersion]) -&gt; FromJSON ApiVersion
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [ApiVersion]
+$cparseJSONList :: Value -&gt; Parser [ApiVersion]
+parseJSON :: Value -&gt; Parser ApiVersion
+$cparseJSON :: Value -&gt; Parser ApiVersion
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681495759"><span id="local-6989586621681495761"><span id="local-6989586621681495763"><span class="annot"><span class="annottext">ByteString -&gt; Either Text ApiVersion
+Text -&gt; Either Text ApiVersion
+(Text -&gt; Either Text ApiVersion)
+-&gt; (ByteString -&gt; Either Text ApiVersion)
+-&gt; (Text -&gt; Either Text ApiVersion)
+-&gt; FromHttpApiData ApiVersion
+forall a.
+(Text -&gt; Either Text a)
+-&gt; (ByteString -&gt; Either Text a)
+-&gt; (Text -&gt; Either Text a)
+-&gt; FromHttpApiData a
+parseQueryParam :: Text -&gt; Either Text ApiVersion
+$cparseQueryParam :: Text -&gt; Either Text ApiVersion
+parseHeader :: ByteString -&gt; Either Text ApiVersion
+$cparseHeader :: ByteString -&gt; Either Text ApiVersion
+parseUrlPiece :: Text -&gt; Either Text ApiVersion
+$cparseUrlPiece :: Text -&gt; Either Text ApiVersion
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromHttpApiData</span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#apiVersion"><span class="hs-identifier hs-type">apiVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ApiVersion"><span class="hs-identifier hs-type">ApiVersion</span></a></span><span>
+</span><span id="line-113"></span><span id="apiVersion"><span class="annot"><span class="annottext">apiVersion :: ApiVersion
+</span><a href="Chainweb.RestAPI.Utils.html#apiVersion"><span class="hs-identifier hs-var hs-var">apiVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ApiVersion
+</span><a href="Chainweb.RestAPI.Utils.html#ApiVersion"><span class="hs-identifier hs-var">ApiVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ApiVersion) -&gt; (String -&gt; Text) -&gt; String -&gt; ApiVersion
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; ApiVersion) -&gt; String -&gt; ApiVersion
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy Version -&gt; String
+forall (n :: Symbol) (proxy :: Symbol -&gt; *).
+KnownSymbol n =&gt;
+proxy n -&gt; String
+</span><span class="hs-identifier hs-var">symbolVal</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy Version
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#prettyApiVersion"><span class="hs-identifier hs-type">prettyApiVersion</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-116"></span><span id="prettyApiVersion"><span class="annot"><span class="annottext">prettyApiVersion :: Text
+</span><a href="Chainweb.RestAPI.Utils.html#prettyApiVersion"><span class="hs-identifier hs-var hs-var">prettyApiVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ApiVersion
+</span><a href="Chainweb.RestAPI.Utils.html#apiVersion"><span class="hs-identifier hs-var">apiVersion</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-117"></span><span>    </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ApiVersion"><span class="hs-identifier hs-type">ApiVersion</span></a></span><span> </span><span id="local-6989586621681495753"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681495753"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681495753"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- Paging Utils</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- | Pages Parameters</span><span>
+</span><span id="line-123"></span><span class="hs-comment">--</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- *   limit :: Natural</span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- *   next :: k</span><span>
+</span><span id="line-126"></span><span class="hs-comment">--</span><span>
+</span><span id="line-127"></span><span class="hs-keyword">type</span><span> </span><span id="PageParams"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#PageParams"><span class="hs-identifier hs-var">PageParams</span></a></span></span><span> </span><span id="local-6989586621681495752"><span class="annot"><a href="#local-6989586621681495752"><span class="hs-identifier hs-type">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#LimitParam"><span class="hs-identifier hs-type">LimitParam</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NextParam"><span class="hs-identifier hs-type">NextParam</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495752"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="hs-keyword">type</span><span> </span><span id="LimitParam"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#LimitParam"><span class="hs-identifier hs-var">LimitParam</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span> </span><span class="annot"><span class="hs-string">&quot;limit&quot;</span></span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Limit"><span class="hs-identifier hs-type">Limit</span></a></span><span>
+</span><span id="line-130"></span><span class="hs-keyword">type</span><span> </span><span id="NextParam"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NextParam"><span class="hs-identifier hs-var">NextParam</span></a></span></span><span> </span><span id="local-6989586621681495749"><span class="annot"><a href="#local-6989586621681495749"><span class="hs-identifier hs-type">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">QueryParam</span></span><span> </span><span class="annot"><span class="hs-string">&quot;next&quot;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495749"><span class="hs-identifier hs-type">k</span></a></span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- Chainweb API Endpoints</span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span class="hs-keyword">newtype</span><span> </span><span id="ChainwebEndpoint"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-var">ChainwebEndpoint</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ChainwebEndpoint"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-var">ChainwebEndpoint</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersionT"><span class="hs-identifier hs-type">ChainwebVersionT</span></a></span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="hs-keyword">type</span><span> </span><span id="ChainwebEndpointApi"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-var">ChainwebEndpointApi</span></a></span></span><span> </span><span id="local-6989586621681495747"><span class="annot"><a href="#local-6989586621681495747"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span id="local-6989586621681495746"><span class="annot"><a href="#local-6989586621681495746"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;chainweb&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersionSymbol"><span class="hs-identifier hs-type">ChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495747"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495746"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span id="local-6989586621681495743"><span id="local-6989586621681495744"><span id="local-6989586621681495745"><span class="hs-keyword">instance</span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="annot"><a href="#local-6989586621681495745"><span class="hs-identifier hs-type">api</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495744"><span class="hs-identifier hs-type">ctx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495743"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-type">ChainwebEndpoint</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495743"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495745"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495744"><span class="hs-identifier hs-type">ctx</span></a></span><span>
+</span><span id="line-142"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="ServerT"><span class="annot"><span class="hs-identifier hs-var">ServerT</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-type">ChainwebEndpoint</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495743"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495745"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495739"><span class="annot"><a href="#local-6989586621681495739"><span class="hs-identifier hs-type hs-type">m</span></a></span></span><span>
+</span><span id="line-144"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495743"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495745"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495739"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span>    </span><span id="local-6989586621681495738"><span class="annot"><span class="annottext">route :: Proxy ('ChainwebEndpoint c :&gt; api)
+-&gt; Context ctx
+-&gt; Delayed env (Server ('ChainwebEndpoint c :&gt; api))
+-&gt; Router env
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">route</span></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+-&gt; Context ctx
+-&gt; Delayed env (Server ('ChainwebEndpoint c :&gt; api))
+-&gt; Router env
+forall k (api :: k) (context :: [*]) env.
+HasServer api context =&gt;
+Proxy api
+-&gt; Context context -&gt; Delayed env (Server api) -&gt; Router env
+</span><span class="hs-identifier hs-var">route</span></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+ -&gt; Context ctx
+ -&gt; Delayed env (Server ('ChainwebEndpoint c :&gt; api))
+ -&gt; Router env)
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+-&gt; Context ctx
+-&gt; Delayed env (Server ('ChainwebEndpoint c :&gt; api))
+-&gt; Router env
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495743"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495745"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>
+</span><span id="line-148"></span><span>    </span><span id="local-6989586621681495736"><span class="annot"><span class="annottext">hoistServerWithContext :: Proxy ('ChainwebEndpoint c :&gt; api)
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT ('ChainwebEndpoint c :&gt; api) m
+-&gt; ServerT ('ChainwebEndpoint c :&gt; api) n
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistServerWithContext</span></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT ('ChainwebEndpoint c :&gt; api) m
+-&gt; ServerT ('ChainwebEndpoint c :&gt; api) n
+forall k (api :: k) (context :: [*]) (m :: * -&gt; *) (n :: * -&gt; *).
+HasServer api context =&gt;
+Proxy api
+-&gt; Proxy context
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT api m
+-&gt; ServerT api n
+</span><span class="hs-identifier hs-var">hoistServerWithContext</span></span><span>
+</span><span id="line-149"></span><span>        </span><span class="annot"><span class="annottext">(Proxy
+   (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+ -&gt; Proxy ctx
+ -&gt; (forall x. m x -&gt; n x)
+ -&gt; ServerT ('ChainwebEndpoint c :&gt; api) m
+ -&gt; ServerT ('ChainwebEndpoint c :&gt; api) n)
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT ('ChainwebEndpoint c :&gt; api) m
+-&gt; ServerT ('ChainwebEndpoint c :&gt; api) n
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495743"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495745"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span id="local-6989586621681495733"><span id="local-6989586621681495734"><span class="hs-keyword">instance</span><span>
+</span><span id="line-152"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495734"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="annot"><a href="#local-6989586621681495733"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-type">ChainwebEndpoint</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495734"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495733"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-154"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-155"></span><span>    </span><span id="local-6989586621681495730"><span class="annot"><span class="annottext">toSwagger :: Proxy ('ChainwebEndpoint c :&gt; api) -&gt; Swagger
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toSwagger</span></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+-&gt; Swagger
+forall k (api :: k). HasSwagger api =&gt; Proxy api -&gt; Swagger
+</span><span class="hs-identifier hs-var">toSwagger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol c :&gt; api)))
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495734"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495733"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-156"></span><span>
+</span><span id="line-157"></span><span id="local-6989586621681495726"><span id="local-6989586621681495727"><span id="local-6989586621681495728"><span class="hs-keyword">instance</span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495728"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495727"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495726"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495727"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-type">ChainwebEndpoint</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495728"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495726"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Client"><span class="annot"><span class="hs-identifier hs-var">Client</span></span></span><span> </span><span class="annot"><a href="#local-6989586621681495727"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-type">ChainwebEndpoint</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495728"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495726"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-162"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Client</span></span><span> </span><span class="annot"><a href="#local-6989586621681495727"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495726"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span>    </span><span id="local-6989586621681495721"><span class="annot"><span class="annottext">clientWithRoute :: Proxy m
+-&gt; Proxy ('ChainwebEndpoint v :&gt; api)
+-&gt; Request
+-&gt; Client m ('ChainwebEndpoint v :&gt; api)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">clientWithRoute</span></span></span><span> </span><span id="local-6989586621681495719"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495719"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-165"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+-&gt; Request
+-&gt; Client
+     m (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+forall (m :: * -&gt; *) api.
+HasClient m api =&gt;
+Proxy m -&gt; Proxy api -&gt; Request -&gt; Client m api
+</span><span class="hs-identifier hs-var">clientWithRoute</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495719"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+ -&gt; Request -&gt; Client m ('ChainwebEndpoint v :&gt; api))
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+-&gt; Request
+-&gt; Client m ('ChainwebEndpoint v :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495728"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495726"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>    </span><span id="local-6989586621681495718"><span class="annot"><span class="annottext">hoistClientMonad :: Proxy m
+-&gt; Proxy ('ChainwebEndpoint v :&gt; api)
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('ChainwebEndpoint v :&gt; api)
+-&gt; Client mon' ('ChainwebEndpoint v :&gt; api)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistClientMonad</span></span></span><span> </span><span id="local-6989586621681495716"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495716"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-167"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client
+     mon (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+-&gt; Client
+     mon' (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+forall (m :: * -&gt; *) api (mon :: * -&gt; *) (mon' :: * -&gt; *).
+HasClient m api =&gt;
+Proxy m
+-&gt; Proxy api
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon api
+-&gt; Client mon' api
+</span><span class="hs-identifier hs-var">hoistClientMonad</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495716"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+ -&gt; (forall x. mon x -&gt; mon' x)
+ -&gt; Client mon ('ChainwebEndpoint v :&gt; api)
+ -&gt; Client mon' ('ChainwebEndpoint v :&gt; api))
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('ChainwebEndpoint v :&gt; api)
+-&gt; Client mon' ('ChainwebEndpoint v :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495728"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495726"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span id="local-6989586621681495714"><span id="local-6989586621681495715"><span class="hs-keyword">instance</span><span>
+</span><span id="line-170"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#KnownChainwebVersionSymbol"><span class="hs-identifier hs-type">KnownChainwebVersionSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495715"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="annot"><a href="#local-6989586621681495714"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-171"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-type">ChainwebEndpoint</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495715"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495714"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-173"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="MkLink"><span class="annot"><span class="hs-identifier hs-var">MkLink</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpoint"><span class="hs-identifier hs-type">ChainwebEndpoint</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495715"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495714"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495711"><span class="annot"><a href="#local-6989586621681495711"><span class="hs-identifier hs-type hs-type">a</span></a></span></span><span>
+</span><span id="line-174"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MkLink</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495715"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495714"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495711"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span>    </span><span id="local-6989586621681495710"><span class="annot"><span class="annottext">toLink :: (Link -&gt; a)
+-&gt; Proxy ('ChainwebEndpoint v :&gt; api)
+-&gt; Link
+-&gt; MkLink ('ChainwebEndpoint v :&gt; api) a
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toLink</span></span></span><span> </span><span id="local-6989586621681495708"><span class="annot"><span class="annottext">toA :: Link -&gt; a
+</span><a href="#local-6989586621681495708"><span class="hs-identifier hs-var">toA</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Link -&gt; a)
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+-&gt; Link
+-&gt; MkLink
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api))) a
+forall k (endpoint :: k) a.
+HasLink endpoint =&gt;
+(Link -&gt; a) -&gt; Proxy endpoint -&gt; Link -&gt; MkLink endpoint a
+</span><span class="hs-identifier hs-var">toLink</span></span><span> </span><span class="annot"><span class="annottext">Link -&gt; a
+</span><a href="#local-6989586621681495708"><span class="hs-identifier hs-var">toA</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy
+   (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+ -&gt; Link -&gt; MkLink ('ChainwebEndpoint v :&gt; api) a)
+-&gt; Proxy
+     (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+-&gt; Link
+-&gt; MkLink ('ChainwebEndpoint v :&gt; api) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chainweb&quot; :&gt; (Version :&gt; (ChainwebVersionSymbol v :&gt; api)))
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainwebEndpointApi"><span class="hs-identifier hs-type">ChainwebEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495715"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495714"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-177"></span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- Network API Endpoint</span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span class="hs-keyword">newtype</span><span> </span><span id="NetworkEndpoint"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-var">NetworkEndpoint</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NetworkEndpoint"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-var">NetworkEndpoint</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span class="hs-keyword">type</span><span> </span><span id="ChainEndpoint"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#ChainEndpoint"><span class="hs-identifier hs-var">ChainEndpoint</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495707"><span class="annot"><a href="#local-6989586621681495707"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495707"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-184"></span><span class="hs-keyword">type</span><span> </span><span id="MempoolEndpoint"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#MempoolEndpoint"><span class="hs-identifier hs-var">MempoolEndpoint</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495706"><span class="annot"><a href="#local-6989586621681495706"><span class="hs-identifier hs-type">c</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdT"><span class="hs-identifier hs-type">ChainIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495706"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-185"></span><span class="hs-keyword">type</span><span> </span><span id="CutEndpoint"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#CutEndpoint"><span class="hs-identifier hs-var">CutEndpoint</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span>
+</span><span id="line-186"></span><span>
+</span><span id="line-187"></span><span class="hs-keyword">type</span><span> </span><span class="hs-keyword">family</span><span> </span><span id="NetworkEndpointApi"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-var">NetworkEndpointApi</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495705"><span class="annot"><a href="#local-6989586621681495705"><span class="hs-identifier hs-type">net</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkIdT"><span class="hs-identifier hs-type">NetworkIdT</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495704"><span class="annot"><a href="#local-6989586621681495704"><span class="hs-identifier hs-type">api</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-188"></span><span>    </span><span id="NetworkEndpointApi"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-var">NetworkEndpointApi</span></a></span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span id="local-6989586621681495703"><span class="annot"><a href="#local-6989586621681495703"><span class="hs-identifier hs-type hs-type">api</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;cut&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495703"><span class="hs-identifier hs-type">api</span></a></span><span>
+</span><span id="line-189"></span><span>    </span><span id="NetworkEndpointApi"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-var">NetworkEndpointApi</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span id="local-6989586621681495702"><span class="annot"><a href="#local-6989586621681495702"><span class="hs-identifier hs-type hs-type">c</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495701"><span class="annot"><a href="#local-6989586621681495701"><span class="hs-identifier hs-type hs-type">api</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;chain&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdSymbol"><span class="hs-identifier hs-type">ChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495702"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495701"><span class="hs-identifier hs-type">api</span></a></span><span>
+</span><span id="line-190"></span><span>    </span><span id="NetworkEndpointApi"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-var">NetworkEndpointApi</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span id="local-6989586621681495700"><span class="annot"><a href="#local-6989586621681495700"><span class="hs-identifier hs-type hs-type">c</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495699"><span class="annot"><a href="#local-6989586621681495699"><span class="hs-identifier hs-type hs-type">api</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;chain&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainIdSymbol"><span class="hs-identifier hs-type">ChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495700"><span class="hs-identifier hs-type">c</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495699"><span class="hs-identifier hs-type">api</span></a></span><span>
+</span><span id="line-191"></span><span>
+</span><span id="line-192"></span><span class="hs-comment">-- HasServer</span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span id="local-6989586621681495695"><span id="local-6989586621681495696"><span id="local-6989586621681495697"><span id="local-6989586621681495698"><span class="hs-keyword">instance</span><span>
+</span><span id="line-195"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="annot"><a href="#local-6989586621681495698"><span class="hs-identifier hs-type">api</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495697"><span class="hs-identifier hs-type">ctx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495696"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621681495695"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">~</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495696"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495696"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495698"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495697"><span class="hs-identifier hs-type">ctx</span></a></span><span>
+</span><span id="line-197"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-198"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="ServerT"><span class="annot"><span class="hs-identifier hs-var">ServerT</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495696"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495698"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495692"><span class="annot"><a href="#local-6989586621681495692"><span class="hs-identifier hs-type hs-type">m</span></a></span></span><span>
+</span><span id="line-199"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495696"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495698"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495692"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span>    </span><span id="local-6989586621681495691"><span class="annot"><span class="annottext">route :: Proxy ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+-&gt; Context ctx
+-&gt; Delayed
+     env (Server ('NetworkEndpoint ('ChainNetworkT c) :&gt; api))
+-&gt; Router env
+</span><a href="#local-6989586621681495691"><span class="hs-identifier hs-var hs-var hs-var hs-var">route</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; Context ctx
+-&gt; Delayed env (Server (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api)))
+-&gt; Router env
+forall k (api :: k) (context :: [*]) env.
+HasServer api context =&gt;
+Proxy api
+-&gt; Context context -&gt; Delayed env (Server api) -&gt; Router env
+</span><span class="hs-identifier hs-var">route</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi x api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495695"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495698"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-202"></span><span>
+</span><span id="line-203"></span><span>    </span><span id="local-6989586621681495690"><span class="annot"><span class="annottext">hoistServerWithContext :: Proxy ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT ('NetworkEndpoint ('ChainNetworkT c) :&gt; api) m
+-&gt; ServerT ('NetworkEndpoint ('ChainNetworkT c) :&gt; api) n
+</span><a href="#local-6989586621681495690"><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistServerWithContext</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api)) m
+-&gt; ServerT (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api)) n
+forall k (api :: k) (context :: [*]) (m :: * -&gt; *) (n :: * -&gt; *).
+HasServer api context =&gt;
+Proxy api
+-&gt; Proxy context
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT api m
+-&gt; ServerT api n
+</span><span class="hs-identifier hs-var">hoistServerWithContext</span></span><span>
+</span><span id="line-204"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi x api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495695"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495698"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-205"></span><span>
+</span><span id="line-206"></span><span id="local-6989586621681495686"><span id="local-6989586621681495687"><span id="local-6989586621681495688"><span id="local-6989586621681495689"><span class="hs-keyword">instance</span><span>
+</span><span id="line-207"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="annot"><a href="#local-6989586621681495689"><span class="hs-identifier hs-type">api</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495688"><span class="hs-identifier hs-type">ctx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495687"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621681495686"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">~</span></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495687"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-208"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495687"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495689"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495688"><span class="hs-identifier hs-type">ctx</span></a></span><span>
+</span><span id="line-209"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-210"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="ServerT"><span class="annot"><span class="hs-identifier hs-var">ServerT</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495687"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495689"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495683"><span class="annot"><a href="#local-6989586621681495683"><span class="hs-identifier hs-type hs-type">m</span></a></span></span><span>
+</span><span id="line-211"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495687"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495689"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495683"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-212"></span><span>
+</span><span id="line-213"></span><span>    </span><span id="local-6989586621681495682"><span class="annot"><span class="annottext">route :: Proxy ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+-&gt; Context ctx
+-&gt; Delayed
+     env (Server ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api))
+-&gt; Router env
+</span><a href="#local-6989586621681495682"><span class="hs-identifier hs-var hs-var hs-var hs-var">route</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Context ctx
+-&gt; Delayed
+     env (Server (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api))))
+-&gt; Router env
+forall k (api :: k) (context :: [*]) env.
+HasServer api context =&gt;
+Proxy api
+-&gt; Context context -&gt; Delayed env (Server api) -&gt; Router env
+</span><span class="hs-identifier hs-var">route</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi x api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495686"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495689"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span>
+</span><span id="line-215"></span><span>    </span><span id="local-6989586621681495681"><span class="annot"><span class="annottext">hoistServerWithContext :: Proxy ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api) m
+-&gt; ServerT ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api) n
+</span><a href="#local-6989586621681495681"><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistServerWithContext</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api))) m
+-&gt; ServerT (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api))) n
+forall k (api :: k) (context :: [*]) (m :: * -&gt; *) (n :: * -&gt; *).
+HasServer api context =&gt;
+Proxy api
+-&gt; Proxy context
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT api m
+-&gt; ServerT api n
+</span><span class="hs-identifier hs-var">hoistServerWithContext</span></span><span>
+</span><span id="line-216"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi x api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495686"><span class="hs-identifier hs-type">x</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495689"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span></span></span><span>
+</span><span id="line-217"></span><span>
+</span><span id="line-218"></span><span id="local-6989586621681495679"><span id="local-6989586621681495680"><span class="hs-keyword">instance</span><span>
+</span><span id="line-219"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="annot"><a href="#local-6989586621681495680"><span class="hs-identifier hs-type">api</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495679"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495680"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495679"><span class="hs-identifier hs-type">ctx</span></a></span><span>
+</span><span id="line-220"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-221"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="ServerT"><span class="annot"><span class="hs-identifier hs-var">ServerT</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495680"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495676"><span class="annot"><a href="#local-6989586621681495676"><span class="hs-identifier hs-type hs-type">m</span></a></span></span><span>
+</span><span id="line-222"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ServerT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495680"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495676"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-223"></span><span>
+</span><span id="line-224"></span><span>    </span><span id="local-6989586621681495675"><span class="annot"><span class="annottext">route :: Proxy ('NetworkEndpoint 'CutNetworkT :&gt; api)
+-&gt; Context ctx
+-&gt; Delayed env (Server ('NetworkEndpoint 'CutNetworkT :&gt; api))
+-&gt; Router env
+</span><a href="#local-6989586621681495675"><span class="hs-identifier hs-var hs-var hs-var hs-var">route</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;cut&quot; :&gt; api)
+-&gt; Context ctx -&gt; Delayed env (Server (&quot;cut&quot; :&gt; api)) -&gt; Router env
+forall k (api :: k) (context :: [*]) env.
+HasServer api context =&gt;
+Proxy api
+-&gt; Context context -&gt; Delayed env (Server api) -&gt; Router env
+</span><span class="hs-identifier hs-var">route</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi 'CutNetworkT api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495680"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-225"></span><span>
+</span><span id="line-226"></span><span>    </span><span id="local-6989586621681495674"><span class="annot"><span class="annottext">hoistServerWithContext :: Proxy ('NetworkEndpoint 'CutNetworkT :&gt; api)
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT ('NetworkEndpoint 'CutNetworkT :&gt; api) m
+-&gt; ServerT ('NetworkEndpoint 'CutNetworkT :&gt; api) n
+</span><a href="#local-6989586621681495674"><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistServerWithContext</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;cut&quot; :&gt; api)
+-&gt; Proxy ctx
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT (&quot;cut&quot; :&gt; api) m
+-&gt; ServerT (&quot;cut&quot; :&gt; api) n
+forall k (api :: k) (context :: [*]) (m :: * -&gt; *) (n :: * -&gt; *).
+HasServer api context =&gt;
+Proxy api
+-&gt; Proxy context
+-&gt; (forall x. m x -&gt; n x)
+-&gt; ServerT api m
+-&gt; ServerT api n
+</span><span class="hs-identifier hs-var">hoistServerWithContext</span></span><span>
+</span><span id="line-227"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi 'CutNetworkT api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495680"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span class="hs-comment">-- HasSwagger</span><span>
+</span><span id="line-230"></span><span>
+</span><span id="line-231"></span><span id="local-6989586621681495672"><span id="local-6989586621681495673"><span class="hs-keyword">instance</span><span>
+</span><span id="line-232"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495673"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="annot"><a href="#local-6989586621681495672"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-233"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495673"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495672"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-234"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-235"></span><span>    </span><span id="local-6989586621681495670"><span class="annot"><span class="annottext">toSwagger :: Proxy ('NetworkEndpoint ('ChainNetworkT c) :&gt; api) -&gt; Swagger
+</span><a href="#local-6989586621681495670"><span class="hs-identifier hs-var hs-var hs-var hs-var">toSwagger</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api)) -&gt; Swagger
+forall k (api :: k). HasSwagger api =&gt; Proxy api -&gt; Swagger
+</span><span class="hs-identifier hs-var">toSwagger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('ChainNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495673"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495672"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-236"></span><span>
+</span><span id="line-237"></span><span id="local-6989586621681495668"><span id="local-6989586621681495669"><span class="hs-keyword">instance</span><span>
+</span><span id="line-238"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495669"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="annot"><a href="#local-6989586621681495668"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-239"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495669"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495668"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-240"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-241"></span><span>    </span><span id="local-6989586621681495666"><span class="annot"><span class="annottext">toSwagger :: Proxy ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api) -&gt; Swagger
+</span><a href="#local-6989586621681495666"><span class="hs-identifier hs-var hs-var hs-var hs-var">toSwagger</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Swagger
+forall k (api :: k). HasSwagger api =&gt; Proxy api -&gt; Swagger
+</span><span class="hs-identifier hs-var">toSwagger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('MempoolNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495669"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495668"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-242"></span><span>
+</span><span id="line-243"></span><span id="local-6989586621681495665"><span class="hs-keyword">instance</span><span>
+</span><span id="line-244"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="annot"><a href="#local-6989586621681495665"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495665"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-245"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-246"></span><span>    </span><span id="local-6989586621681495663"><span class="annot"><span class="annottext">toSwagger :: Proxy ('NetworkEndpoint 'CutNetworkT :&gt; api) -&gt; Swagger
+</span><a href="#local-6989586621681495663"><span class="hs-identifier hs-var hs-var hs-var hs-var">toSwagger</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (&quot;cut&quot; :&gt; api) -&gt; Swagger
+forall k (api :: k). HasSwagger api =&gt; Proxy api -&gt; Swagger
+</span><span class="hs-identifier hs-var">toSwagger</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi 'CutNetworkT api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495665"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-247"></span><span>
+</span><span id="line-248"></span><span class="hs-comment">-- HasClient</span><span>
+</span><span id="line-249"></span><span>
+</span><span id="line-250"></span><span id="local-6989586621681495660"><span id="local-6989586621681495661"><span id="local-6989586621681495662"><span class="hs-keyword">instance</span><span>
+</span><span id="line-251"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495662"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495661"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495660"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-252"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495661"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495662"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495660"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-253"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-254"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Client"><span class="annot"><span class="hs-identifier hs-var">Client</span></span></span><span> </span><span class="annot"><a href="#local-6989586621681495661"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495662"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495660"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-255"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Client</span></span><span> </span><span class="annot"><a href="#local-6989586621681495661"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495662"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495660"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-256"></span><span>
+</span><span id="line-257"></span><span>    </span><span id="local-6989586621681495656"><span class="annot"><span class="annottext">clientWithRoute :: Proxy m
+-&gt; Proxy ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+-&gt; Request
+-&gt; Client m ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+</span><a href="#local-6989586621681495656"><span class="hs-identifier hs-var hs-var hs-var hs-var">clientWithRoute</span></a></span></span><span> </span><span id="local-6989586621681495655"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495655"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-258"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; Request
+-&gt; Client m (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+forall (m :: * -&gt; *) api.
+HasClient m api =&gt;
+Proxy m -&gt; Proxy api -&gt; Request -&gt; Client m api
+</span><span class="hs-identifier hs-var">clientWithRoute</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495655"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+ -&gt; Request
+ -&gt; Client m ('NetworkEndpoint ('ChainNetworkT c) :&gt; api))
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; Request
+-&gt; Client m ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('ChainNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495662"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495660"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-259"></span><span>    </span><span id="local-6989586621681495654"><span class="annot"><span class="annottext">hoistClientMonad :: Proxy m
+-&gt; Proxy ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+-&gt; Client mon' ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+</span><a href="#local-6989586621681495654"><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistClientMonad</span></a></span></span><span> </span><span id="local-6989586621681495653"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495653"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-260"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; Client mon' (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+forall (m :: * -&gt; *) api (mon :: * -&gt; *) (mon' :: * -&gt; *).
+HasClient m api =&gt;
+Proxy m
+-&gt; Proxy api
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon api
+-&gt; Client mon' api
+</span><span class="hs-identifier hs-var">hoistClientMonad</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495653"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+ -&gt; (forall x. mon x -&gt; mon' x)
+ -&gt; Client mon ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+ -&gt; Client mon' ('NetworkEndpoint ('ChainNetworkT c) :&gt; api))
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+-&gt; Client mon' ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('ChainNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495662"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495660"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-261"></span><span>
+</span><span id="line-262"></span><span id="local-6989586621681495650"><span id="local-6989586621681495651"><span id="local-6989586621681495652"><span class="hs-keyword">instance</span><span>
+</span><span id="line-263"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495652"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495651"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495650"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-264"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495651"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495652"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495650"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-265"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-266"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Client"><span class="annot"><span class="hs-identifier hs-var">Client</span></span></span><span> </span><span class="annot"><a href="#local-6989586621681495651"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495652"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495650"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-267"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Client</span></span><span> </span><span class="annot"><a href="#local-6989586621681495651"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495652"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495650"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-268"></span><span>
+</span><span id="line-269"></span><span>    </span><span id="local-6989586621681495646"><span class="annot"><span class="annottext">clientWithRoute :: Proxy m
+-&gt; Proxy ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+-&gt; Request
+-&gt; Client m ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+</span><a href="#local-6989586621681495646"><span class="hs-identifier hs-var hs-var hs-var hs-var">clientWithRoute</span></a></span></span><span> </span><span id="local-6989586621681495645"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495645"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-270"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Request
+-&gt; Client m (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+forall (m :: * -&gt; *) api.
+HasClient m api =&gt;
+Proxy m -&gt; Proxy api -&gt; Request -&gt; Client m api
+</span><span class="hs-identifier hs-var">clientWithRoute</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495645"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+ -&gt; Request
+ -&gt; Client m ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api))
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Request
+-&gt; Client m ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('MempoolNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495652"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495650"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-271"></span><span>    </span><span id="local-6989586621681495644"><span class="annot"><span class="annottext">hoistClientMonad :: Proxy m
+-&gt; Proxy ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+-&gt; Client mon' ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+</span><a href="#local-6989586621681495644"><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistClientMonad</span></a></span></span><span> </span><span id="local-6989586621681495643"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495643"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-272"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Client mon' (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+forall (m :: * -&gt; *) api (mon :: * -&gt; *) (mon' :: * -&gt; *).
+HasClient m api =&gt;
+Proxy m
+-&gt; Proxy api
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon api
+-&gt; Client mon' api
+</span><span class="hs-identifier hs-var">hoistClientMonad</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495643"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+ -&gt; (forall x. mon x -&gt; mon' x)
+ -&gt; Client mon ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+ -&gt; Client mon' ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api))
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+-&gt; Client mon' ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('MempoolNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495652"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495650"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-273"></span><span>
+</span><span id="line-274"></span><span id="local-6989586621681495641"><span id="local-6989586621681495642"><span class="hs-keyword">instance</span><span>
+</span><span id="line-275"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495642"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495641"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><a href="#local-6989586621681495642"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495641"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-276"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-277"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="Client"><span class="annot"><span class="hs-identifier hs-var">Client</span></span></span><span> </span><span class="annot"><a href="#local-6989586621681495642"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495641"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-278"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Client</span></span><span> </span><span class="annot"><a href="#local-6989586621681495642"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495641"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-279"></span><span>
+</span><span id="line-280"></span><span>    </span><span id="local-6989586621681495637"><span class="annot"><span class="annottext">clientWithRoute :: Proxy m
+-&gt; Proxy ('NetworkEndpoint 'CutNetworkT :&gt; api)
+-&gt; Request
+-&gt; Client m ('NetworkEndpoint 'CutNetworkT :&gt; api)
+</span><a href="#local-6989586621681495637"><span class="hs-identifier hs-var hs-var hs-var hs-var">clientWithRoute</span></a></span></span><span> </span><span id="local-6989586621681495636"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495636"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-281"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy (&quot;cut&quot; :&gt; api) -&gt; Request -&gt; Client m (&quot;cut&quot; :&gt; api)
+forall (m :: * -&gt; *) api.
+HasClient m api =&gt;
+Proxy m -&gt; Proxy api -&gt; Request -&gt; Client m api
+</span><span class="hs-identifier hs-var">clientWithRoute</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495636"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;cut&quot; :&gt; api)
+ -&gt; Request -&gt; Client m ('NetworkEndpoint 'CutNetworkT :&gt; api))
+-&gt; Proxy (&quot;cut&quot; :&gt; api)
+-&gt; Request
+-&gt; Client m ('NetworkEndpoint 'CutNetworkT :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi 'CutNetworkT api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495641"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-282"></span><span>    </span><span id="local-6989586621681495635"><span class="annot"><span class="annottext">hoistClientMonad :: Proxy m
+-&gt; Proxy ('NetworkEndpoint 'CutNetworkT :&gt; api)
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('NetworkEndpoint 'CutNetworkT :&gt; api)
+-&gt; Client mon' ('NetworkEndpoint 'CutNetworkT :&gt; api)
+</span><a href="#local-6989586621681495635"><span class="hs-identifier hs-var hs-var hs-var hs-var">hoistClientMonad</span></a></span></span><span> </span><span id="local-6989586621681495634"><span class="annot"><span class="annottext">pm :: Proxy m
+</span><a href="#local-6989586621681495634"><span class="hs-identifier hs-var">pm</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-283"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy m
+-&gt; Proxy (&quot;cut&quot; :&gt; api)
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon (&quot;cut&quot; :&gt; api)
+-&gt; Client mon' (&quot;cut&quot; :&gt; api)
+forall (m :: * -&gt; *) api (mon :: * -&gt; *) (mon' :: * -&gt; *).
+HasClient m api =&gt;
+Proxy m
+-&gt; Proxy api
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon api
+-&gt; Client mon' api
+</span><span class="hs-identifier hs-var">hoistClientMonad</span></span><span> </span><span class="annot"><span class="annottext">Proxy m
+</span><a href="#local-6989586621681495634"><span class="hs-identifier hs-var">pm</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;cut&quot; :&gt; api)
+ -&gt; (forall x. mon x -&gt; mon' x)
+ -&gt; Client mon ('NetworkEndpoint 'CutNetworkT :&gt; api)
+ -&gt; Client mon' ('NetworkEndpoint 'CutNetworkT :&gt; api))
+-&gt; Proxy (&quot;cut&quot; :&gt; api)
+-&gt; (forall x. mon x -&gt; mon' x)
+-&gt; Client mon ('NetworkEndpoint 'CutNetworkT :&gt; api)
+-&gt; Client mon' ('NetworkEndpoint 'CutNetworkT :&gt; api)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi 'CutNetworkT api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495641"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-284"></span><span>
+</span><span id="line-285"></span><span class="hs-comment">-- Has Link</span><span>
+</span><span id="line-286"></span><span>
+</span><span id="line-287"></span><span id="local-6989586621681495632"><span id="local-6989586621681495633"><span class="hs-keyword">instance</span><span>
+</span><span id="line-288"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495633"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="annot"><a href="#local-6989586621681495632"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-289"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495633"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495632"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-290"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-291"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="MkLink"><span class="annot"><span class="hs-identifier hs-var">MkLink</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495633"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495632"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495630"><span class="annot"><a href="#local-6989586621681495630"><span class="hs-identifier hs-type hs-type">a</span></a></span></span><span>
+</span><span id="line-292"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MkLink</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495633"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495632"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495630"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-293"></span><span>
+</span><span id="line-294"></span><span>    </span><span id="local-6989586621681495629"><span class="annot"><span class="annottext">toLink :: (Link -&gt; a)
+-&gt; Proxy ('NetworkEndpoint ('ChainNetworkT c) :&gt; api)
+-&gt; Link
+-&gt; MkLink ('NetworkEndpoint ('ChainNetworkT c) :&gt; api) a
+</span><a href="#local-6989586621681495629"><span class="hs-identifier hs-var hs-var hs-var hs-var">toLink</span></a></span></span><span> </span><span id="local-6989586621681495628"><span class="annot"><span class="annottext">toA :: Link -&gt; a
+</span><a href="#local-6989586621681495628"><span class="hs-identifier hs-var">toA</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-295"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Link -&gt; a)
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; Link
+-&gt; MkLink (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api)) a
+forall k (endpoint :: k) a.
+HasLink endpoint =&gt;
+(Link -&gt; a) -&gt; Proxy endpoint -&gt; Link -&gt; MkLink endpoint a
+</span><span class="hs-identifier hs-var">toLink</span></span><span> </span><span class="annot"><span class="annottext">Link -&gt; a
+</span><a href="#local-6989586621681495628"><span class="hs-identifier hs-var">toA</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+ -&gt; Link -&gt; MkLink ('NetworkEndpoint ('ChainNetworkT c) :&gt; api) a)
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; api))
+-&gt; Link
+-&gt; MkLink ('NetworkEndpoint ('ChainNetworkT c) :&gt; api) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('ChainNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetworkT"><span class="hs-identifier hs-type">ChainNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495633"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495632"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-296"></span><span>
+</span><span id="line-297"></span><span id="local-6989586621681495626"><span id="local-6989586621681495627"><span class="hs-keyword">instance</span><span>
+</span><span id="line-298"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#KnownChainIdSymbol"><span class="hs-identifier hs-type">KnownChainIdSymbol</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495627"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="annot"><a href="#local-6989586621681495626"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-299"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495627"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495626"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-300"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-301"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="MkLink"><span class="annot"><span class="hs-identifier hs-var">MkLink</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495627"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495626"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495624"><span class="annot"><a href="#local-6989586621681495624"><span class="hs-identifier hs-type hs-type">a</span></a></span></span><span>
+</span><span id="line-302"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MkLink</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495627"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495626"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495624"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-303"></span><span>
+</span><span id="line-304"></span><span>    </span><span id="local-6989586621681495623"><span class="annot"><span class="annottext">toLink :: (Link -&gt; a)
+-&gt; Proxy ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api)
+-&gt; Link
+-&gt; MkLink ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api) a
+</span><a href="#local-6989586621681495623"><span class="hs-identifier hs-var hs-var hs-var hs-var">toLink</span></a></span></span><span> </span><span id="local-6989586621681495622"><span class="annot"><span class="annottext">toA :: Link -&gt; a
+</span><a href="#local-6989586621681495622"><span class="hs-identifier hs-var">toA</span></a></span></span><span> </span><span class="hs-identifier">_</span><span>
+</span><span id="line-305"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Link -&gt; a)
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Link
+-&gt; MkLink (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api))) a
+forall k (endpoint :: k) a.
+HasLink endpoint =&gt;
+(Link -&gt; a) -&gt; Proxy endpoint -&gt; Link -&gt; MkLink endpoint a
+</span><span class="hs-identifier hs-var">toLink</span></span><span> </span><span class="annot"><span class="annottext">Link -&gt; a
+</span><a href="#local-6989586621681495622"><span class="hs-identifier hs-var">toA</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+ -&gt; Link -&gt; MkLink ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api) a)
+-&gt; Proxy (&quot;chain&quot; :&gt; (ChainIdSymbol c :&gt; (&quot;mempool&quot; :&gt; api)))
+-&gt; Link
+-&gt; MkLink ('NetworkEndpoint ('MempoolNetworkT c) :&gt; api) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi ('MempoolNetworkT c) api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetworkT"><span class="hs-identifier hs-type">MempoolNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495627"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495626"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-306"></span><span>
+</span><span id="line-307"></span><span id="local-6989586621681495621"><span class="hs-keyword">instance</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="annot"><a href="#local-6989586621681495621"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasLink</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495621"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-308"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="MkLink"><span class="annot"><span class="hs-identifier hs-var">MkLink</span></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpoint"><span class="hs-identifier hs-type">NetworkEndpoint</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495621"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495619"><span class="annot"><a href="#local-6989586621681495619"><span class="hs-identifier hs-type hs-type">a</span></a></span></span><span>
+</span><span id="line-309"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MkLink</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495621"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681495619"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-310"></span><span>
+</span><span id="line-311"></span><span>    </span><span id="local-6989586621681495618"><span class="annot"><span class="annottext">toLink :: (Link -&gt; a)
+-&gt; Proxy ('NetworkEndpoint 'CutNetworkT :&gt; api)
+-&gt; Link
+-&gt; MkLink ('NetworkEndpoint 'CutNetworkT :&gt; api) a
+</span><a href="#local-6989586621681495618"><span class="hs-identifier hs-var hs-var hs-var hs-var">toLink</span></a></span></span><span> </span><span id="local-6989586621681495617"><span class="annot"><span class="annottext">toA :: Link -&gt; a
+</span><a href="#local-6989586621681495617"><span class="hs-identifier hs-var">toA</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Link -&gt; a)
+-&gt; Proxy (&quot;cut&quot; :&gt; api) -&gt; Link -&gt; MkLink (&quot;cut&quot; :&gt; api) a
+forall k (endpoint :: k) a.
+HasLink endpoint =&gt;
+(Link -&gt; a) -&gt; Proxy endpoint -&gt; Link -&gt; MkLink endpoint a
+</span><span class="hs-identifier hs-var">toLink</span></span><span> </span><span class="annot"><span class="annottext">Link -&gt; a
+</span><a href="#local-6989586621681495617"><span class="hs-identifier hs-var">toA</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy (&quot;cut&quot; :&gt; api)
+ -&gt; Link -&gt; MkLink ('NetworkEndpoint 'CutNetworkT :&gt; api) a)
+-&gt; Proxy (&quot;cut&quot; :&gt; api)
+-&gt; Link
+-&gt; MkLink ('NetworkEndpoint 'CutNetworkT :&gt; api) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy (NetworkEndpointApi 'CutNetworkT api)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#NetworkEndpointApi"><span class="hs-identifier hs-type">NetworkEndpointApi</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetworkT"><span class="hs-identifier hs-type">CutNetworkT</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495621"><span class="hs-identifier hs-type">api</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-312"></span><span>
+</span><span id="line-313"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-314"></span><span class="hs-comment">-- Some API</span><span>
+</span><span id="line-315"></span><span>
+</span><span id="line-316"></span><span class="hs-comment">-- $someapi</span><span>
+</span><span id="line-317"></span><span class="hs-comment">--</span><span>
+</span><span id="line-318"></span><span class="hs-comment">-- The chain graph and thus the list of chain ids is encoded as runtime values.</span><span>
+</span><span id="line-319"></span><span class="hs-comment">-- In order to combin these in statically defined APIs we reify the the chainweb</span><span>
+</span><span id="line-320"></span><span class="hs-comment">-- version and chainid as types and wrap them existenially so that they can</span><span>
+</span><span id="line-321"></span><span class="hs-comment">-- be passed around and be combined.</span><span>
+</span><span id="line-322"></span><span>
+</span><span id="line-323"></span><span class="hs-keyword">data</span><span> </span><span id="SomeApi"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-var">SomeApi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495864"><span class="annot"><a href="#local-6989586621681495864"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">)</span><span>
+</span><span id="line-324"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="annot"><a href="#local-6989586621681495864"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="annot"><a href="#local-6989586621681495864"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="#local-6989586621681495864"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="SomeApi"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-var">SomeApi</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681495864"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-325"></span><span>
+</span><span id="line-326"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681495611"><span id="local-6989586621681495613"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-327"></span><span>    </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495609"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681495609"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495608"><span class="annot"><span class="annottext">&lt;&gt; :: SomeApi -&gt; SomeApi -&gt; SomeApi
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495607"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681495607"><span class="hs-identifier hs-type">b</span></a></span></span><span class="hs-special">)</span><span>
+</span><span id="line-328"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (a :&lt;|&gt; a) -&gt; SomeApi
+forall a.
+(HasSwagger a, HasServer a '[], HasClient ClientM a) =&gt;
+Proxy a -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-var">SomeApi</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (a :&lt;|&gt; a)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681495609"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&lt;|&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495607"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-329"></span><span>
+</span><span id="line-330"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681495602"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-331"></span><span>    </span><span id="local-6989586621681495600"><span class="annot"><span class="annottext">mappend :: SomeApi -&gt; SomeApi -&gt; SomeApi
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mappend</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span>
+</span><span id="line-332"></span><span>    </span><span id="local-6989586621681495599"><span class="annot"><span class="annottext">mempty :: SomeApi
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy EmptyAPI -&gt; SomeApi
+forall a.
+(HasSwagger a, HasServer a '[], HasClient ClientM a) =&gt;
+Proxy a -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-var">SomeApi</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy EmptyAPI
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">EmptyAPI</span></span><span class="hs-special">)</span><span>
+</span><span id="line-333"></span><span>
+</span><span id="line-334"></span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#someApi"><span class="hs-identifier hs-type">someApi</span></a></span><span>
+</span><span id="line-335"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681495598"><span class="annot"><a href="#local-6989586621681495598"><span class="hs-identifier hs-type">proxy</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495597"><span class="annot"><a href="#local-6989586621681495597"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">)</span><span>
+</span><span id="line-336"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="annot"><a href="#local-6989586621681495597"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-337"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasClient</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="#local-6989586621681495597"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-338"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasSwagger</span></span><span> </span><span class="annot"><a href="#local-6989586621681495597"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-339"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681495598"><span class="hs-identifier hs-type">proxy</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681495597"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-340"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span>
+</span><span id="line-341"></span><span id="someApi"><span class="annot"><span class="annottext">someApi :: proxy a -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.Utils.html#someApi"><span class="hs-identifier hs-var hs-var">someApi</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy a -&gt; SomeApi
+forall a.
+(HasSwagger a, HasServer a '[], HasClient ClientM a) =&gt;
+Proxy a -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-var">SomeApi</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy a
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621681495597"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-342"></span><span>
+</span><span id="line-343"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-344"></span><span class="hs-comment">-- Some API Server</span><span>
+</span><span id="line-345"></span><span>
+</span><span id="line-346"></span><span class="hs-keyword">data</span><span> </span><span id="SomeServer"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">forall</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495854"><span class="annot"><a href="#local-6989586621681495854"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Type</span></span><span class="hs-special">)</span><span>
+</span><span id="line-347"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasServer</span></span><span> </span><span class="annot"><a href="#local-6989586621681495854"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span id="SomeServer"><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681495854"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Server</span></span><span> </span><span class="annot"><a href="#local-6989586621681495854"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-348"></span><span>
+</span><span id="line-349"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681495591"><span id="local-6989586621681495593"><span class="annot"><span class="hs-identifier hs-type">Semigroup</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-350"></span><span>    </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495590"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681495590"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495589"><span class="annot"><span class="annottext">a :: Server a
+</span><a href="#local-6989586621681495589"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681495588"><span class="annot"><span class="annottext">&lt;&gt; :: SomeServer -&gt; SomeServer -&gt; SomeServer
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;&gt;</span></span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681495587"><span class="annot"><span class="annottext">Proxy a
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Proxy</span></span><span> </span><span class="annot"><a href="#local-6989586621681495587"><span class="hs-identifier hs-type">b</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681495586"><span class="annot"><span class="annottext">b :: Server a
+</span><a href="#local-6989586621681495586"><span class="hs-identifier hs-var">b</span></a></span></span><span>
+</span><span id="line-351"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy (a :&lt;|&gt; a) -&gt; Server (a :&lt;|&gt; a) -&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy (a :&lt;|&gt; a)
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681495590"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&lt;|&gt;</span></span><span> </span><span class="annot"><a href="#local-6989586621681495587"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Server a
+</span><a href="#local-6989586621681495589"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Server a -&gt; Server a -&gt; Server a :&lt;|&gt; Server a
+forall a b. a -&gt; b -&gt; a :&lt;|&gt; b
+</span><span class="hs-operator hs-var">:&lt;|&gt;</span></span><span> </span><span class="annot"><span class="annottext">Server a
+</span><a href="#local-6989586621681495586"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-352"></span><span>
+</span><span id="line-353"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681495580"><span class="annot"><span class="hs-identifier hs-type">Monoid</span></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-354"></span><span>    </span><span id="local-6989586621681495579"><span class="annot"><span class="annottext">mappend :: SomeServer -&gt; SomeServer -&gt; SomeServer
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mappend</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(&lt;&gt;)</span></span><span>
+</span><span id="line-355"></span><span>    </span><span id="local-6989586621681495578"><span class="annot"><span class="annottext">mempty :: SomeServer
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">mempty</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy EmptyAPI -&gt; Server EmptyAPI -&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy EmptyAPI
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">EmptyAPI</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Server EmptyAPI
+forall (m :: * -&gt; *). ServerT EmptyAPI m
+</span><span class="hs-identifier hs-var">emptyServer</span></span><span>
+</span><span id="line-356"></span><span>
+</span><span id="line-357"></span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#someServerApplication"><span class="hs-identifier hs-type">someServerApplication</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Application</span></span><span>
+</span><span id="line-358"></span><span id="someServerApplication"><span class="annot"><span class="annottext">someServerApplication :: SomeServer -&gt; Application
+</span><a href="Chainweb.RestAPI.Utils.html#someServerApplication"><span class="hs-identifier hs-var hs-var">someServerApplication</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span><span> </span><span id="local-6989586621681495576"><span class="annot"><span class="annottext">a :: Proxy a
+</span><a href="#local-6989586621681495576"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621681495575"><span class="annot"><span class="annottext">server :: Server a
+</span><a href="#local-6989586621681495575"><span class="hs-identifier hs-var">server</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy a -&gt; Server a -&gt; Application
+forall api.
+HasServer api '[] =&gt;
+Proxy api -&gt; Server api -&gt; Application
+</span><span class="hs-identifier hs-var">serve</span></span><span> </span><span class="annot"><span class="annottext">Proxy a
+</span><a href="#local-6989586621681495576"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Server a
+</span><a href="#local-6989586621681495575"><span class="hs-identifier hs-var">server</span></a></span><span>
+</span><span id="line-359"></span><span>
+</span><span id="line-360"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-361"></span><span class="hs-comment">-- Misc Utils</span><span>
+</span><span id="line-362"></span><span>
+</span><span id="line-363"></span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#bindPortTcp"><span class="hs-identifier hs-type">bindPortTcp</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html#Port"><span class="hs-identifier hs-type">Port</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HostPreference</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.HostAddress.html#Port"><span class="hs-identifier hs-type">Port</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">N.Socket</span></span><span class="hs-special">)</span><span>
+</span><span id="line-364"></span><span id="bindPortTcp"><span class="annot"><span class="annottext">bindPortTcp :: Port -&gt; HostPreference -&gt; IO (Port, Socket)
+</span><a href="Chainweb.RestAPI.Utils.html#bindPortTcp"><span class="hs-identifier hs-var hs-var">bindPortTcp</span></a></span></span><span> </span><span id="local-6989586621681495573"><span class="annot"><span class="annottext">p :: Port
+</span><a href="#local-6989586621681495573"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621681495572"><span class="annot"><span class="annottext">interface :: HostPreference
+</span><a href="#local-6989586621681495572"><span class="hs-identifier hs-var">interface</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-365"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681495571"><span class="annot"><span class="annottext">port :: Port
+</span><a href="#local-6989586621681495571"><span class="hs-identifier hs-var">port</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681495570"><span class="annot"><span class="annottext">sock :: Socket
+</span><a href="#local-6989586621681495570"><span class="hs-identifier hs-var">sock</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-366"></span><span>        </span><span id="local-6989586621681495569"><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681495569"><span class="hs-identifier hs-var">socket</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SocketType -&gt; Int -&gt; HostPreference -&gt; IO Socket
+</span><span class="hs-identifier hs-var">bindPortGen</span></span><span> </span><span class="annot"><span class="annottext">SocketType
+</span><span class="hs-identifier hs-var">N.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Port -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Port
+</span><a href="#local-6989586621681495573"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HostPreference
+</span><a href="#local-6989586621681495572"><span class="hs-identifier hs-var">interface</span></a></span><span>
+</span><span id="line-367"></span><span>        </span><span id="local-6989586621681495566"><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621681495566"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Socket -&gt; IO PortNumber
+</span><span class="hs-identifier hs-var">N.socketPort</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681495569"><span class="hs-identifier hs-var">socket</span></a></span><span>
+</span><span id="line-368"></span><span>        </span><span class="annot"><span class="annottext">(Port, Socket) -&gt; IO (Port, Socket)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PortNumber -&gt; Port
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621681495566"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681495569"><span class="hs-identifier hs-var">socket</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-369"></span><span>    </span><span class="annot"><span class="annottext">Socket -&gt; Int -&gt; IO ()
+</span><span class="hs-identifier hs-var">N.listen</span></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681495570"><span class="hs-identifier hs-var">sock</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="hs-number">2048</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier hs-var">N.maxListenQueue</span></span><span class="hs-special">)</span><span>
+</span><span id="line-370"></span><span>    </span><span class="annot"><span class="annottext">(Port, Socket) -&gt; IO (Port, Socket)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Port
+</span><a href="#local-6989586621681495571"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681495570"><span class="hs-identifier hs-var">sock</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-371"></span></pre></body></html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ConstraintKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Module: Data.IVar</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Strict immutable variables with distinguished read and write end points.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.IVar</span><span>
+</span><span id="line-16"></span><span class="hs-special">(</span><span>
+</span><span id="line-17"></span><span class="annot"><span class="hs-comment">-- * Classes</span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Data.IVar.html#IsRIVar"><span class="hs-identifier">IsRIVar</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#awaitIVar"><span class="hs-identifier">awaitIVar</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#tryReadIVar"><span class="hs-identifier">tryReadIVar</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#IsWIVar"><span class="hs-identifier">IsWIVar</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#IsIVar"><span class="hs-identifier">IsIVar</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#putIVar"><span class="hs-identifier">putIVar</span></a></span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="annot"><span class="hs-comment">-- * IVar</span></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier">IVar</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#newIVar"><span class="hs-identifier">newIVar</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#mkWeakIVar"><span class="hs-identifier">mkWeakIVar</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Writable IVar</span></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#WIVar"><span class="hs-identifier">WIVar</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#wIVar"><span class="hs-identifier">wIVar</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="annot"><span class="hs-comment">-- * Readble IVar</span></span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#RIVar"><span class="hs-identifier">RIVar</span></a></span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#rIVar"><span class="hs-identifier">rIVar</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Coerce</span></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Mem.Weak</span></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- Type Classes</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- | The class of readable immutable variables.</span><span>
+</span><span id="line-52"></span><span class="hs-comment">--</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">class</span><span> </span><span id="IsRIVar"><span class="annot"><a href="Data.IVar.html#IsRIVar"><span class="hs-identifier hs-var">IsRIVar</span></a></span></span><span> </span><span id="local-6989586621681473302"><span class="annot"><a href="#local-6989586621681473302"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-54"></span><span>    </span><span id="local-6989586621681473305"><span id="tryReadIVar"><span class="annot"><a href="Data.IVar.html#tryReadIVar"><span class="hs-identifier hs-type">tryReadIVar</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681473302"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473305"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621681473305"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-55"></span><span>    </span><span id="local-6989586621681473304"><span id="awaitIVar"><span class="annot"><a href="Data.IVar.html#awaitIVar"><span class="hs-identifier hs-type">awaitIVar</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681473302"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473304"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681473304"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- | The class of writeable immutable variables.</span><span>
+</span><span id="line-58"></span><span class="hs-comment">--</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">class</span><span> </span><span id="IsWIVar"><span class="annot"><a href="Data.IVar.html#IsWIVar"><span class="hs-identifier hs-var">IsWIVar</span></a></span></span><span> </span><span id="local-6989586621681473292"><span class="annot"><a href="#local-6989586621681473292"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-60"></span><span>    </span><span id="local-6989586621681473296"><span id="putIVar"><span class="annot"><a href="Data.IVar.html#putIVar"><span class="hs-identifier hs-type">putIVar</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681473292"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473296"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473296"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-61"></span><span>    </span><span id="local-6989586621681473295"><span id="putIVar%27"><span class="annot"><a href="Data.IVar.html#putIVar%27"><span class="hs-identifier hs-type">putIVar'</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NFData</span></span><span> </span><span class="annot"><a href="#local-6989586621681473295"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473292"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473295"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473295"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- | The class of immutable variables that are readable and writeable.</span><span>
+</span><span id="line-64"></span><span class="hs-comment">--</span><span>
+</span><span id="line-65"></span><span class="hs-keyword">type</span><span> </span><span id="IsIVar"><span class="annot"><a href="Data.IVar.html#IsIVar"><span class="hs-identifier hs-var">IsIVar</span></a></span></span><span> </span><span id="local-6989586621681473247"><span class="annot"><a href="#local-6989586621681473247"><span class="hs-identifier hs-type">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IsRIVar"><span class="hs-identifier hs-type">IsRIVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473247"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.IVar.html#IsWIVar"><span class="hs-identifier hs-type">IsWIVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473247"><span class="hs-identifier hs-type">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- IVar</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- | An immutable 'MVar'. Once a value has been assigned to the variable it</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- can't be changed any more.</span><span>
+</span><span id="line-72"></span><span class="hs-comment">--</span><span>
+</span><span id="line-73"></span><span id="local-6989586621681473245"><span id="local-6989586621681473246"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="IVar"><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-var">IVar</span></a></span></span><span> </span><span id="local-6989586621681473282"><span class="annot"><a href="#local-6989586621681473282"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="IVar"><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-var">IVar</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="annot"><a href="#local-6989586621681473282"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. IVar a -&gt; Rep (IVar a) x)
+-&gt; (forall x. Rep (IVar a) x -&gt; IVar a) -&gt; Generic (IVar a)
+forall x. Rep (IVar a) x -&gt; IVar a
+forall x. IVar a -&gt; Rep (IVar a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall a x. Rep (IVar a) x -&gt; IVar a
+forall a x. IVar a -&gt; Rep (IVar a) x
+$cto :: forall a x. Rep (IVar a) x -&gt; IVar a
+$cfrom :: forall a x. IVar a -&gt; Rep (IVar a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.IVar.html#IsRIVar"><span class="hs-identifier hs-type">IsRIVar</span></a></span><span> </span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-77"></span><span>    </span><span id="local-6989586621681473237"><span class="annot"><span class="annottext">tryReadIVar :: IVar a -&gt; IO (Maybe a)
+</span><a href="#local-6989586621681473237"><span class="hs-identifier hs-var hs-var hs-var hs-var">tryReadIVar</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span id="local-6989586621681473236"><span class="annot"><span class="annottext">v :: MVar a
+</span><a href="#local-6989586621681473236"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; IO (Maybe a)
+forall a. MVar a -&gt; IO (Maybe a)
+</span><span class="hs-identifier hs-var">tryReadMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar a
+</span><a href="#local-6989586621681473236"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#tryReadIVar"><span class="hs-pragma hs-type">tryReadIVar</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621681473234"><span class="annot"><span class="annottext">awaitIVar :: IVar a -&gt; IO a
+</span><a href="#local-6989586621681473234"><span class="hs-identifier hs-var hs-var hs-var hs-var">awaitIVar</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span id="local-6989586621681473233"><span class="annot"><span class="annottext">v :: MVar a
+</span><a href="#local-6989586621681473233"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; IO a
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar a
+</span><a href="#local-6989586621681473233"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#awaitIVar"><span class="hs-pragma hs-type">awaitIVar</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Data.IVar.html#IsWIVar"><span class="hs-identifier hs-type">IsWIVar</span></a></span><span> </span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681473228"><span class="annot"><span class="annottext">putIVar :: IVar a -&gt; a -&gt; IO Bool
+</span><a href="#local-6989586621681473228"><span class="hs-identifier hs-var hs-var hs-var hs-var">putIVar</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span id="local-6989586621681473227"><span class="annot"><span class="annottext">var :: MVar a
+</span><a href="#local-6989586621681473227"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681473226"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681473226"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; a -&gt; IO Bool
+forall a. MVar a -&gt; a -&gt; IO Bool
+</span><span class="hs-identifier hs-var">tryPutMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar a
+</span><a href="#local-6989586621681473227"><span class="hs-identifier hs-var">var</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; IO Bool) -&gt; a -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681473226"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#putIVar"><span class="hs-pragma hs-type">putIVar</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-85"></span><span>    </span><span id="local-6989586621681473223"><span class="annot"><span class="annottext">putIVar' :: IVar a -&gt; a -&gt; IO Bool
+</span><a href="#local-6989586621681473223"><span class="hs-identifier hs-var hs-var hs-var hs-var">putIVar'</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span id="local-6989586621681473222"><span class="annot"><span class="annottext">var :: MVar a
+</span><a href="#local-6989586621681473222"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681473221"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681473221"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; a -&gt; IO Bool
+forall a. MVar a -&gt; a -&gt; IO Bool
+</span><span class="hs-identifier hs-var">tryPutMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar a
+</span><a href="#local-6989586621681473222"><span class="hs-identifier hs-var">var</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; IO Bool) -&gt; a -&gt; IO Bool
+forall a b. NFData a =&gt; (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!!</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681473221"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#putIVar%27"><span class="hs-pragma hs-type">putIVar'</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span class="hs-comment">-- | Create a new immutable variable. Intitially the variable is empty. Once a</span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- value got assigned that value can't be changed any more.</span><span>
+</span><span id="line-90"></span><span class="hs-comment">--</span><span>
+</span><span id="line-91"></span><span id="local-6989586621681473219"><span class="annot"><a href="Data.IVar.html#newIVar"><span class="hs-identifier hs-type">newIVar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473219"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-92"></span><span id="newIVar"><span class="annot"><span class="annottext">newIVar :: IO (IVar a)
+</span><a href="Data.IVar.html#newIVar"><span class="hs-identifier hs-var hs-var">newIVar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; IVar a
+forall a. MVar a -&gt; IVar a
+</span><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-var">IVar</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar a -&gt; IVar a) -&gt; IO (MVar a) -&gt; IO (IVar a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (MVar a)
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-93"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#newIVar"><span class="hs-pragma hs-type">newIVar</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- | Create an weak 'IVar'. For details and caveats regarding weak references,</span><span>
+</span><span id="line-96"></span><span class="hs-comment">-- please, see the documentation for 'mkWeakMVar'.</span><span>
+</span><span id="line-97"></span><span class="hs-comment">--</span><span>
+</span><span id="line-98"></span><span id="local-6989586621681473216"><span class="annot"><a href="Data.IVar.html#mkWeakIVar"><span class="hs-identifier hs-type">mkWeakIVar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473216"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Weak</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473216"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span><span>
+</span><span id="line-99"></span><span id="mkWeakIVar"><span class="annot"><span class="annottext">mkWeakIVar :: IVar a -&gt; IO () -&gt; IO (Weak (IVar a))
+</span><a href="Data.IVar.html#mkWeakIVar"><span class="hs-identifier hs-var hs-var">mkWeakIVar</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span id="local-6989586621681473215"><span class="annot"><span class="annottext">var :: MVar a
+</span><a href="#local-6989586621681473215"><span class="hs-identifier hs-var">var</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681473214"><span class="annot"><span class="annottext">f :: IO ()
+</span><a href="#local-6989586621681473214"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Weak (MVar a) -&gt; Weak (IVar a)
+forall a b. Coercible a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">coerce</span></span><span> </span><span class="annot"><span class="annottext">(Weak (MVar a) -&gt; Weak (IVar a))
+-&gt; IO (Weak (MVar a)) -&gt; IO (Weak (IVar a))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; IO () -&gt; IO (Weak (MVar a))
+forall a. MVar a -&gt; IO () -&gt; IO (Weak (MVar a))
+</span><span class="hs-identifier hs-var">mkWeakMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar a
+</span><a href="#local-6989586621681473215"><span class="hs-identifier hs-var">var</span></a></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681473214"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-100"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#mkWeakIVar"><span class="hs-pragma hs-type">mkWeakIVar</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- Writeable IVar</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- | An immutable variable that one can write to (exactly once), but that isn't</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- readable. This is, for instance, useful to model one end of a one-directional</span><span>
+</span><span id="line-107"></span><span class="hs-comment">-- communitcation channel.</span><span>
+</span><span id="line-108"></span><span class="hs-comment">--</span><span>
+</span><span id="line-109"></span><span id="local-6989586621681473211"><span id="local-6989586621681473212"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="WIVar"><span class="annot"><a href="Data.IVar.html#WIVar"><span class="hs-identifier hs-var">WIVar</span></a></span></span><span> </span><span id="local-6989586621681473265"><span class="annot"><a href="#local-6989586621681473265"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="WIVar"><span class="annot"><a href="Data.IVar.html#WIVar"><span class="hs-identifier hs-var">WIVar</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473265"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. WIVar a -&gt; Rep (WIVar a) x)
+-&gt; (forall x. Rep (WIVar a) x -&gt; WIVar a) -&gt; Generic (WIVar a)
+forall x. Rep (WIVar a) x -&gt; WIVar a
+forall x. WIVar a -&gt; Rep (WIVar a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall a x. Rep (WIVar a) x -&gt; WIVar a
+forall a x. WIVar a -&gt; Rep (WIVar a) x
+$cto :: forall a x. Rep (WIVar a) x -&gt; WIVar a
+$cfrom :: forall a x. WIVar a -&gt; Rep (WIVar a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681473204"><span id="local-6989586621681473206"><span class="annot"><span class="annottext">WIVar a -&gt; a -&gt; IO Bool
+WIVar a -&gt; a -&gt; IO Bool
+(forall a. WIVar a -&gt; a -&gt; IO Bool)
+-&gt; (forall a. NFData a =&gt; WIVar a -&gt; a -&gt; IO Bool) -&gt; IsWIVar WIVar
+forall a. NFData a =&gt; WIVar a -&gt; a -&gt; IO Bool
+forall a. WIVar a -&gt; a -&gt; IO Bool
+forall (v :: * -&gt; *).
+(forall a. v a -&gt; a -&gt; IO Bool)
+-&gt; (forall a. NFData a =&gt; v a -&gt; a -&gt; IO Bool) -&gt; IsWIVar v
+putIVar' :: WIVar a -&gt; a -&gt; IO Bool
+$cputIVar' :: forall a. NFData a =&gt; WIVar a -&gt; a -&gt; IO Bool
+putIVar :: WIVar a -&gt; a -&gt; IO Bool
+$cputIVar :: forall a. WIVar a -&gt; a -&gt; IO Bool
+</span><a href="#local-6989586621681473204"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">IsWIVar</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- | Restrict an 'IVar' to be only writeabel but not readable.</span><span>
+</span><span id="line-114"></span><span class="hs-comment">--</span><span>
+</span><span id="line-115"></span><span id="local-6989586621681473203"><span class="annot"><a href="Data.IVar.html#wIVar"><span class="hs-identifier hs-type">wIVar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473203"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.IVar.html#WIVar"><span class="hs-identifier hs-type">WIVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473203"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-116"></span><span id="wIVar"><span class="annot"><span class="annottext">wIVar :: IVar a -&gt; WIVar a
+</span><a href="Data.IVar.html#wIVar"><span class="hs-identifier hs-var hs-var">wIVar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IVar a -&gt; WIVar a
+forall a. IVar a -&gt; WIVar a
+</span><a href="Data.IVar.html#WIVar"><span class="hs-identifier hs-var">WIVar</span></a></span><span>
+</span><span id="line-117"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#wIVar"><span class="hs-pragma hs-type">wIVar</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- Readable IVar</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="hs-comment">-- | An immutable variable that one can write to (exactly once), but that isn't</span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- readable. This is, for instance, useful to model one end of a one-directional</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- communitcation channel.</span><span>
+</span><span id="line-125"></span><span class="hs-comment">--</span><span>
+</span><span id="line-126"></span><span id="local-6989586621681473201"><span id="local-6989586621681473202"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="RIVar"><span class="annot"><a href="Data.IVar.html#RIVar"><span class="hs-identifier hs-var">RIVar</span></a></span></span><span> </span><span id="local-6989586621681473257"><span class="annot"><a href="#local-6989586621681473257"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RIVar"><span class="annot"><a href="Data.IVar.html#RIVar"><span class="hs-identifier hs-var">RIVar</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473257"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. RIVar a -&gt; Rep (RIVar a) x)
+-&gt; (forall x. Rep (RIVar a) x -&gt; RIVar a) -&gt; Generic (RIVar a)
+forall x. Rep (RIVar a) x -&gt; RIVar a
+forall x. RIVar a -&gt; Rep (RIVar a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall a x. Rep (RIVar a) x -&gt; RIVar a
+forall a x. RIVar a -&gt; Rep (RIVar a) x
+$cto :: forall a x. Rep (RIVar a) x -&gt; RIVar a
+$cfrom :: forall a x. RIVar a -&gt; Rep (RIVar a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681473194"><span id="local-6989586621681473196"><span class="annot"><span class="annottext">RIVar a -&gt; IO (Maybe a)
+RIVar a -&gt; IO a
+(forall a. RIVar a -&gt; IO (Maybe a))
+-&gt; (forall a. RIVar a -&gt; IO a) -&gt; IsRIVar RIVar
+forall a. RIVar a -&gt; IO a
+forall a. RIVar a -&gt; IO (Maybe a)
+forall (v :: * -&gt; *).
+(forall a. v a -&gt; IO (Maybe a))
+-&gt; (forall a. v a -&gt; IO a) -&gt; IsRIVar v
+awaitIVar :: RIVar a -&gt; IO a
+$cawaitIVar :: forall a. RIVar a -&gt; IO a
+tryReadIVar :: RIVar a -&gt; IO (Maybe a)
+$ctryReadIVar :: forall a. RIVar a -&gt; IO (Maybe a)
+</span><a href="#local-6989586621681473194"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">IsRIVar</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- | Restrict an 'IVar' to be only readable but not writeable.</span><span>
+</span><span id="line-131"></span><span class="hs-comment">--</span><span>
+</span><span id="line-132"></span><span id="local-6989586621681473193"><span class="annot"><a href="Data.IVar.html#rIVar"><span class="hs-identifier hs-type">rIVar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473193"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.IVar.html#RIVar"><span class="hs-identifier hs-type">RIVar</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473193"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-133"></span><span id="rIVar"><span class="annot"><span class="annottext">rIVar :: IVar a -&gt; RIVar a
+</span><a href="Data.IVar.html#rIVar"><span class="hs-identifier hs-var hs-var">rIVar</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IVar a -&gt; RIVar a
+forall a. IVar a -&gt; RIVar a
+</span><a href="Data.IVar.html#RIVar"><span class="hs-identifier hs-var">RIVar</span></a></span><span>
+</span><span id="line-134"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Data.IVar.html#rIVar"><span class="hs-pragma hs-type">rIVar</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span></pre></body></html>

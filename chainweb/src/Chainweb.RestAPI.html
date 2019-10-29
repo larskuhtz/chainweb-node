@@ -1,0 +1,910 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DataKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TypeOperators #-}</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Module: Chainweb.RestAPI</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- This module collects and combines the APIs from all Chainweb components.</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Every component that defines an API should add it to 'someChainwebApi' and</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- 'someChainwebServer' and also re-export the module with API client functions.</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.RestAPI</span><span>
+</span><span id="line-23"></span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier">ChainwebServerDbs</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#emptyChainwebServerDbs"><span class="hs-identifier">emptyChainwebServerDbs</span></a></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><span class="hs-comment">-- * Chainweb API</span></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#someChainwebApi"><span class="hs-identifier">someChainwebApi</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#prettyShowChainwebApi"><span class="hs-identifier">prettyShowChainwebApi</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#apiVersion"><span class="hs-identifier">apiVersion</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#prettyApiVersion"><span class="hs-identifier">prettyApiVersion</span></a></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="annot"><span class="hs-comment">-- * Swagger</span></span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#prettyChainwebSwagger"><span class="hs-identifier">prettyChainwebSwagger</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#chainwebSwagger"><span class="hs-identifier">chainwebSwagger</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="annot"><span class="hs-comment">-- * Chainweb API Server</span></span><span>
+</span><span id="line-38"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#someChainwebServer"><span class="hs-identifier">someChainwebServer</span></a></span><span>
+</span><span id="line-39"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#chainwebApplication"><span class="hs-identifier">chainwebApplication</span></a></span><span>
+</span><span id="line-40"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#serveChainwebOnPort"><span class="hs-identifier">serveChainwebOnPort</span></a></span><span>
+</span><span id="line-41"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#serveChainweb"><span class="hs-identifier">serveChainweb</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#serveChainwebSocket"><span class="hs-identifier">serveChainwebSocket</span></a></span><span>
+</span><span id="line-43"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#serveChainwebSocketTls"><span class="hs-identifier">serveChainwebSocketTls</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html#Port"><span class="hs-identifier">Port</span></a></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="annot"><span class="hs-comment">-- * Chainweb API Client</span></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="annot"><span class="hs-comment">-- ** BlockHeaderDb API Client</span></span><span>
+</span><span id="line-49"></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html"><span class="hs-identifier">Chainweb.BlockHeaderDB.RestAPI.Client</span></a></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="annot"><span class="hs-comment">-- ** P2P API Client</span></span><span>
+</span><span id="line-52"></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">module</span><span> </span><span class="annot"><a href="P2P.Node.RestAPI.Client.html"><span class="hs-identifier">P2P.Node.RestAPI.Client</span></a></span><span>
+</span><span id="line-53"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Encode.Pretty</span></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bool</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">bool</span></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Lazy</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BL</span></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Proxy</span></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Swagger</span></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Socket</span></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Middleware</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">mapResponseHeaders</span></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai.Handler.Warp</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Port</span></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai.Handler.WarpTLS</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TLSSettings</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">runTLSSocket</span></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Network.Wai.Middleware.Cors</span></span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.API</span></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Server</span></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Swagger</span></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Clock</span></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.html"><span class="hs-identifier">Chainweb.BlockHeaderDB</span></a></span><span>
+</span><span id="line-83"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html"><span class="hs-identifier">Chainweb.BlockHeaderDB.RestAPI</span></a></span><span>
+</span><span id="line-84"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html"><span class="hs-identifier">Chainweb.BlockHeaderDB.RestAPI.Client</span></a></span><span>
+</span><span id="line-85"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.Server.html"><span class="hs-identifier">Chainweb.BlockHeaderDB.RestAPI.Server</span></a></span><span>
+</span><span id="line-86"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-87"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html"><span class="hs-identifier">Chainweb.Chainweb.MinerResources</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier">MiningCoordination</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span>
+</span><span id="line-89"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.RestAPI.Server.html"><span class="hs-identifier">Chainweb.CutDB.RestAPI.Server</span></a></span><span>
+</span><span id="line-90"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html"><span class="hs-identifier">Chainweb.HostAddress</span></a></span><span>
+</span><span id="line-91"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Logger.html"><span class="hs-identifier">Chainweb.Logger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier">Logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html"><span class="hs-identifier">Chainweb.Mempool.Mempool</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier">MempoolBackend</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Server.html"><span class="hs-identifier">Chainweb.Mempool.RestAPI.Server</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Mempool</span></span><span>
+</span><span id="line-94"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.RestAPI.html"><span class="hs-identifier">Chainweb.Miner.RestAPI</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.RestAPI.html#someMiningApi"><span class="hs-identifier">someMiningApi</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Miner.RestAPI.Server.html"><span class="hs-identifier">Chainweb.Miner.RestAPI.Server</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Mining</span></span><span>
+</span><span id="line-96"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Pact.RestAPI.html"><span class="hs-identifier">Chainweb.Pact.RestAPI</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">PactAPI</span></span><span>
+</span><span id="line-97"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Pact.RestAPI.Server.html"><span class="hs-identifier">Chainweb.Pact.RestAPI.Server</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">PactAPI</span></span><span>
+</span><span id="line-98"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-99"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.html"><span class="hs-identifier">Chainweb.Payload.RestAPI</span></a></span><span>
+</span><span id="line-100"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.RestAPI.Server.html"><span class="hs-identifier">Chainweb.Payload.RestAPI.Server</span></a></span><span>
+</span><span id="line-101"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Health.html"><span class="hs-identifier">Chainweb.RestAPI.Health</span></a></span><span>
+</span><span id="line-102"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html"><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span></a></span><span>
+</span><span id="line-103"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NodeInfo.html"><span class="hs-identifier">Chainweb.RestAPI.NodeInfo</span></a></span><span>
+</span><span id="line-104"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html"><span class="hs-identifier">Chainweb.RestAPI.Utils</span></a></span><span>
+</span><span id="line-105"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.SPV.RestAPI.Server.html"><span class="hs-identifier">Chainweb.SPV.RestAPI.Server</span></a></span><span>
+</span><span id="line-106"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-107"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Network.X509.SelfSigned.html"><span class="hs-identifier">Network.X509.SelfSigned</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.PeerDB.html"><span class="hs-identifier">P2P.Node.PeerDB</span></a></span><span>
+</span><span id="line-112"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.RestAPI.html"><span class="hs-identifier">P2P.Node.RestAPI</span></a></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.RestAPI.Client.html"><span class="hs-identifier">P2P.Node.RestAPI.Client</span></a></span><span>
+</span><span id="line-114"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.RestAPI.Server.html"><span class="hs-identifier">P2P.Node.RestAPI.Server</span></a></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- Chainweb Server Storage Backends</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-comment">-- | Datatype for collectively passing all storage backends to</span><span>
+</span><span id="line-120"></span><span class="hs-comment">-- functions that run a chainweb server.</span><span>
+</span><span id="line-121"></span><span class="hs-comment">--</span><span>
+</span><span id="line-122"></span><span id="local-6989586621681510346"><span id="local-6989586621681510347"></span></span><span class="hs-keyword">data</span><span> </span><span id="ChainwebServerDbs"><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-var">ChainwebServerDbs</span></a></span></span><span> </span><span id="local-6989586621681510498"><span class="annot"><a href="#local-6989586621681510498"><span class="hs-identifier hs-type">t</span></a></span></span><span> </span><span id="local-6989586621681510497"><span class="annot"><a href="#local-6989586621681510497"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span id="local-6989586621681510499"><span class="annot"><a href="#local-6989586621681510499"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ChainwebServerDbs"><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-var">ChainwebServerDbs</span></a></span></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_chainwebServerCutDb"><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; Maybe (CutDb cas)
+</span><a href="Chainweb.RestAPI.html#_chainwebServerCutDb"><span class="hs-identifier hs-var hs-var">_chainwebServerCutDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510499"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainwebServerBlockHeaderDbs"><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(ChainId, BlockHeaderDb)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerBlockHeaderDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerBlockHeaderDbs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainwebServerMempools"><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(ChainId, MempoolBackend t)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerMempools"><span class="hs-identifier hs-var hs-var">_chainwebServerMempools</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510498"><span class="hs-identifier hs-type">t</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainwebServerPayloadDbs"><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(ChainId, PayloadDb cas)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPayloadDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerPayloadDbs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510499"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainwebServerPeerDbs"><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(NetworkId, PeerDb)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPeerDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerPeerDbs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.Node.PeerDB.html#PeerDb"><span class="hs-identifier hs-type">PeerDb</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainwebServerPactDbs"><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+-&gt; [(ChainId, PactServerData logger cas)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPactDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerPactDbs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.RestAPI.Server.html#PactServerData"><span class="hs-identifier hs-type">PactAPI.PactServerData</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510497"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510499"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x.
+ ChainwebServerDbs t logger cas
+ -&gt; Rep (ChainwebServerDbs t logger cas) x)
+-&gt; (forall x.
+    Rep (ChainwebServerDbs t logger cas) x
+    -&gt; ChainwebServerDbs t logger cas)
+-&gt; Generic (ChainwebServerDbs t logger cas)
+forall x.
+Rep (ChainwebServerDbs t logger cas) x
+-&gt; ChainwebServerDbs t logger cas
+forall x.
+ChainwebServerDbs t logger cas
+-&gt; Rep (ChainwebServerDbs t logger cas) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall t logger (cas :: * -&gt; *) x.
+Rep (ChainwebServerDbs t logger cas) x
+-&gt; ChainwebServerDbs t logger cas
+forall t logger (cas :: * -&gt; *) x.
+ChainwebServerDbs t logger cas
+-&gt; Rep (ChainwebServerDbs t logger cas) x
+$cto :: forall t logger (cas :: * -&gt; *) x.
+Rep (ChainwebServerDbs t logger cas) x
+-&gt; ChainwebServerDbs t logger cas
+$cfrom :: forall t logger (cas :: * -&gt; *) x.
+ChainwebServerDbs t logger cas
+-&gt; Rep (ChainwebServerDbs t logger cas) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span id="local-6989586621681510333"><span id="local-6989586621681510334"><span id="local-6989586621681510335"><span class="annot"><a href="Chainweb.RestAPI.html#emptyChainwebServerDbs"><span class="hs-identifier hs-type">emptyChainwebServerDbs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-type">ChainwebServerDbs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510335"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510334"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510333"><span class="hs-identifier hs-type">cas</span></a></span></span></span></span><span>
+</span><span id="line-133"></span><span id="emptyChainwebServerDbs"><span class="annot"><span class="annottext">emptyChainwebServerDbs :: ChainwebServerDbs t logger cas
+</span><a href="Chainweb.RestAPI.html#emptyChainwebServerDbs"><span class="hs-identifier hs-var hs-var">emptyChainwebServerDbs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WChainwebServerDbs :: forall t logger (cas :: * -&gt; *).
+Maybe (CutDb cas)
+-&gt; [(ChainId, BlockHeaderDb)]
+-&gt; [(ChainId, MempoolBackend t)]
+-&gt; [(ChainId, PayloadDb cas)]
+-&gt; [(NetworkId, PeerDb)]
+-&gt; [(ChainId, PactServerData logger cas)]
+-&gt; ChainwebServerDbs t logger cas
+</span><a href="Chainweb.RestAPI.html#%24WChainwebServerDbs"><span class="hs-identifier hs-type hs-type">ChainwebServerDbs</span></a></span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_chainwebServerCutDb :: Maybe (CutDb cas)
+</span><a href="Chainweb.RestAPI.html#_chainwebServerCutDb"><span class="hs-identifier hs-var">_chainwebServerCutDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (CutDb cas)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainwebServerBlockHeaderDbs :: [(ChainId, BlockHeaderDb)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerBlockHeaderDbs"><span class="hs-identifier hs-var">_chainwebServerBlockHeaderDbs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainwebServerMempools :: [(ChainId, MempoolBackend t)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerMempools"><span class="hs-identifier hs-var">_chainwebServerMempools</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainwebServerPayloadDbs :: [(ChainId, PayloadDb cas)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPayloadDbs"><span class="hs-identifier hs-var">_chainwebServerPayloadDbs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainwebServerPeerDbs :: [(NetworkId, PeerDb)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPeerDbs"><span class="hs-identifier hs-var">_chainwebServerPeerDbs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainwebServerPactDbs :: [(ChainId, PactServerData logger cas)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPactDbs"><span class="hs-identifier hs-var">_chainwebServerPactDbs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- Chainweb API</span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span class="annot"><a href="Chainweb.RestAPI.html#someChainwebApi"><span class="hs-identifier hs-type">someChainwebApi</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span>
+</span><span id="line-146"></span><span id="someChainwebApi"><span class="annot"><span class="annottext">someChainwebApi :: ChainwebVersion -&gt; [NetworkId] -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.html#someChainwebApi"><span class="hs-identifier hs-var hs-var">someChainwebApi</span></a></span></span><span> </span><span id="local-6989586621681510331"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510331"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510330"><span class="annot"><span class="annottext">cs :: [NetworkId]
+</span><a href="#local-6989586621681510330"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SomeApi
+</span><a href="Chainweb.RestAPI.html#someSwaggerApi"><span class="hs-identifier hs-var">someSwaggerApi</span></a></span><span>
+</span><span id="line-147"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeApi
+</span><a href="Chainweb.RestAPI.Health.html#someHealthCheckApi"><span class="hs-identifier hs-var">someHealthCheckApi</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeApi
+</span><a href="Chainweb.RestAPI.NodeInfo.html#someNodeInfoApi"><span class="hs-identifier hs-var">someNodeInfoApi</span></a></span><span>
+</span><span id="line-149"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [ChainId] -&gt; SomeApi
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.html#someBlockHeaderDbApis"><span class="hs-identifier hs-var">someBlockHeaderDbApis</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510331"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[ChainId]
+</span><a href="#local-6989586621681510325"><span class="hs-identifier hs-var">chains</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [ChainId] -&gt; SomeApi
+</span><a href="Chainweb.Payload.RestAPI.html#somePayloadApis"><span class="hs-identifier hs-var">somePayloadApis</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510331"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[ChainId]
+</span><a href="#local-6989586621681510325"><span class="hs-identifier hs-var">chains</span></a></span><span>
+</span><span id="line-151"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [NetworkId] -&gt; SomeApi
+</span><a href="P2P.Node.RestAPI.html#someP2pApis"><span class="hs-identifier hs-var">someP2pApis</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510331"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[NetworkId]
+</span><a href="#local-6989586621681510330"><span class="hs-identifier hs-var">cs</span></a></span><span>
+</span><span id="line-152"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [ChainId] -&gt; SomeApi
+</span><a href="Chainweb.Pact.RestAPI.html#somePactServiceApis"><span class="hs-identifier hs-var">PactAPI.somePactServiceApis</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510331"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[ChainId]
+</span><a href="#local-6989586621681510325"><span class="hs-identifier hs-var">chains</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; SomeApi
+</span><a href="Chainweb.Miner.RestAPI.html#someMiningApi"><span class="hs-identifier hs-var">someMiningApi</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510331"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="annot"><span class="annottext">SomeApi -&gt; SomeApi -&gt; SomeApi
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; SomeApi
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.html#someHeaderStreamApi"><span class="hs-identifier hs-var">someHeaderStreamApi</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510331"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-155"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-156"></span><span>    </span><span id="local-6989586621681510325"><span class="annot"><span class="annottext">chains :: [ChainId]
+</span><a href="#local-6989586621681510325"><span class="hs-identifier hs-var hs-var">chains</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[NetworkId] -&gt; [ChainId]
+</span><a href="Chainweb.RestAPI.html#selectChainIds"><span class="hs-identifier hs-var">selectChainIds</span></a></span><span> </span><span class="annot"><span class="annottext">[NetworkId]
+</span><a href="#local-6989586621681510330"><span class="hs-identifier hs-var">cs</span></a></span><span>
+</span><span id="line-157"></span><span>
+</span><span id="line-158"></span><span class="annot"><a href="Chainweb.RestAPI.html#selectChainIds"><span class="hs-identifier hs-type">selectChainIds</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-159"></span><span id="selectChainIds"><span class="annot"><span class="annottext">selectChainIds :: [NetworkId] -&gt; [ChainId]
+</span><a href="Chainweb.RestAPI.html#selectChainIds"><span class="hs-identifier hs-var hs-var">selectChainIds</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NetworkId -&gt; Maybe ChainId) -&gt; [NetworkId] -&gt; [ChainId]
+forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
+</span><span class="hs-identifier hs-var">mapMaybe</span></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Maybe ChainId
+</span><a href="#local-6989586621681510318"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-160"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-161"></span><span>    </span><span id="local-6989586621681510318"><span class="annot"><span class="annottext">f :: NetworkId -&gt; Maybe ChainId
+</span><a href="#local-6989586621681510318"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#ChainNetwork"><span class="hs-identifier hs-type">ChainNetwork</span></a></span><span> </span><span id="local-6989586621681510316"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681510316"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Maybe ChainId
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681510316"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-162"></span><span>    </span><span class="annot"><a href="#local-6989586621681510318"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-type">MempoolNetwork</span></a></span><span> </span><span id="local-6989586621681510314"><span class="annot"><span class="annottext">c :: ChainId
+</span><a href="#local-6989586621681510314"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; Maybe ChainId
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681510314"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-163"></span><span>    </span><span class="annot"><a href="#local-6989586621681510318"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#CutNetwork"><span class="hs-identifier hs-type">CutNetwork</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ChainId
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-164"></span><span>
+</span><span id="line-165"></span><span class="annot"><a href="Chainweb.RestAPI.html#prettyShowChainwebApi"><span class="hs-identifier hs-type">prettyShowChainwebApi</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-166"></span><span id="prettyShowChainwebApi"><span class="annot"><span class="annottext">prettyShowChainwebApi :: ChainwebVersion -&gt; [NetworkId] -&gt; Text
+</span><a href="Chainweb.RestAPI.html#prettyShowChainwebApi"><span class="hs-identifier hs-var hs-var">prettyShowChainwebApi</span></a></span></span><span> </span><span id="local-6989586621681510312"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510312"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510311"><span class="annot"><span class="annottext">cs :: [NetworkId]
+</span><a href="#local-6989586621681510311"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [NetworkId] -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.html#someChainwebApi"><span class="hs-identifier hs-var">someChainwebApi</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510312"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[NetworkId]
+</span><a href="#local-6989586621681510311"><span class="hs-identifier hs-var">cs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-167"></span><span>    </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span> </span><span id="local-6989586621681510309"><span class="annot"><span class="annottext">a :: Proxy a
+</span><a href="#local-6989586621681510309"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Proxy a -&gt; Text
+forall api. HasServer api '[] =&gt; Proxy api -&gt; Text
+</span><span class="hs-identifier hs-var">layout</span></span><span> </span><span class="annot"><span class="annottext">Proxy a
+</span><a href="#local-6989586621681510309"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-168"></span><span>
+</span><span id="line-169"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-170"></span><span class="hs-comment">-- Swagger</span><span>
+</span><span id="line-171"></span><span class="hs-comment">--</span><span>
+</span><span id="line-172"></span><span class="hs-comment">-- Note that with the current approach to constructing the API a single routing</span><span>
+</span><span id="line-173"></span><span class="hs-comment">-- table is generated that contains the routes for all chains. If the number of</span><span>
+</span><span id="line-174"></span><span class="hs-comment">-- chains is large the corresponding swagger file will be very large as well.</span><span>
+</span><span id="line-175"></span><span class="hs-comment">-- We should improve the swagger spec to be more structured.</span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span><span class="hs-keyword">type</span><span> </span><span id="SwaggerApi"><span class="annot"><a href="Chainweb.RestAPI.html#SwaggerApi"><span class="hs-identifier hs-var">SwaggerApi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;swagger.json&quot;</span></span><span> </span><span class="annot"><span class="hs-operator hs-type">:&gt;</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Get</span></span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">JSON</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Swagger</span></span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span class="annot"><a href="Chainweb.RestAPI.html#someSwaggerApi"><span class="hs-identifier hs-type">someSwaggerApi</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span>
+</span><span id="line-180"></span><span id="someSwaggerApi"><span class="annot"><span class="annottext">someSwaggerApi :: SomeApi
+</span><a href="Chainweb.RestAPI.html#someSwaggerApi"><span class="hs-identifier hs-var hs-var">someSwaggerApi</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy SwaggerApi -&gt; SomeApi
+forall a.
+(HasSwagger a, HasServer a '[], HasClient ClientM a) =&gt;
+Proxy a -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-var">SomeApi</span></a></span><span> </span><span class="annot"><span class="annottext">(Proxy SwaggerApi -&gt; SomeApi) -&gt; Proxy SwaggerApi -&gt; SomeApi
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Proxy SwaggerApi
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.RestAPI.html#SwaggerApi"><span class="hs-identifier hs-type">SwaggerApi</span></a></span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span class="annot"><a href="Chainweb.RestAPI.html#someSwaggerServer"><span class="hs-identifier hs-type">someSwaggerServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span><span>
+</span><span id="line-183"></span><span id="someSwaggerServer"><span class="annot"><span class="annottext">someSwaggerServer :: ChainwebVersion -&gt; [NetworkId] -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.html#someSwaggerServer"><span class="hs-identifier hs-var hs-var">someSwaggerServer</span></a></span></span><span> </span><span id="local-6989586621681510302"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510302"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510301"><span class="annot"><span class="annottext">cs :: [NetworkId]
+</span><a href="#local-6989586621681510301"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Proxy SwaggerApi -&gt; Server SwaggerApi -&gt; SomeServer
+forall a. HasServer a '[] =&gt; Proxy a -&gt; Server a -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-var">SomeServer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Proxy SwaggerApi
+forall k (t :: k). Proxy t
+</span><span class="hs-identifier hs-var">Proxy</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Chainweb.RestAPI.html#SwaggerApi"><span class="hs-identifier hs-type">SwaggerApi</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-184"></span><span>    </span><span class="annot"><span class="annottext">(Server SwaggerApi -&gt; SomeServer)
+-&gt; Server SwaggerApi -&gt; SomeServer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Swagger -&gt; Handler Swagger
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [NetworkId] -&gt; Swagger
+</span><a href="Chainweb.RestAPI.html#chainwebSwagger"><span class="hs-identifier hs-var">chainwebSwagger</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510302"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[NetworkId]
+</span><a href="#local-6989586621681510301"><span class="hs-identifier hs-var">cs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="annot"><a href="Chainweb.RestAPI.html#chainwebSwagger"><span class="hs-identifier hs-type">chainwebSwagger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Swagger</span></span><span>
+</span><span id="line-187"></span><span id="chainwebSwagger"><span class="annot"><span class="annottext">chainwebSwagger :: ChainwebVersion -&gt; [NetworkId] -&gt; Swagger
+</span><a href="Chainweb.RestAPI.html#chainwebSwagger"><span class="hs-identifier hs-var hs-var">chainwebSwagger</span></a></span></span><span> </span><span id="local-6989586621681510299"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510299"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510298"><span class="annot"><span class="annottext">cs :: [NetworkId]
+</span><a href="#local-6989586621681510298"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [NetworkId] -&gt; SomeApi
+</span><a href="Chainweb.RestAPI.html#someChainwebApi"><span class="hs-identifier hs-var">someChainwebApi</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510299"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[NetworkId]
+</span><a href="#local-6989586621681510298"><span class="hs-identifier hs-var">cs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-188"></span><span>    </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeApi"><span class="hs-identifier hs-type">SomeApi</span></a></span><span> </span><span id="local-6989586621681510297"><span class="annot"><span class="annottext">a :: Proxy a
+</span><a href="#local-6989586621681510297"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Proxy a -&gt; Swagger
+forall k (api :: k). HasSwagger api =&gt; Proxy api -&gt; Swagger
+</span><span class="hs-identifier hs-var">toSwagger</span></span><span> </span><span class="annot"><span class="annottext">Proxy a
+</span><a href="#local-6989586621681510297"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-189"></span><span>        </span><span class="annot"><span class="annottext">Swagger -&gt; (Swagger -&gt; Swagger) -&gt; Swagger
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Info -&gt; Identity Info) -&gt; Swagger -&gt; Identity Swagger
+forall s a. HasInfo s a =&gt; Lens' s a
+</span><span class="hs-identifier hs-var">info</span></span><span class="annot"><span class="annottext">((Info -&gt; Identity Info) -&gt; Swagger -&gt; Identity Swagger)
+-&gt; ((Text -&gt; Identity Text) -&gt; Info -&gt; Identity Info)
+-&gt; (Text -&gt; Identity Text)
+-&gt; Swagger
+-&gt; Identity Swagger
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span class="annot"><span class="annottext">(Text -&gt; Identity Text) -&gt; Info -&gt; Identity Info
+forall s a. HasTitle s a =&gt; Lens' s a
+</span><span class="hs-identifier hs-var">title</span></span><span>   </span><span class="annot"><span class="annottext">((Text -&gt; Identity Text) -&gt; Swagger -&gt; Identity Swagger)
+-&gt; Text -&gt; Swagger -&gt; Swagger
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Chainweb&quot;</span></span><span>
+</span><span id="line-190"></span><span>        </span><span class="annot"><span class="annottext">Swagger -&gt; (Swagger -&gt; Swagger) -&gt; Swagger
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Info -&gt; Identity Info) -&gt; Swagger -&gt; Identity Swagger
+forall s a. HasInfo s a =&gt; Lens' s a
+</span><span class="hs-identifier hs-var">info</span></span><span class="annot"><span class="annottext">((Info -&gt; Identity Info) -&gt; Swagger -&gt; Identity Swagger)
+-&gt; ((Text -&gt; Identity Text) -&gt; Info -&gt; Identity Info)
+-&gt; (Text -&gt; Identity Text)
+-&gt; Swagger
+-&gt; Identity Swagger
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span class="annot"><span class="annottext">(Text -&gt; Identity Text) -&gt; Info -&gt; Identity Info
+forall s a. HasVersion s a =&gt; Lens' s a
+</span><span class="hs-identifier hs-var">version</span></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; Identity Text) -&gt; Swagger -&gt; Identity Swagger)
+-&gt; Text -&gt; Swagger -&gt; Swagger
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="Chainweb.RestAPI.Utils.html#prettyApiVersion"><span class="hs-identifier hs-var">prettyApiVersion</span></a></span><span>
+</span><span id="line-191"></span><span>        </span><span class="annot"><span class="annottext">Swagger -&gt; (Swagger -&gt; Swagger) -&gt; Swagger
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Info -&gt; Identity Info) -&gt; Swagger -&gt; Identity Swagger
+forall s a. HasInfo s a =&gt; Lens' s a
+</span><span class="hs-identifier hs-var">info</span></span><span class="annot"><span class="annottext">((Info -&gt; Identity Info) -&gt; Swagger -&gt; Identity Swagger)
+-&gt; ((Maybe Text -&gt; Identity (Maybe Text)) -&gt; Info -&gt; Identity Info)
+-&gt; (Maybe Text -&gt; Identity (Maybe Text))
+-&gt; Swagger
+-&gt; Identity Swagger
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span class="annot"><span class="annottext">(Maybe Text -&gt; Identity (Maybe Text)) -&gt; Info -&gt; Identity Info
+forall s a. HasDescription s a =&gt; Lens' s a
+</span><span class="hs-identifier hs-var">description</span></span><span> </span><span class="annot"><span class="annottext">((Maybe Text -&gt; Identity (Maybe Text))
+ -&gt; Swagger -&gt; Identity Swagger)
+-&gt; Text -&gt; Swagger -&gt; Swagger
+forall s t a b. ASetter s t a (Maybe b) -&gt; b -&gt; s -&gt; t
+</span><span class="hs-operator hs-var">?~</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Chainweb/&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510299"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot; API&quot;</span></span><span>
+</span><span id="line-192"></span><span>
+</span><span id="line-193"></span><span class="annot"><a href="Chainweb.RestAPI.html#prettyChainwebSwagger"><span class="hs-identifier hs-type">prettyChainwebSwagger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html#NetworkId"><span class="hs-identifier hs-type">NetworkId</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-194"></span><span id="prettyChainwebSwagger"><span class="annot"><span class="annottext">prettyChainwebSwagger :: ChainwebVersion -&gt; [NetworkId] -&gt; Text
+</span><a href="Chainweb.RestAPI.html#prettyChainwebSwagger"><span class="hs-identifier hs-var hs-var">prettyChainwebSwagger</span></a></span></span><span> </span><span id="local-6989586621681510286"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510286"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510285"><span class="annot"><span class="annottext">cs :: [NetworkId]
+</span><a href="#local-6989586621681510285"><span class="hs-identifier hs-var">cs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; (Swagger -&gt; ByteString) -&gt; Swagger -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">BL.toStrict</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString)
+-&gt; (Swagger -&gt; ByteString) -&gt; Swagger -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Swagger -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">encodePretty</span></span><span>
+</span><span id="line-195"></span><span>    </span><span class="annot"><span class="annottext">(Swagger -&gt; Text) -&gt; Swagger -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [NetworkId] -&gt; Swagger
+</span><a href="Chainweb.RestAPI.html#chainwebSwagger"><span class="hs-identifier hs-var">chainwebSwagger</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510286"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">[NetworkId]
+</span><a href="#local-6989586621681510285"><span class="hs-identifier hs-var">cs</span></a></span><span>
+</span><span id="line-196"></span><span>
+</span><span id="line-197"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-198"></span><span class="hs-comment">-- Chainweb Server</span><span>
+</span><span id="line-199"></span><span>
+</span><span id="line-200"></span><span id="local-6989586621681510399"><span id="local-6989586621681510400"><span id="local-6989586621681510401"><span class="annot"><a href="Chainweb.RestAPI.html#someChainwebServer"><span class="hs-identifier hs-type">someChainwebServer</span></a></span><span>
+</span><span id="line-201"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681510401"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-202"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510400"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-203"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510399"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-204"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-205"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-type">ChainwebServerDbs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510401"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510399"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510400"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-206"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-type">MiningCoordination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510399"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510400"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-207"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html#HeaderStream"><span class="hs-identifier hs-type">HeaderStream</span></a></span><span>
+</span><span id="line-208"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.Utils.html#SomeServer"><span class="hs-identifier hs-type">SomeServer</span></a></span></span></span></span><span>
+</span><span id="line-209"></span><span id="someChainwebServer"><span class="annot"><span class="annottext">someChainwebServer :: ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; SomeServer
+</span><a href="Chainweb.RestAPI.html#someChainwebServer"><span class="hs-identifier hs-var hs-var">someChainwebServer</span></a></span></span><span> </span><span id="local-6989586621681510281"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510280"><span class="annot"><span class="annottext">dbs :: ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span></span><span> </span><span id="local-6989586621681510279"><span class="annot"><span class="annottext">mr :: Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510279"><span class="hs-identifier hs-var">mr</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html#HeaderStream"><span class="hs-identifier hs-type">HeaderStream</span></a></span><span> </span><span id="local-6989586621681510277"><span class="annot"><span class="annottext">hs :: Bool
+</span><a href="#local-6989586621681510277"><span class="hs-identifier hs-var">hs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-210"></span><span>    </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [NetworkId] -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.html#someSwaggerServer"><span class="hs-identifier hs-var">someSwaggerServer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(NetworkId, PeerDb) -&gt; NetworkId
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span> </span><span class="annot"><span class="annottext">((NetworkId, PeerDb) -&gt; NetworkId)
+-&gt; [(NetworkId, PeerDb)] -&gt; [NetworkId]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(NetworkId, PeerDb)]
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; [(NetworkId, PeerDb)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPeerDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerPeerDbs</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-211"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+</span><a href="Chainweb.RestAPI.Health.html#someHealthCheckServer"><span class="hs-identifier hs-var">someHealthCheckServer</span></a></span><span>
+</span><span id="line-212"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; SomeServer
+</span><a href="Chainweb.RestAPI.NodeInfo.html#someNodeInfoServer"><span class="hs-identifier hs-var">someNodeInfoServer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-213"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+-&gt; (CutDb cas -&gt; SomeServer) -&gt; Maybe (CutDb cas) -&gt; SomeServer
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+forall (cas :: * -&gt; *). ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+</span><a href="Chainweb.CutDB.RestAPI.Server.html#someCutServer"><span class="hs-identifier hs-var">someCutServer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; Maybe (CutDb cas)
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; Maybe (CutDb cas)
+</span><a href="Chainweb.RestAPI.html#_chainwebServerCutDb"><span class="hs-identifier hs-var hs-var">_chainwebServerCutDb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+-&gt; (CutDb cas -&gt; SomeServer) -&gt; Maybe (CutDb cas) -&gt; SomeServer
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+</span><a href="Chainweb.SPV.RestAPI.Server.html#someSpvServers"><span class="hs-identifier hs-var">someSpvServers</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; Maybe (CutDb cas)
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; Maybe (CutDb cas)
+</span><a href="Chainweb.RestAPI.html#_chainwebServerCutDb"><span class="hs-identifier hs-var hs-var">_chainwebServerCutDb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-215"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [(ChainId, PayloadDb cas)] -&gt; SomeServer
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+ChainwebVersion -&gt; [(ChainId, PayloadDb cas)] -&gt; SomeServer
+</span><a href="Chainweb.Payload.RestAPI.Server.html#somePayloadServers"><span class="hs-identifier hs-var">somePayloadServers</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(ChainId, PayloadDb cas)]
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; [(ChainId, PayloadDb cas)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPayloadDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerPayloadDbs</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-216"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [(ChainId, BlockHeaderDb)] -&gt; SomeServer
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Server.html#someBlockHeaderDbServers"><span class="hs-identifier hs-var">someBlockHeaderDbServers</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(ChainId, BlockHeaderDb)]
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; [(ChainId, BlockHeaderDb)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerBlockHeaderDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerBlockHeaderDbs</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-217"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [(ChainId, MempoolBackend t)] -&gt; SomeServer
+forall t.
+Show t =&gt;
+ChainwebVersion -&gt; [(ChainId, MempoolBackend t)] -&gt; SomeServer
+</span><a href="Chainweb.Mempool.RestAPI.Server.html#someMempoolServers"><span class="hs-identifier hs-var">Mempool.someMempoolServers</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(ChainId, MempoolBackend t)]
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; [(ChainId, MempoolBackend t)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerMempools"><span class="hs-identifier hs-var hs-var">_chainwebServerMempools</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-218"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; [(NetworkId, PeerDb)] -&gt; SomeServer
+</span><a href="P2P.Node.RestAPI.Server.html#someP2pServers"><span class="hs-identifier hs-var">someP2pServers</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; [(NetworkId, PeerDb)]
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; [(NetworkId, PeerDb)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPeerDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerPeerDbs</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-219"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; [(ChainId, PactServerData logger cas)] -&gt; SomeServer
+forall (cas :: * -&gt; *) logger.
+(PayloadCas cas, Logger logger) =&gt;
+ChainwebVersion
+-&gt; [(ChainId, PactServerData logger cas)] -&gt; SomeServer
+</span><a href="Chainweb.Pact.RestAPI.Server.html#somePactServers"><span class="hs-identifier hs-var">PactAPI.somePactServers</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+-&gt; [(ChainId, PactServerData logger cas)]
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas
+-&gt; [(ChainId, PactServerData logger cas)]
+</span><a href="Chainweb.RestAPI.html#_chainwebServerPactDbs"><span class="hs-identifier hs-var hs-var">_chainwebServerPactDbs</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-220"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+-&gt; (MiningCoordination logger cas -&gt; SomeServer)
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; SomeServer
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; MiningCoordination logger cas -&gt; SomeServer
+forall l (cas :: * -&gt; *).
+Logger l =&gt;
+ChainwebVersion -&gt; MiningCoordination l cas -&gt; SomeServer
+</span><a href="Chainweb.Miner.RestAPI.Server.html#someMiningServer"><span class="hs-identifier hs-var">Mining.someMiningServer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510279"><span class="hs-identifier hs-var">mr</span></a></span><span>
+</span><span id="line-221"></span><span>        </span><span class="annot"><span class="annottext">SomeServer -&gt; SomeServer -&gt; SomeServer
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+-&gt; (CutDb cas -&gt; SomeServer) -&gt; Maybe (CutDb cas) -&gt; SomeServer
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><span class="hs-identifier hs-var">maybe</span></span><span> </span><span class="annot"><span class="annottext">SomeServer
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+forall (cas :: * -&gt; *).
+PayloadCas cas =&gt;
+ChainwebVersion -&gt; CutDb cas -&gt; SomeServer
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Server.html#someHeaderStreamServer"><span class="hs-identifier hs-var">someHeaderStreamServer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510281"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (CutDb cas) -&gt; Maybe (CutDb cas) -&gt; Bool -&gt; Maybe (CutDb cas)
+forall a. a -&gt; a -&gt; Bool -&gt; a
+</span><span class="hs-identifier hs-var">bool</span></span><span> </span><span class="annot"><span class="annottext">Maybe (CutDb cas)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas -&gt; Maybe (CutDb cas)
+forall t logger (cas :: * -&gt; *).
+ChainwebServerDbs t logger cas -&gt; Maybe (CutDb cas)
+</span><a href="Chainweb.RestAPI.html#_chainwebServerCutDb"><span class="hs-identifier hs-var hs-var">_chainwebServerCutDb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510280"><span class="hs-identifier hs-var">dbs</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681510277"><span class="hs-identifier hs-var">hs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-222"></span><span>
+</span><span id="line-223"></span><span id="local-6989586621681510379"><span id="local-6989586621681510380"><span id="local-6989586621681510381"><span class="annot"><a href="Chainweb.RestAPI.html#chainwebApplication"><span class="hs-identifier hs-type">chainwebApplication</span></a></span><span>
+</span><span id="line-224"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681510381"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-225"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510380"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-226"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510379"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-227"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-228"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-type">ChainwebServerDbs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510381"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510379"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510380"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-229"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-type">MiningCoordination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510379"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510380"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-230"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html#HeaderStream"><span class="hs-identifier hs-type">HeaderStream</span></a></span><span>
+</span><span id="line-231"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Application</span></span></span></span></span><span>
+</span><span id="line-232"></span><span id="chainwebApplication"><span class="annot"><span class="annottext">chainwebApplication :: ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+</span><a href="Chainweb.RestAPI.html#chainwebApplication"><span class="hs-identifier hs-var hs-var">chainwebApplication</span></a></span></span><span> </span><span id="local-6989586621681510263"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510263"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510262"><span class="annot"><span class="annottext">dbs :: ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510262"><span class="hs-identifier hs-var">dbs</span></a></span></span><span> </span><span id="local-6989586621681510261"><span class="annot"><span class="annottext">mr :: Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510261"><span class="hs-identifier hs-var">mr</span></a></span></span><span> </span><span id="local-6989586621681510260"><span class="annot"><span class="annottext">hs :: HeaderStream
+</span><a href="#local-6989586621681510260"><span class="hs-identifier hs-var">hs</span></a></span></span><span>
+</span><span id="line-233"></span><span>    </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Middleware
+</span><a href="Chainweb.RestAPI.html#chainwebTime"><span class="hs-identifier hs-var">chainwebTime</span></a></span><span>
+</span><span id="line-234"></span><span>    </span><span class="annot"><span class="annottext">Middleware
+-&gt; (SomeServer -&gt; Application) -&gt; SomeServer -&gt; Application
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Middleware
+</span><a href="Chainweb.RestAPI.html#chainwebCors"><span class="hs-identifier hs-var">chainwebCors</span></a></span><span>
+</span><span id="line-235"></span><span>    </span><span class="annot"><span class="annottext">Middleware
+-&gt; (SomeServer -&gt; Application) -&gt; SomeServer -&gt; Application
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SomeServer -&gt; Application
+</span><a href="Chainweb.RestAPI.Utils.html#someServerApplication"><span class="hs-identifier hs-var">someServerApplication</span></a></span><span>
+</span><span id="line-236"></span><span>    </span><span class="annot"><span class="annottext">(SomeServer -&gt; Application) -&gt; SomeServer -&gt; Application
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; SomeServer
+forall t (cas :: * -&gt; *) logger.
+(Show t, PayloadCas cas, Logger logger) =&gt;
+ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; SomeServer
+</span><a href="Chainweb.RestAPI.html#someChainwebServer"><span class="hs-identifier hs-var">someChainwebServer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510263"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510262"><span class="hs-identifier hs-var">dbs</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510261"><span class="hs-identifier hs-var">mr</span></a></span><span> </span><span class="annot"><span class="annottext">HeaderStream
+</span><a href="#local-6989586621681510260"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><span id="line-237"></span><span>
+</span><span id="line-238"></span><span class="hs-comment">-- Simple cors with actualy simpleHeaders which includes content-type.</span><span>
+</span><span id="line-239"></span><span class="annot"><a href="Chainweb.RestAPI.html#chainwebCors"><span class="hs-identifier hs-type">chainwebCors</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Middleware</span></span><span>
+</span><span id="line-240"></span><span id="chainwebCors"><span class="annot"><span class="annottext">chainwebCors :: Middleware
+</span><a href="Chainweb.RestAPI.html#chainwebCors"><span class="hs-identifier hs-var hs-var">chainwebCors</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Request -&gt; Maybe CorsResourcePolicy) -&gt; Middleware
+</span><span class="hs-identifier hs-var">cors</span></span><span> </span><span class="annot"><span class="annottext">((Request -&gt; Maybe CorsResourcePolicy) -&gt; Middleware)
+-&gt; (CorsResourcePolicy -&gt; Request -&gt; Maybe CorsResourcePolicy)
+-&gt; CorsResourcePolicy
+-&gt; Middleware
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Maybe CorsResourcePolicy -&gt; Request -&gt; Maybe CorsResourcePolicy
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">(Maybe CorsResourcePolicy -&gt; Request -&gt; Maybe CorsResourcePolicy)
+-&gt; (CorsResourcePolicy -&gt; Maybe CorsResourcePolicy)
+-&gt; CorsResourcePolicy
+-&gt; Request
+-&gt; Maybe CorsResourcePolicy
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">CorsResourcePolicy -&gt; Maybe CorsResourcePolicy
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(CorsResourcePolicy -&gt; Middleware)
+-&gt; CorsResourcePolicy -&gt; Middleware
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">CorsResourcePolicy
+</span><span class="hs-identifier hs-var">simpleCorsResourcePolicy</span></span><span>
+</span><span id="line-241"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">corsRequestHeaders :: [HeaderName]
+</span><span class="hs-identifier hs-var">corsRequestHeaders</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[HeaderName]
+</span><span class="hs-identifier hs-var">simpleHeaders</span></span><span>
+</span><span id="line-242"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-243"></span><span>
+</span><span id="line-244"></span><span class="annot"><a href="Chainweb.RestAPI.html#chainwebTime"><span class="hs-identifier hs-type">chainwebTime</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Middleware</span></span><span>
+</span><span id="line-245"></span><span id="chainwebTime"><span class="annot"><span class="annottext">chainwebTime :: Middleware
+</span><a href="Chainweb.RestAPI.html#chainwebTime"><span class="hs-identifier hs-var hs-var">chainwebTime</span></a></span></span><span> </span><span id="local-6989586621681510251"><span class="annot"><span class="annottext">app :: Application
+</span><a href="#local-6989586621681510251"><span class="hs-identifier hs-var">app</span></a></span></span><span> </span><span id="local-6989586621681510250"><span class="annot"><span class="annottext">req :: Request
+</span><a href="#local-6989586621681510250"><span class="hs-identifier hs-var">req</span></a></span></span><span> </span><span id="local-6989586621681510249"><span class="annot"><span class="annottext">resp :: Response -&gt; IO ResponseReceived
+</span><a href="#local-6989586621681510249"><span class="hs-identifier hs-var">resp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Application
+</span><a href="#local-6989586621681510251"><span class="hs-identifier hs-var">app</span></a></span><span> </span><span class="annot"><span class="annottext">Request
+</span><a href="#local-6989586621681510250"><span class="hs-identifier hs-var">req</span></a></span><span> </span><span class="annot"><span class="annottext">Response -&gt; IO ResponseReceived
+</span><a href="#local-6989586621681510248"><span class="hs-identifier hs-var">resp'</span></a></span><span>
+</span><span id="line-246"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-247"></span><span>    </span><span id="local-6989586621681510248"><span class="annot"><span class="annottext">resp' :: Response -&gt; IO ResponseReceived
+</span><a href="#local-6989586621681510248"><span class="hs-identifier hs-var hs-var">resp'</span></a></span></span><span> </span><span id="local-6989586621681510247"><span class="annot"><span class="annottext">res :: Response
+</span><a href="#local-6989586621681510247"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-248"></span><span>        </span><span id="local-6989586621681510246"><span class="annot"><span class="annottext">Int64
+</span><a href="#local-6989586621681510246"><span class="hs-identifier hs-var">timestamp</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TimeSpec -&gt; Int64
+</span><span class="hs-identifier hs-var hs-var">sec</span></span><span> </span><span class="annot"><span class="annottext">(TimeSpec -&gt; Int64) -&gt; IO TimeSpec -&gt; IO Int64
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Clock -&gt; IO TimeSpec
+</span><span class="hs-identifier hs-var">getTime</span></span><span> </span><span class="annot"><span class="annottext">Clock
+</span><span class="hs-identifier hs-var">Realtime</span></span><span>
+</span><span id="line-249"></span><span>        </span><span class="annot"><span class="annottext">Response -&gt; IO ResponseReceived
+</span><a href="#local-6989586621681510249"><span class="hs-identifier hs-var">resp</span></a></span><span> </span><span class="annot"><span class="annottext">(Response -&gt; IO ResponseReceived)
+-&gt; Response -&gt; IO ResponseReceived
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(ResponseHeaders -&gt; ResponseHeaders) -&gt; Response -&gt; Response
+</span><span class="hs-identifier hs-var">mapResponseHeaders</span></span><span>
+</span><span id="line-250"></span><span>            </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-glyph">:</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;X-Server-Timestamp&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int64 -&gt; ByteString
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int64
+</span><a href="#local-6989586621681510246"><span class="hs-identifier hs-var">timestamp</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-251"></span><span>            </span><span class="annot"><span class="annottext">Response
+</span><a href="#local-6989586621681510247"><span class="hs-identifier hs-var">res</span></a></span><span>
+</span><span id="line-252"></span><span>
+</span><span id="line-253"></span><span id="local-6989586621681510240"><span id="local-6989586621681510241"><span id="local-6989586621681510242"><span class="annot"><a href="Chainweb.RestAPI.html#serveChainwebOnPort"><span class="hs-identifier hs-type">serveChainwebOnPort</span></a></span><span>
+</span><span id="line-254"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681510242"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-255"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510241"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-256"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510240"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-257"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.HostAddress.html#Port"><span class="hs-identifier hs-type">Port</span></a></span><span>
+</span><span id="line-258"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-259"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-type">ChainwebServerDbs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510242"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510240"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510241"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-260"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-type">MiningCoordination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510240"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510241"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-261"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html#HeaderStream"><span class="hs-identifier hs-type">HeaderStream</span></a></span><span>
+</span><span id="line-262"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-263"></span><span id="serveChainwebOnPort"><span class="annot"><span class="annottext">serveChainwebOnPort :: Port
+-&gt; ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; IO ()
+</span><a href="Chainweb.RestAPI.html#serveChainwebOnPort"><span class="hs-identifier hs-var hs-var">serveChainwebOnPort</span></a></span></span><span> </span><span id="local-6989586621681510239"><span class="annot"><span class="annottext">p :: Port
+</span><a href="#local-6989586621681510239"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621681510238"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510238"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510237"><span class="annot"><span class="annottext">dbs :: ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510237"><span class="hs-identifier hs-var">dbs</span></a></span></span><span> </span><span id="local-6989586621681510236"><span class="annot"><span class="annottext">mr :: Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510236"><span class="hs-identifier hs-var">mr</span></a></span></span><span> </span><span id="local-6989586621681510235"><span class="annot"><span class="annottext">hs :: HeaderStream
+</span><a href="#local-6989586621681510235"><span class="hs-identifier hs-var">hs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Port -&gt; Application -&gt; IO ()
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Port -&gt; Port
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Port
+</span><a href="#local-6989586621681510239"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Application -&gt; IO ()) -&gt; Application -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+forall t (cas :: * -&gt; *) logger.
+(Show t, PayloadCas cas, Logger logger) =&gt;
+ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+</span><a href="Chainweb.RestAPI.html#chainwebApplication"><span class="hs-identifier hs-var">chainwebApplication</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510238"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510237"><span class="hs-identifier hs-var">dbs</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510236"><span class="hs-identifier hs-var">mr</span></a></span><span> </span><span class="annot"><span class="annottext">HeaderStream
+</span><a href="#local-6989586621681510235"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><span id="line-264"></span><span>
+</span><span id="line-265"></span><span id="local-6989586621681510230"><span id="local-6989586621681510231"><span id="local-6989586621681510232"><span class="annot"><a href="Chainweb.RestAPI.html#serveChainweb"><span class="hs-identifier hs-type">serveChainweb</span></a></span><span>
+</span><span id="line-266"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681510232"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-267"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510231"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-268"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510230"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-269"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Settings</span></span><span>
+</span><span id="line-270"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-271"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-type">ChainwebServerDbs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510232"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510230"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510231"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-272"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-type">MiningCoordination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510230"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510231"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-273"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html#HeaderStream"><span class="hs-identifier hs-type">HeaderStream</span></a></span><span>
+</span><span id="line-274"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-275"></span><span id="serveChainweb"><span class="annot"><span class="annottext">serveChainweb :: Settings
+-&gt; ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; IO ()
+</span><a href="Chainweb.RestAPI.html#serveChainweb"><span class="hs-identifier hs-var hs-var">serveChainweb</span></a></span></span><span> </span><span id="local-6989586621681510229"><span class="annot"><span class="annottext">s :: Settings
+</span><a href="#local-6989586621681510229"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681510228"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510228"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510227"><span class="annot"><span class="annottext">dbs :: ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510227"><span class="hs-identifier hs-var">dbs</span></a></span></span><span> </span><span id="local-6989586621681510226"><span class="annot"><span class="annottext">mr :: Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510226"><span class="hs-identifier hs-var">mr</span></a></span></span><span> </span><span id="local-6989586621681510225"><span class="annot"><span class="annottext">hs :: HeaderStream
+</span><a href="#local-6989586621681510225"><span class="hs-identifier hs-var">hs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Settings -&gt; Application -&gt; IO ()
+</span><span class="hs-identifier hs-var">runSettings</span></span><span> </span><span class="annot"><span class="annottext">Settings
+</span><a href="#local-6989586621681510229"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">(Application -&gt; IO ()) -&gt; Application -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+forall t (cas :: * -&gt; *) logger.
+(Show t, PayloadCas cas, Logger logger) =&gt;
+ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+</span><a href="Chainweb.RestAPI.html#chainwebApplication"><span class="hs-identifier hs-var">chainwebApplication</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510228"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510227"><span class="hs-identifier hs-var">dbs</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510226"><span class="hs-identifier hs-var">mr</span></a></span><span> </span><span class="annot"><span class="annottext">HeaderStream
+</span><a href="#local-6989586621681510225"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><span id="line-276"></span><span>
+</span><span id="line-277"></span><span id="local-6989586621681510221"><span id="local-6989586621681510222"><span id="local-6989586621681510223"><span class="annot"><a href="Chainweb.RestAPI.html#serveChainwebSocket"><span class="hs-identifier hs-type">serveChainwebSocket</span></a></span><span>
+</span><span id="line-278"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681510223"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-279"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510222"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-280"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510221"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-281"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Settings</span></span><span>
+</span><span id="line-282"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span>
+</span><span id="line-283"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-284"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-type">ChainwebServerDbs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510223"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510221"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510222"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-285"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-type">MiningCoordination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510221"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510222"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-286"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html#HeaderStream"><span class="hs-identifier hs-type">HeaderStream</span></a></span><span>
+</span><span id="line-287"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-288"></span><span id="serveChainwebSocket"><span class="annot"><span class="annottext">serveChainwebSocket :: Settings
+-&gt; Socket
+-&gt; ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; IO ()
+</span><a href="Chainweb.RestAPI.html#serveChainwebSocket"><span class="hs-identifier hs-var hs-var">serveChainwebSocket</span></a></span></span><span> </span><span id="local-6989586621681510220"><span class="annot"><span class="annottext">s :: Settings
+</span><a href="#local-6989586621681510220"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681510219"><span class="annot"><span class="annottext">sock :: Socket
+</span><a href="#local-6989586621681510219"><span class="hs-identifier hs-var">sock</span></a></span></span><span> </span><span id="local-6989586621681510218"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510218"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510217"><span class="annot"><span class="annottext">dbs :: ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510217"><span class="hs-identifier hs-var">dbs</span></a></span></span><span> </span><span id="local-6989586621681510216"><span class="annot"><span class="annottext">mr :: Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510216"><span class="hs-identifier hs-var">mr</span></a></span></span><span> </span><span id="local-6989586621681510215"><span class="annot"><span class="annottext">hs :: HeaderStream
+</span><a href="#local-6989586621681510215"><span class="hs-identifier hs-var">hs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-289"></span><span>    </span><span class="annot"><span class="annottext">Settings -&gt; Socket -&gt; Application -&gt; IO ()
+</span><span class="hs-identifier hs-var">runSettingsSocket</span></span><span> </span><span class="annot"><span class="annottext">Settings
+</span><a href="#local-6989586621681510220"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681510219"><span class="hs-identifier hs-var">sock</span></a></span><span> </span><span class="annot"><span class="annottext">(Application -&gt; IO ()) -&gt; Application -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+forall t (cas :: * -&gt; *) logger.
+(Show t, PayloadCas cas, Logger logger) =&gt;
+ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+</span><a href="Chainweb.RestAPI.html#chainwebApplication"><span class="hs-identifier hs-var">chainwebApplication</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510218"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510217"><span class="hs-identifier hs-var">dbs</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510216"><span class="hs-identifier hs-var">mr</span></a></span><span> </span><span class="annot"><span class="annottext">HeaderStream
+</span><a href="#local-6989586621681510215"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><span id="line-290"></span><span>
+</span><span id="line-291"></span><span id="local-6989586621681510211"><span id="local-6989586621681510212"><span id="local-6989586621681510213"><span class="annot"><a href="Chainweb.RestAPI.html#serveChainwebSocketTls"><span class="hs-identifier hs-type">serveChainwebSocketTls</span></a></span><span>
+</span><span id="line-292"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681510213"><span class="hs-identifier hs-type">t</span></a></span><span>
+</span><span id="line-293"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510212"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-294"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510211"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-295"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Settings</span></span><span>
+</span><span id="line-296"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Network.X509.SelfSigned.html#X509CertChainPem"><span class="hs-identifier hs-type">X509CertChainPem</span></a></span><span>
+</span><span id="line-297"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Network.X509.SelfSigned.html#X509KeyPem"><span class="hs-identifier hs-type">X509KeyPem</span></a></span><span>
+</span><span id="line-298"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Socket</span></span><span>
+</span><span id="line-299"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-300"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.html#ChainwebServerDbs"><span class="hs-identifier hs-type">ChainwebServerDbs</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510213"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510211"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510212"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-301"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-type">MiningCoordination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510211"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681510212"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-302"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.html#HeaderStream"><span class="hs-identifier hs-type">HeaderStream</span></a></span><span>
+</span><span id="line-303"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Middleware</span></span><span>
+</span><span id="line-304"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-305"></span><span id="serveChainwebSocketTls"><span class="annot"><span class="annottext">serveChainwebSocketTls :: Settings
+-&gt; X509CertChainPem
+-&gt; X509KeyPem
+-&gt; Socket
+-&gt; ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Middleware
+-&gt; IO ()
+</span><a href="Chainweb.RestAPI.html#serveChainwebSocketTls"><span class="hs-identifier hs-var hs-var">serveChainwebSocketTls</span></a></span></span><span> </span><span id="local-6989586621681510210"><span class="annot"><span class="annottext">settings :: Settings
+</span><a href="#local-6989586621681510210"><span class="hs-identifier hs-var">settings</span></a></span></span><span> </span><span id="local-6989586621681510209"><span class="annot"><span class="annottext">certChain :: X509CertChainPem
+</span><a href="#local-6989586621681510209"><span class="hs-identifier hs-var">certChain</span></a></span></span><span> </span><span id="local-6989586621681510208"><span class="annot"><span class="annottext">key :: X509KeyPem
+</span><a href="#local-6989586621681510208"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span id="local-6989586621681510207"><span class="annot"><span class="annottext">sock :: Socket
+</span><a href="#local-6989586621681510207"><span class="hs-identifier hs-var">sock</span></a></span></span><span> </span><span id="local-6989586621681510206"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681510206"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681510205"><span class="annot"><span class="annottext">dbs :: ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510205"><span class="hs-identifier hs-var">dbs</span></a></span></span><span> </span><span id="local-6989586621681510204"><span class="annot"><span class="annottext">mr :: Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510204"><span class="hs-identifier hs-var">mr</span></a></span></span><span> </span><span id="local-6989586621681510203"><span class="annot"><span class="annottext">hs :: HeaderStream
+</span><a href="#local-6989586621681510203"><span class="hs-identifier hs-var">hs</span></a></span></span><span> </span><span id="local-6989586621681510202"><span class="annot"><span class="annottext">m :: Middleware
+</span><a href="#local-6989586621681510202"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-306"></span><span>    </span><span class="annot"><span class="annottext">TLSSettings -&gt; Settings -&gt; Socket -&gt; Application -&gt; IO ()
+</span><span class="hs-identifier hs-var">runTLSSocket</span></span><span> </span><span class="annot"><span class="annottext">TLSSettings
+</span><a href="#local-6989586621681510201"><span class="hs-identifier hs-var">tlsSettings</span></a></span><span> </span><span class="annot"><span class="annottext">Settings
+</span><a href="#local-6989586621681510210"><span class="hs-identifier hs-var">settings</span></a></span><span> </span><span class="annot"><span class="annottext">Socket
+</span><a href="#local-6989586621681510207"><span class="hs-identifier hs-var">sock</span></a></span><span> </span><span class="annot"><span class="annottext">(Application -&gt; IO ()) -&gt; Application -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Middleware
+</span><a href="#local-6989586621681510202"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Application
+</span><a href="#local-6989586621681510200"><span class="hs-identifier hs-var">app</span></a></span><span>
+</span><span id="line-307"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-308"></span><span>    </span><span class="annot"><a href="#local-6989586621681510201"><span class="hs-identifier hs-type">tlsSettings</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TLSSettings</span></span><span>
+</span><span id="line-309"></span><span>    </span><span id="local-6989586621681510201"><span class="annot"><span class="annottext">tlsSettings :: TLSSettings
+</span><a href="#local-6989586621681510201"><span class="hs-identifier hs-var hs-var">tlsSettings</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">X509CertChainPem -&gt; X509KeyPem -&gt; TLSSettings
+</span><a href="Network.X509.SelfSigned.html#tlsServerChainSettings"><span class="hs-identifier hs-var">tlsServerChainSettings</span></a></span><span> </span><span class="annot"><span class="annottext">X509CertChainPem
+</span><a href="#local-6989586621681510209"><span class="hs-identifier hs-var">certChain</span></a></span><span> </span><span class="annot"><span class="annottext">X509KeyPem
+</span><a href="#local-6989586621681510208"><span class="hs-identifier hs-var">key</span></a></span><span>
+</span><span id="line-310"></span><span>
+</span><span id="line-311"></span><span>    </span><span class="annot"><a href="#local-6989586621681510200"><span class="hs-identifier hs-type">app</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Application</span></span><span>
+</span><span id="line-312"></span><span>    </span><span id="local-6989586621681510200"><span class="annot"><span class="annottext">app :: Application
+</span><a href="#local-6989586621681510200"><span class="hs-identifier hs-var hs-var">app</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+forall t (cas :: * -&gt; *) logger.
+(Show t, PayloadCas cas, Logger logger) =&gt;
+ChainwebVersion
+-&gt; ChainwebServerDbs t logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+-&gt; HeaderStream
+-&gt; Application
+</span><a href="Chainweb.RestAPI.html#chainwebApplication"><span class="hs-identifier hs-var">chainwebApplication</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681510206"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebServerDbs t logger cas
+</span><a href="#local-6989586621681510205"><span class="hs-identifier hs-var">dbs</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas)
+</span><a href="#local-6989586621681510204"><span class="hs-identifier hs-var">mr</span></a></span><span> </span><span class="annot"><span class="annottext">HeaderStream
+</span><a href="#local-6989586621681510203"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><span id="line-313"></span></pre></body></html>

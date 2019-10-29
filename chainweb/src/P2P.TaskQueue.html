@@ -1,0 +1,941 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE MultiWayIf #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Module: P2P.TaskQueue</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-20"></span><span class="hs-comment">--</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-22"></span><span class="hs-comment">--</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">P2P.TaskQueue</span><span>
+</span><span id="line-24"></span><span class="hs-special">(</span><span>
+</span><span id="line-25"></span><span class="annot"><span class="hs-comment">-- * Tasks</span></span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="P2P.TaskQueue.html#TaskAction"><span class="hs-identifier">TaskAction</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier">TaskId</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier">AttemptsCount</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier">Priority</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier">Task</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier">newTask</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier">awaitTask</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#taskResult"><span class="hs-identifier">taskResult</span></a></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="annot"><span class="hs-comment">-- * P2P Session for Running Queued Tasks</span></span><span>
+</span><span id="line-36"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#session"><span class="hs-identifier">session</span></a></span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#session_"><span class="hs-identifier">session_</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><span class="hs-comment">-- * Exceptions</span></span><span>
+</span><span id="line-40"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#TaskException"><span class="hs-identifier">TaskException</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Arrow</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Either</span></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Function</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String</span></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.IVar.html"><span class="hs-identifier">Data.IVar</span></a></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.PQueue.html"><span class="hs-identifier">Data.PQueue</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Peer.html"><span class="hs-identifier">P2P.Peer</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- Exceptions</span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-keyword">data</span><span> </span><span id="TaskException"><span class="annot"><a href="P2P.TaskQueue.html#TaskException"><span class="hs-identifier hs-var">TaskException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TaskFailed"><span class="annot"><a href="P2P.TaskQueue.html#TaskFailed"><span class="hs-identifier hs-var">TaskFailed</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">]</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span id="local-6989586621681500339"><span id="local-6989586621681500341"><span id="local-6989586621681500343"><span class="annot"><span class="annottext">Int -&gt; TaskException -&gt; ShowS
+[TaskException] -&gt; ShowS
+TaskException -&gt; String
+(Int -&gt; TaskException -&gt; ShowS)
+-&gt; (TaskException -&gt; String)
+-&gt; ([TaskException] -&gt; ShowS)
+-&gt; Show TaskException
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TaskException] -&gt; ShowS
+$cshowList :: [TaskException] -&gt; ShowS
+show :: TaskException -&gt; String
+$cshow :: TaskException -&gt; String
+showsPrec :: Int -&gt; TaskException -&gt; ShowS
+$cshowsPrec :: Int -&gt; TaskException -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500330"><span id="local-6989586621681500332"><span id="local-6989586621681500334"><span class="annot"><span class="hs-identifier hs-type">Exception</span></span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#TaskException"><span class="hs-identifier hs-type">TaskException</span></a></span></span></span></span><span>
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-80"></span><span class="hs-comment">-- Task</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">type</span><span> </span><span id="TaskAction"><span class="annot"><a href="P2P.TaskQueue.html#TaskAction"><span class="hs-identifier hs-var">TaskAction</span></a></span></span><span> </span><span id="local-6989586621681500328"><span class="annot"><a href="#local-6989586621681500328"><span class="hs-identifier hs-type">env</span></a></span></span><span> </span><span id="local-6989586621681500327"><span class="annot"><a href="#local-6989586621681500327"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681500328"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500327"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span id="local-6989586621681500325"><span id="local-6989586621681500326"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="TaskId"><span class="annot"><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="TaskId"><span class="annot"><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-var">TaskId</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500318"><span id="local-6989586621681500320"><span id="local-6989586621681500322"><span class="annot"><span class="annottext">Int -&gt; TaskId -&gt; ShowS
+[TaskId] -&gt; ShowS
+TaskId -&gt; String
+(Int -&gt; TaskId -&gt; ShowS)
+-&gt; (TaskId -&gt; String) -&gt; ([TaskId] -&gt; ShowS) -&gt; Show TaskId
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [TaskId] -&gt; ShowS
+$cshowList :: [TaskId] -&gt; ShowS
+show :: TaskId -&gt; String
+$cshow :: TaskId -&gt; String
+showsPrec :: Int -&gt; TaskId -&gt; ShowS
+$cshowsPrec :: Int -&gt; TaskId -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500314"><span id="local-6989586621681500316"><span class="annot"><span class="annottext">TaskId -&gt; TaskId -&gt; Bool
+(TaskId -&gt; TaskId -&gt; Bool)
+-&gt; (TaskId -&gt; TaskId -&gt; Bool) -&gt; Eq TaskId
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: TaskId -&gt; TaskId -&gt; Bool
+$c/= :: TaskId -&gt; TaskId -&gt; Bool
+== :: TaskId -&gt; TaskId -&gt; Bool
+$c== :: TaskId -&gt; TaskId -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500298"><span id="local-6989586621681500300"><span id="local-6989586621681500302"><span id="local-6989586621681500304"><span id="local-6989586621681500306"><span id="local-6989586621681500308"><span id="local-6989586621681500310"><span class="annot"><span class="annottext">Eq TaskId
+Eq TaskId =&gt;
+(TaskId -&gt; TaskId -&gt; Ordering)
+-&gt; (TaskId -&gt; TaskId -&gt; Bool)
+-&gt; (TaskId -&gt; TaskId -&gt; Bool)
+-&gt; (TaskId -&gt; TaskId -&gt; Bool)
+-&gt; (TaskId -&gt; TaskId -&gt; Bool)
+-&gt; (TaskId -&gt; TaskId -&gt; TaskId)
+-&gt; (TaskId -&gt; TaskId -&gt; TaskId)
+-&gt; Ord TaskId
+TaskId -&gt; TaskId -&gt; Bool
+TaskId -&gt; TaskId -&gt; Ordering
+TaskId -&gt; TaskId -&gt; TaskId
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: TaskId -&gt; TaskId -&gt; TaskId
+$cmin :: TaskId -&gt; TaskId -&gt; TaskId
+max :: TaskId -&gt; TaskId -&gt; TaskId
+$cmax :: TaskId -&gt; TaskId -&gt; TaskId
+&gt;= :: TaskId -&gt; TaskId -&gt; Bool
+$c&gt;= :: TaskId -&gt; TaskId -&gt; Bool
+&gt; :: TaskId -&gt; TaskId -&gt; Bool
+$c&gt; :: TaskId -&gt; TaskId -&gt; Bool
+&lt;= :: TaskId -&gt; TaskId -&gt; Bool
+$c&lt;= :: TaskId -&gt; TaskId -&gt; Bool
+&lt; :: TaskId -&gt; TaskId -&gt; Bool
+$c&lt; :: TaskId -&gt; TaskId -&gt; Bool
+compare :: TaskId -&gt; TaskId -&gt; Ordering
+$ccompare :: TaskId -&gt; TaskId -&gt; Ordering
+$cp1Ord :: Eq TaskId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. TaskId -&gt; Rep TaskId x)
+-&gt; (forall x. Rep TaskId x -&gt; TaskId) -&gt; Generic TaskId
+forall x. Rep TaskId x -&gt; TaskId
+forall x. TaskId -&gt; Rep TaskId x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep TaskId x -&gt; TaskId
+$cfrom :: forall x. TaskId -&gt; Rep TaskId x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500292"><span class="annot"><span class="annottext">String -&gt; TaskId
+(String -&gt; TaskId) -&gt; IsString TaskId
+forall a. (String -&gt; a) -&gt; IsString a
+fromString :: String -&gt; TaskId
+$cfromString :: String -&gt; TaskId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">IsString</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>
+</span><span id="line-88"></span><span id="local-6989586621681500289"><span id="local-6989586621681500290"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="Priority"><span class="annot"><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Priority"><span class="annot"><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-var">Priority</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500282"><span id="local-6989586621681500284"><span id="local-6989586621681500286"><span class="annot"><span class="annottext">Int -&gt; Priority -&gt; ShowS
+[Priority] -&gt; ShowS
+Priority -&gt; String
+(Int -&gt; Priority -&gt; ShowS)
+-&gt; (Priority -&gt; String) -&gt; ([Priority] -&gt; ShowS) -&gt; Show Priority
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Priority] -&gt; ShowS
+$cshowList :: [Priority] -&gt; ShowS
+show :: Priority -&gt; String
+$cshow :: Priority -&gt; String
+showsPrec :: Int -&gt; Priority -&gt; ShowS
+$cshowsPrec :: Int -&gt; Priority -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500278"><span id="local-6989586621681500280"><span class="annot"><span class="annottext">Priority -&gt; Priority -&gt; Bool
+(Priority -&gt; Priority -&gt; Bool)
+-&gt; (Priority -&gt; Priority -&gt; Bool) -&gt; Eq Priority
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Priority -&gt; Priority -&gt; Bool
+$c/= :: Priority -&gt; Priority -&gt; Bool
+== :: Priority -&gt; Priority -&gt; Bool
+$c== :: Priority -&gt; Priority -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500263"><span id="local-6989586621681500265"><span id="local-6989586621681500267"><span id="local-6989586621681500269"><span id="local-6989586621681500271"><span id="local-6989586621681500273"><span id="local-6989586621681500275"><span class="annot"><span class="annottext">Eq Priority
+Eq Priority =&gt;
+(Priority -&gt; Priority -&gt; Ordering)
+-&gt; (Priority -&gt; Priority -&gt; Bool)
+-&gt; (Priority -&gt; Priority -&gt; Bool)
+-&gt; (Priority -&gt; Priority -&gt; Bool)
+-&gt; (Priority -&gt; Priority -&gt; Bool)
+-&gt; (Priority -&gt; Priority -&gt; Priority)
+-&gt; (Priority -&gt; Priority -&gt; Priority)
+-&gt; Ord Priority
+Priority -&gt; Priority -&gt; Bool
+Priority -&gt; Priority -&gt; Ordering
+Priority -&gt; Priority -&gt; Priority
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Priority -&gt; Priority -&gt; Priority
+$cmin :: Priority -&gt; Priority -&gt; Priority
+max :: Priority -&gt; Priority -&gt; Priority
+$cmax :: Priority -&gt; Priority -&gt; Priority
+&gt;= :: Priority -&gt; Priority -&gt; Bool
+$c&gt;= :: Priority -&gt; Priority -&gt; Bool
+&gt; :: Priority -&gt; Priority -&gt; Bool
+$c&gt; :: Priority -&gt; Priority -&gt; Bool
+&lt;= :: Priority -&gt; Priority -&gt; Bool
+$c&lt;= :: Priority -&gt; Priority -&gt; Bool
+&lt; :: Priority -&gt; Priority -&gt; Bool
+$c&lt; :: Priority -&gt; Priority -&gt; Bool
+compare :: Priority -&gt; Priority -&gt; Ordering
+$ccompare :: Priority -&gt; Priority -&gt; Ordering
+$cp1Ord :: Eq Priority
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Priority -&gt; Rep Priority x)
+-&gt; (forall x. Rep Priority x -&gt; Priority) -&gt; Generic Priority
+forall x. Rep Priority x -&gt; Priority
+forall x. Priority -&gt; Rep Priority x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep Priority x -&gt; Priority
+$cfrom :: forall x. Priority -&gt; Rep Priority x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500259"><span class="annot"><span class="annottext">Priority -&gt; ()
+(Priority -&gt; ()) -&gt; NFData Priority
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: Priority -&gt; ()
+$crnf :: Priority -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500254"><span id="local-6989586621681500256"><span class="annot"><span class="annottext">Int -&gt; Priority -&gt; Int
+Priority -&gt; Int
+(Int -&gt; Priority -&gt; Int) -&gt; (Priority -&gt; Int) -&gt; Hashable Priority
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: Priority -&gt; Int
+$chash :: Priority -&gt; Int
+hashWithSalt :: Int -&gt; Priority -&gt; Int
+$chashWithSalt :: Int -&gt; Priority -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span id="local-6989586621681500251"><span id="local-6989586621681500252"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="AttemptsCount"><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier hs-var">AttemptsCount</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="AttemptsCount"><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier hs-var">AttemptsCount</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500244"><span id="local-6989586621681500246"><span id="local-6989586621681500248"><span class="annot"><span class="annottext">Int -&gt; AttemptsCount -&gt; ShowS
+[AttemptsCount] -&gt; ShowS
+AttemptsCount -&gt; String
+(Int -&gt; AttemptsCount -&gt; ShowS)
+-&gt; (AttemptsCount -&gt; String)
+-&gt; ([AttemptsCount] -&gt; ShowS)
+-&gt; Show AttemptsCount
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [AttemptsCount] -&gt; ShowS
+$cshowList :: [AttemptsCount] -&gt; ShowS
+show :: AttemptsCount -&gt; String
+$cshow :: AttemptsCount -&gt; String
+showsPrec :: Int -&gt; AttemptsCount -&gt; ShowS
+$cshowsPrec :: Int -&gt; AttemptsCount -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500240"><span id="local-6989586621681500242"><span class="annot"><span class="annottext">AttemptsCount -&gt; AttemptsCount -&gt; Bool
+(AttemptsCount -&gt; AttemptsCount -&gt; Bool)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; Bool) -&gt; Eq AttemptsCount
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+$c/= :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+== :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+$c== :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500225"><span id="local-6989586621681500227"><span id="local-6989586621681500229"><span id="local-6989586621681500231"><span id="local-6989586621681500233"><span id="local-6989586621681500235"><span id="local-6989586621681500237"><span class="annot"><span class="annottext">Eq AttemptsCount
+Eq AttemptsCount =&gt;
+(AttemptsCount -&gt; AttemptsCount -&gt; Ordering)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; Bool)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; Bool)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; Bool)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; Bool)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; Ord AttemptsCount
+AttemptsCount -&gt; AttemptsCount -&gt; Bool
+AttemptsCount -&gt; AttemptsCount -&gt; Ordering
+AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$cmin :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+max :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$cmax :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+&gt;= :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+$c&gt;= :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+&gt; :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+$c&gt; :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+&lt;= :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+$c&lt;= :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+&lt; :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+$c&lt; :: AttemptsCount -&gt; AttemptsCount -&gt; Bool
+compare :: AttemptsCount -&gt; AttemptsCount -&gt; Ordering
+$ccompare :: AttemptsCount -&gt; AttemptsCount -&gt; Ordering
+$cp1Ord :: Eq AttemptsCount
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. AttemptsCount -&gt; Rep AttemptsCount x)
+-&gt; (forall x. Rep AttemptsCount x -&gt; AttemptsCount)
+-&gt; Generic AttemptsCount
+forall x. Rep AttemptsCount x -&gt; AttemptsCount
+forall x. AttemptsCount -&gt; Rep AttemptsCount x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep AttemptsCount x -&gt; AttemptsCount
+$cfrom :: forall x. AttemptsCount -&gt; Rep AttemptsCount x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500221"><span class="annot"><span class="annottext">AttemptsCount -&gt; ()
+(AttemptsCount -&gt; ()) -&gt; NFData AttemptsCount
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: AttemptsCount -&gt; ()
+$crnf :: AttemptsCount -&gt; ()
+</span><a href="#local-6989586621681500221"><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500217"><span id="local-6989586621681500219"><span class="annot"><span class="annottext">Int -&gt; AttemptsCount -&gt; Int
+AttemptsCount -&gt; Int
+(Int -&gt; AttemptsCount -&gt; Int)
+-&gt; (AttemptsCount -&gt; Int) -&gt; Hashable AttemptsCount
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: AttemptsCount -&gt; Int
+$chash :: AttemptsCount -&gt; Int
+hashWithSalt :: Int -&gt; AttemptsCount -&gt; Int
+$chashWithSalt :: Int -&gt; AttemptsCount -&gt; Int
+</span><a href="#local-6989586621681500217"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500203"><span id="local-6989586621681500205"><span id="local-6989586621681500207"><span id="local-6989586621681500209"><span id="local-6989586621681500211"><span id="local-6989586621681500213"><span id="local-6989586621681500215"><span class="annot"><span class="annottext">Integer -&gt; AttemptsCount
+AttemptsCount -&gt; AttemptsCount
+AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+(AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount)
+-&gt; (Integer -&gt; AttemptsCount)
+-&gt; Num AttemptsCount
+forall a.
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Integer -&gt; a)
+-&gt; Num a
+fromInteger :: Integer -&gt; AttemptsCount
+$cfromInteger :: Integer -&gt; AttemptsCount
+signum :: AttemptsCount -&gt; AttemptsCount
+$csignum :: AttemptsCount -&gt; AttemptsCount
+abs :: AttemptsCount -&gt; AttemptsCount
+$cabs :: AttemptsCount -&gt; AttemptsCount
+negate :: AttemptsCount -&gt; AttemptsCount
+$cnegate :: AttemptsCount -&gt; AttemptsCount
+* :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$c* :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+- :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$c- :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
++ :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$c+ :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500186"><span id="local-6989586621681500188"><span id="local-6989586621681500190"><span id="local-6989586621681500192"><span id="local-6989586621681500194"><span id="local-6989586621681500196"><span id="local-6989586621681500198"><span id="local-6989586621681500200"><span class="annot"><span class="annottext">Int -&gt; AttemptsCount
+AttemptsCount -&gt; Int
+AttemptsCount -&gt; [AttemptsCount]
+AttemptsCount -&gt; AttemptsCount
+AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+(AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount)
+-&gt; (Int -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; Int)
+-&gt; (AttemptsCount -&gt; [AttemptsCount])
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount])
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount])
+-&gt; (AttemptsCount
+    -&gt; AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount])
+-&gt; Enum AttemptsCount
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+enumFromThenTo :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+$cenumFromThenTo :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+enumFromTo :: AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+$cenumFromTo :: AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+enumFromThen :: AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+$cenumFromThen :: AttemptsCount -&gt; AttemptsCount -&gt; [AttemptsCount]
+enumFrom :: AttemptsCount -&gt; [AttemptsCount]
+$cenumFrom :: AttemptsCount -&gt; [AttemptsCount]
+fromEnum :: AttemptsCount -&gt; Int
+$cfromEnum :: AttemptsCount -&gt; Int
+toEnum :: Int -&gt; AttemptsCount
+$ctoEnum :: Int -&gt; AttemptsCount
+pred :: AttemptsCount -&gt; AttemptsCount
+$cpred :: AttemptsCount -&gt; AttemptsCount
+succ :: AttemptsCount -&gt; AttemptsCount
+$csucc :: AttemptsCount -&gt; AttemptsCount
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500181"><span class="annot"><span class="annottext">Num AttemptsCount
+Ord AttemptsCount
+(Num AttemptsCount, Ord AttemptsCount) =&gt;
+(AttemptsCount -&gt; Rational) -&gt; Real AttemptsCount
+AttemptsCount -&gt; Rational
+forall a. (Num a, Ord a) =&gt; (a -&gt; Rational) -&gt; Real a
+toRational :: AttemptsCount -&gt; Rational
+$ctoRational :: AttemptsCount -&gt; Rational
+$cp2Real :: Ord AttemptsCount
+$cp1Real :: Num AttemptsCount
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500164"><span id="local-6989586621681500166"><span id="local-6989586621681500168"><span id="local-6989586621681500170"><span id="local-6989586621681500172"><span id="local-6989586621681500174"><span id="local-6989586621681500176"><span class="annot"><span class="annottext">Enum AttemptsCount
+Real AttemptsCount
+(Real AttemptsCount, Enum AttemptsCount) =&gt;
+(AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount)
+-&gt; (AttemptsCount
+    -&gt; AttemptsCount -&gt; (AttemptsCount, AttemptsCount))
+-&gt; (AttemptsCount
+    -&gt; AttemptsCount -&gt; (AttemptsCount, AttemptsCount))
+-&gt; (AttemptsCount -&gt; Integer)
+-&gt; Integral AttemptsCount
+AttemptsCount -&gt; Integer
+AttemptsCount -&gt; AttemptsCount -&gt; (AttemptsCount, AttemptsCount)
+AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+forall a.
+(Real a, Enum a) =&gt;
+(a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; a -&gt; (a, a))
+-&gt; (a -&gt; Integer)
+-&gt; Integral a
+toInteger :: AttemptsCount -&gt; Integer
+$ctoInteger :: AttemptsCount -&gt; Integer
+divMod :: AttemptsCount -&gt; AttemptsCount -&gt; (AttemptsCount, AttemptsCount)
+$cdivMod :: AttemptsCount -&gt; AttemptsCount -&gt; (AttemptsCount, AttemptsCount)
+quotRem :: AttemptsCount -&gt; AttemptsCount -&gt; (AttemptsCount, AttemptsCount)
+$cquotRem :: AttemptsCount -&gt; AttemptsCount -&gt; (AttemptsCount, AttemptsCount)
+mod :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$cmod :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+div :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$cdiv :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+rem :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$crem :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+quot :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$cquot :: AttemptsCount -&gt; AttemptsCount -&gt; AttemptsCount
+$cp2Integral :: Enum AttemptsCount
+$cp1Integral :: Real AttemptsCount
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Integral</span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-keyword">data</span><span> </span><span id="Task"><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-var">Task</span></a></span></span><span> </span><span id="local-6989586621681500445"><span class="annot"><a href="#local-6989586621681500445"><span class="hs-identifier hs-type">env</span></a></span></span><span> </span><span id="local-6989586621681500444"><span class="annot"><a href="#local-6989586621681500444"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Task"><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-var">Task</span></a></span></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_taskId"><span class="annot"><span class="annottext">Task env a -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#_taskId"><span class="hs-identifier hs-var hs-var">_taskId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-type">TaskId</span></a></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_taskAction"><span class="annot"><span class="annottext">Task env a -&gt; TaskAction env a
+</span><a href="P2P.TaskQueue.html#_taskAction"><span class="hs-identifier hs-var hs-var">_taskAction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#TaskAction"><span class="hs-identifier hs-type">TaskAction</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500445"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500444"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_taskPriority"><span class="annot"><span class="annottext">Task env a -&gt; Priority
+</span><a href="P2P.TaskQueue.html#_taskPriority"><span class="hs-identifier hs-var hs-var">_taskPriority</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-type">Priority</span></a></span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_taskAttemptsCount"><span class="annot"><span class="annottext">Task env a -&gt; AttemptsCount
+</span><a href="P2P.TaskQueue.html#_taskAttemptsCount"><span class="hs-identifier hs-var hs-var">_taskAttemptsCount</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier hs-type">AttemptsCount</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_taskResult"><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Data.IVar.html#IVar"><span class="hs-identifier hs-type">IVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621681500444"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_taskFailures"><span class="annot"><span class="annottext">Task env a -&gt; [SomeException]
+</span><a href="P2P.TaskQueue.html#_taskFailures"><span class="hs-identifier hs-var hs-var">_taskFailures</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">]</span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span id="taskFailures"><span id="taskAttemptsCount"><span id="local-6989586621681500444"><span id="local-6989586621681500445"><span class="hs-identifier">makeLensesFor</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="hs-string">&quot;_taskAttemptsCount&quot;</span><span class="hs-special">,</span><span> </span><span class="hs-string">&quot;taskAttemptsCount&quot;</span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-string">&quot;_taskFailures&quot;</span><span class="hs-special">,</span><span> </span><span class="hs-string">&quot;taskFailures&quot;</span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-special">'</span><span class="hs-identifier">Task</span></span></span></span></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span id="local-6989586621681500152"><span id="local-6989586621681500153"><span class="annot"><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-type">newTask</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#TaskId"><span class="hs-identifier hs-type">TaskId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#Priority"><span class="hs-identifier hs-type">Priority</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#TaskAction"><span class="hs-identifier hs-type">TaskAction</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500153"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500152"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500153"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500152"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-113"></span><span id="newTask"><span class="annot"><span class="annottext">newTask :: TaskId -&gt; Priority -&gt; TaskAction env a -&gt; IO (Task env a)
+</span><a href="P2P.TaskQueue.html#newTask"><span class="hs-identifier hs-var hs-var">newTask</span></a></span></span><span> </span><span id="local-6989586621681500151"><span class="annot"><span class="annottext">tid :: TaskId
+</span><a href="#local-6989586621681500151"><span class="hs-identifier hs-var">tid</span></a></span></span><span> </span><span id="local-6989586621681500150"><span class="annot"><span class="annottext">prio :: Priority
+</span><a href="#local-6989586621681500150"><span class="hs-identifier hs-var">prio</span></a></span></span><span> </span><span id="local-6989586621681500149"><span class="annot"><span class="annottext">act :: TaskAction env a
+</span><a href="#local-6989586621681500149"><span class="hs-identifier hs-var">act</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-114"></span><span>    </span><span id="local-6989586621681500148"><span class="annot"><span class="annottext">IVar (Either [SomeException] a)
+</span><a href="#local-6989586621681500148"><span class="hs-identifier hs-var">var</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (IVar (Either [SomeException] a))
+forall a. IO (IVar a)
+</span><a href="Data.IVar.html#newIVar"><span class="hs-identifier hs-var">newIVar</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">Task env a -&gt; IO (Task env a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Task env a -&gt; IO (Task env a)) -&gt; Task env a -&gt; IO (Task env a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">$WTask :: forall env a.
+TaskId
+-&gt; TaskAction env a
+-&gt; Priority
+-&gt; AttemptsCount
+-&gt; IVar (Either [SomeException] a)
+-&gt; [SomeException]
+-&gt; Task env a
+</span><a href="P2P.TaskQueue.html#%24WTask"><span class="hs-identifier hs-type hs-type">Task</span></a></span><span>
+</span><span id="line-116"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_taskId :: TaskId
+</span><a href="P2P.TaskQueue.html#_taskId"><span class="hs-identifier hs-var">_taskId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TaskId
+</span><a href="#local-6989586621681500151"><span class="hs-identifier hs-var">tid</span></a></span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_taskAction :: TaskAction env a
+</span><a href="P2P.TaskQueue.html#_taskAction"><span class="hs-identifier hs-var">_taskAction</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TaskAction env a
+</span><a href="#local-6989586621681500149"><span class="hs-identifier hs-var">act</span></a></span><span>
+</span><span id="line-118"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_taskPriority :: Priority
+</span><a href="P2P.TaskQueue.html#_taskPriority"><span class="hs-identifier hs-var">_taskPriority</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Priority
+</span><a href="#local-6989586621681500150"><span class="hs-identifier hs-var">prio</span></a></span><span>
+</span><span id="line-119"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_taskAttemptsCount :: AttemptsCount
+</span><a href="P2P.TaskQueue.html#_taskAttemptsCount"><span class="hs-identifier hs-var">_taskAttemptsCount</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-120"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_taskResult :: IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var">_taskResult</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a)
+</span><a href="#local-6989586621681500148"><span class="hs-identifier hs-var">var</span></a></span><span>
+</span><span id="line-121"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_taskFailures :: [SomeException]
+</span><a href="P2P.TaskQueue.html#_taskFailures"><span class="hs-identifier hs-var">_taskFailures</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-122"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span id="local-6989586621681500143"><span id="local-6989586621681500144"><span class="annot"><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-type">awaitTask</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500144"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500143"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681500143"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-125"></span><span id="awaitTask"><span class="annot"><span class="annottext">awaitTask :: Task env a -&gt; IO a
+</span><a href="P2P.TaskQueue.html#awaitTask"><span class="hs-identifier hs-var hs-var">awaitTask</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a) -&gt; IO (Either [SomeException] a)
+forall (v :: * -&gt; *) a. IsRIVar v =&gt; v a -&gt; IO a
+</span><a href="Data.IVar.html#awaitIVar"><span class="hs-identifier hs-var">awaitIVar</span></a></span><span> </span><span class="annot"><span class="annottext">(IVar (Either [SomeException] a) -&gt; IO (Either [SomeException] a))
+-&gt; (Task env a -&gt; IVar (Either [SomeException] a))
+-&gt; Task env a
+-&gt; IO (Either [SomeException] a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+forall env a. Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span><span> </span><span class="annot"><span class="annottext">(Task env a -&gt; IO (Either [SomeException] a))
+-&gt; (Either [SomeException] a -&gt; IO a) -&gt; Task env a -&gt; IO a
+forall (m :: * -&gt; *) a b c.
+Monad m =&gt;
+(a -&gt; m b) -&gt; (b -&gt; m c) -&gt; a -&gt; m c
+</span><span class="hs-operator hs-var">&gt;=&gt;</span></span><span> </span><span class="annot"><span class="annottext">([SomeException] -&gt; IO a)
+-&gt; (a -&gt; IO a) -&gt; Either [SomeException] a -&gt; IO a
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TaskException -&gt; IO a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">(TaskException -&gt; IO a)
+-&gt; ([SomeException] -&gt; TaskException) -&gt; [SomeException] -&gt; IO a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">[SomeException] -&gt; TaskException
+</span><a href="P2P.TaskQueue.html#TaskFailed"><span class="hs-identifier hs-var">TaskFailed</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span id="local-6989586621681500136"><span id="local-6989586621681500137"><span class="annot"><a href="P2P.TaskQueue.html#taskResult"><span class="hs-identifier hs-type">taskResult</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500137"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500136"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.IVar.html#RIVar"><span class="hs-identifier hs-type">RIVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">]</span><span> </span><span class="annot"><a href="#local-6989586621681500136"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-128"></span><span id="taskResult"><span class="annot"><span class="annottext">taskResult :: Task env a -&gt; RIVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#taskResult"><span class="hs-identifier hs-var hs-var">taskResult</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a) -&gt; RIVar (Either [SomeException] a)
+forall a. IVar a -&gt; RIVar a
+</span><a href="Data.IVar.html#rIVar"><span class="hs-identifier hs-var">rIVar</span></a></span><span> </span><span class="annot"><span class="annottext">(IVar (Either [SomeException] a)
+ -&gt; RIVar (Either [SomeException] a))
+-&gt; (Task env a -&gt; IVar (Either [SomeException] a))
+-&gt; Task env a
+-&gt; RIVar (Either [SomeException] a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+forall env a. Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span><span>
+</span><span id="line-129"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#taskResult"><span class="hs-pragma hs-type">taskResult</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span id="local-6989586621681500133"><span id="local-6989586621681500134"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500130"><span class="annot"><span class="hs-identifier hs-type">Eq</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500134"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500133"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-132"></span><span>    </span><span id="local-6989586621681500129"><span class="annot"><span class="annottext">== :: Task env a -&gt; Task env a -&gt; Bool
+</span><span class="hs-operator hs-var hs-var hs-var hs-var">(==)</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Priority, AttemptsCount) -&gt; (Priority, AttemptsCount) -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">(==)</span></span><span> </span><span class="annot"><span class="annottext">((Priority, AttemptsCount) -&gt; (Priority, AttemptsCount) -&gt; Bool)
+-&gt; (Task env a -&gt; (Priority, AttemptsCount))
+-&gt; Task env a
+-&gt; Task env a
+-&gt; Bool
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; Priority
+forall env a. Task env a -&gt; Priority
+</span><a href="P2P.TaskQueue.html#_taskPriority"><span class="hs-identifier hs-var hs-var">_taskPriority</span></a></span><span> </span><span class="annot"><span class="annottext">(Task env a -&gt; Priority)
+-&gt; (Task env a -&gt; AttemptsCount)
+-&gt; Task env a
+-&gt; (Priority, AttemptsCount)
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; AttemptsCount
+forall env a. Task env a -&gt; AttemptsCount
+</span><a href="P2P.TaskQueue.html#_taskAttemptsCount"><span class="hs-identifier hs-var hs-var">_taskAttemptsCount</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="hs-pragma">(</span><span class="hs-pragma">==</span><span class="hs-pragma">)</span><span> </span><span class="hs-pragma">#-}</span></span></span><span>
+</span><span id="line-134"></span><span>
+</span><span id="line-135"></span><span id="local-6989586621681500125"><span id="local-6989586621681500126"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500111"><span id="local-6989586621681500113"><span id="local-6989586621681500115"><span id="local-6989586621681500117"><span id="local-6989586621681500119"><span id="local-6989586621681500121"><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500126"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500125"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-136"></span><span>    </span><span id="local-6989586621681500110"><span class="annot"><span class="annottext">compare :: Task env a -&gt; Task env a -&gt; Ordering
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">compare</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Priority, AttemptsCount) -&gt; (Priority, AttemptsCount) -&gt; Ordering
+forall a. Ord a =&gt; a -&gt; a -&gt; Ordering
+</span><span class="hs-identifier hs-var">compare</span></span><span> </span><span class="annot"><span class="annottext">((Priority, AttemptsCount)
+ -&gt; (Priority, AttemptsCount) -&gt; Ordering)
+-&gt; (Task env a -&gt; (Priority, AttemptsCount))
+-&gt; Task env a
+-&gt; Task env a
+-&gt; Ordering
+forall b c a. (b -&gt; b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">`on`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; Priority
+forall env a. Task env a -&gt; Priority
+</span><a href="P2P.TaskQueue.html#_taskPriority"><span class="hs-identifier hs-var hs-var">_taskPriority</span></a></span><span> </span><span class="annot"><span class="annottext">(Task env a -&gt; Priority)
+-&gt; (Task env a -&gt; AttemptsCount)
+-&gt; Task env a
+-&gt; (Priority, AttemptsCount)
+forall (a :: * -&gt; * -&gt; *) b c c'.
+Arrow a =&gt;
+a b c -&gt; a b c' -&gt; a b (c, c')
+</span><span class="hs-operator hs-var">&amp;&amp;&amp;</span></span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; AttemptsCount
+forall env a. Task env a -&gt; AttemptsCount
+</span><a href="P2P.TaskQueue.html#_taskAttemptsCount"><span class="hs-identifier hs-var hs-var">_taskAttemptsCount</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">compare</span></span><span> </span><span class="hs-pragma">#-}</span></span></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-140"></span><span class="hs-comment">-- P2P Session Backend for Task Queue</span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="hs-comment">-- | This session is intended to be used by a P2P node. It's type is general</span><span>
+</span><span id="line-143"></span><span class="hs-comment">-- enough to be useful in other contexts, too.</span><span>
+</span><span id="line-144"></span><span class="hs-comment">--</span><span>
+</span><span id="line-145"></span><span id="local-6989586621681500107"><span id="local-6989586621681500108"><span class="annot"><a href="P2P.TaskQueue.html#session"><span class="hs-identifier hs-type">session</span></a></span><span>
+</span><span id="line-146"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier hs-type">AttemptsCount</span></a></span><span>
+</span><span id="line-147"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500108"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500107"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-149"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681500108"><span class="hs-identifier hs-type">env</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Peer.html#PeerInfo"><span class="hs-identifier hs-type">PeerInfo</span></a></span><span>
+</span><span id="line-151"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span><span>
+</span><span id="line-152"></span><span id="session"><span class="annot"><span class="annottext">session :: AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; PeerInfo -&gt; IO Bool
+</span><a href="P2P.TaskQueue.html#session"><span class="hs-identifier hs-var hs-var">session</span></a></span></span><span> </span><span id="local-6989586621681500106"><span class="annot"><span class="annottext">li :: AttemptsCount
+</span><a href="#local-6989586621681500106"><span class="hs-identifier hs-var">li</span></a></span></span><span> </span><span id="local-6989586621681500105"><span class="annot"><span class="annottext">q :: PQueue (Task env a)
+</span><a href="#local-6989586621681500105"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span id="local-6989586621681500104"><span class="annot"><span class="annottext">lo :: LogFunction
+</span><a href="#local-6989586621681500104"><span class="hs-identifier hs-var">lo</span></a></span></span><span> </span><span id="local-6989586621681500103"><span class="annot"><span class="annottext">e :: env
+</span><a href="#local-6989586621681500103"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; IO Bool
+forall env a.
+AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; IO Bool
+</span><a href="P2P.TaskQueue.html#session_"><span class="hs-identifier hs-var">session_</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+</span><a href="#local-6989586621681500106"><span class="hs-identifier hs-var">li</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681500105"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">LogFunction
+</span><a href="#local-6989586621681500104"><span class="hs-identifier hs-var">lo</span></a></span><span> </span><span class="annot"><span class="annottext">env
+</span><a href="#local-6989586621681500103"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-153"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#session"><span class="hs-pragma hs-type">session</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span id="local-6989586621681500402"><span id="local-6989586621681500403"><span class="annot"><a href="P2P.TaskQueue.html#session_"><span class="hs-identifier hs-type">session_</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier hs-type">AttemptsCount</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500403"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500402"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-159"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681500403"><span class="hs-identifier hs-type">env</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span><span>
+</span><span id="line-161"></span><span id="session_"><span class="annot"><span class="annottext">session_ :: AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; IO Bool
+</span><a href="P2P.TaskQueue.html#session_"><span class="hs-identifier hs-var hs-var">session_</span></a></span></span><span> </span><span id="local-6989586621681500102"><span class="annot"><span class="annottext">limit :: AttemptsCount
+</span><a href="#local-6989586621681500102"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681500101"><span class="annot"><span class="annottext">q :: PQueue (Task env a)
+</span><a href="#local-6989586621681500101"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span id="local-6989586621681500100"><span class="annot"><span class="annottext">logFun :: LogFunction
+</span><a href="#local-6989586621681500100"><span class="hs-identifier hs-var">logFun</span></a></span></span><span> </span><span id="local-6989586621681500099"><span class="annot"><span class="annottext">env :: env
+</span><a href="#local-6989586621681500099"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((forall a. IO a -&gt; IO a) -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) b.
+MonadMask m =&gt;
+((forall a. m a -&gt; m a) -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">mask</span></span><span> </span><span class="annot"><span class="annottext">(((forall a. IO a -&gt; IO a) -&gt; IO Bool) -&gt; IO Bool)
+-&gt; ((forall a. IO a -&gt; IO a) -&gt; IO Bool) -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681500097"><span class="annot"><span class="annottext">restore :: forall a. IO a -&gt; IO a
+</span><a href="#local-6989586621681500097"><span class="hs-identifier hs-var">restore</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-162"></span><span>    </span><span id="local-6989586621681500096"><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a) -&gt; IO (Task env a)
+forall a. PQueue a -&gt; IO a
+</span><a href="Data.PQueue.html#pQueueRemove"><span class="hs-identifier hs-var">pQueueRemove</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681500101"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span>    </span><span class="hs-comment">-- check if the result variable as already been filled</span><span>
+</span><span id="line-165"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681500094"><span class="annot"><span class="annottext">go :: IO Bool
+</span><a href="#local-6989586621681500094"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a)
+-&gt; IO (Maybe (Either [SomeException] a))
+forall (v :: * -&gt; *) a. IsRIVar v =&gt; v a -&gt; IO (Maybe a)
+</span><a href="Data.IVar.html#tryReadIVar"><span class="hs-identifier hs-var">tryReadIVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+forall env a. Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO (Maybe (Either [SomeException] a))
+-&gt; (Maybe (Either [SomeException] a) -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-166"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-167"></span><span>                </span><span class="annot"><span class="annottext">Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+forall env a. Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+</span><a href="#local-6989586621681500092"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;run task&quot;</span></span><span>
+</span><span id="line-168"></span><span>                </span><span class="annot"><span class="annottext">(IO Bool -&gt; (SomeException -&gt; IO Bool) -&gt; IO Bool)
+-&gt; (SomeException -&gt; IO Bool) -&gt; IO Bool -&gt; IO Bool
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><span class="hs-identifier hs-var">flip</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; (SomeException -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a.
+(MonadCatch m, NFData a) =&gt;
+m a -&gt; (SomeException -&gt; m a) -&gt; m a
+</span><a href="Chainweb.Utils.html#catchAllSynchronous"><span class="hs-identifier hs-var">catchAllSynchronous</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; SomeException -&gt; IO Bool
+</span><a href="#local-6989586621681500088"><span class="hs-identifier hs-var">retry</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; IO Bool) -&gt; IO Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; IO Bool
+forall a. IO a -&gt; IO a
+</span><a href="#local-6989586621681500097"><span class="hs-identifier hs-var">restore</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; IO Bool) -&gt; IO Bool -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-169"></span><span>                    </span><span id="local-6989586621681500087"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681500087"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; TaskAction env a
+forall env a. Task env a -&gt; TaskAction env a
+</span><a href="P2P.TaskQueue.html#_taskAction"><span class="hs-identifier hs-var hs-var">_taskAction</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span> </span><span class="annot"><span class="annottext">LogFunction
+</span><a href="#local-6989586621681500100"><span class="hs-identifier hs-var">logFun</span></a></span><span> </span><span class="annot"><span class="annottext">env
+</span><a href="#local-6989586621681500099"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-170"></span><span>                    </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall (v :: * -&gt; *) a b.
+(IsWIVar v, IsRIVar v) =&gt;
+v (Either a b) -&gt; Either a b -&gt; IO Bool
+</span><a href="#local-6989586621681500086"><span class="hs-identifier hs-var">putResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+forall env a. Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either [SomeException] a -&gt; IO Bool)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either [SomeException] a
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681500087"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-171"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-172"></span><span>                </span><span class="annot"><span class="annottext">Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+forall env a. Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+</span><a href="#local-6989586621681500092"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;task already failed&quot;</span></span><span>
+</span><span id="line-173"></span><span>                </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-174"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-175"></span><span>                </span><span class="annot"><span class="annottext">Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+forall env a. Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+</span><a href="#local-6989586621681500092"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;task already succeeded&quot;</span></span><span>
+</span><span id="line-176"></span><span>                </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-177"></span><span>
+</span><span id="line-178"></span><span>    </span><span class="annot"><span class="annottext">IO Bool
+</span><a href="#local-6989586621681500094"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; (SomeException -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) e a.
+(MonadCatch m, Exception e) =&gt;
+m a -&gt; (e -&gt; m a) -&gt; m a
+</span><span class="hs-operator hs-var">`catch`</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681500084"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681500084"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-179"></span><span>        </span><span class="annot"><span class="annottext">IO Bool -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; IO ()) -&gt; IO Bool -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; SomeException -&gt; IO Bool
+</span><a href="#local-6989586621681500088"><span class="hs-identifier hs-var">retry</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500096"><span class="hs-identifier hs-var">task</span></a></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681500084"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-180"></span><span>        </span><span class="annot"><span class="annottext">SomeException -&gt; IO Bool
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681500084"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-183"></span><span>    </span><span class="hs-comment">-- reschedule a task or fail if maximum number of attempts has been reached.</span><span>
+</span><span id="line-184"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-185"></span><span>    </span><span id="local-6989586621681500088"><span class="annot"><span class="annottext">retry :: Task env a -&gt; SomeException -&gt; IO Bool
+</span><a href="#local-6989586621681500088"><span class="hs-identifier hs-var hs-var">retry</span></a></span></span><span> </span><span id="local-6989586621681500082"><span class="annot"><span class="annottext">task :: Task env a
+</span><a href="#local-6989586621681500082"><span class="hs-identifier hs-var">task</span></a></span></span><span> </span><span id="local-6989586621681500081"><span class="annot"><span class="annottext">e :: SomeException
+</span><a href="#local-6989586621681500081"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-186"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681500080"><span class="annot"><span class="annottext">task' :: Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var hs-var">task'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500082"><span class="hs-identifier hs-var">task</span></a></span><span>
+</span><span id="line-187"></span><span>                </span><span class="annot"><span class="annottext">Task env a -&gt; (Task env a -&gt; Task env a) -&gt; Task env a
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">ASetter (Task env a) (Task env a) AttemptsCount AttemptsCount
+-&gt; (AttemptsCount -&gt; AttemptsCount) -&gt; Task env a -&gt; Task env a
+forall s t a b. ASetter s t a b -&gt; (a -&gt; b) -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">over</span></span><span> </span><span class="annot"><span class="annottext">ASetter (Task env a) (Task env a) AttemptsCount AttemptsCount
+forall env a. Lens' (Task env a) AttemptsCount
+</span><a href="P2P.TaskQueue.html#taskAttemptsCount"><span class="hs-identifier hs-var">taskAttemptsCount</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount -&gt; AttemptsCount
+forall a. Enum a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">succ</span></span><span>
+</span><span id="line-188"></span><span>                </span><span class="annot"><span class="annottext">Task env a -&gt; (Task env a -&gt; Task env a) -&gt; Task env a
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">ASetter (Task env a) (Task env a) [SomeException] [SomeException]
+-&gt; ([SomeException] -&gt; [SomeException]) -&gt; Task env a -&gt; Task env a
+forall s t a b. ASetter s t a b -&gt; (a -&gt; b) -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">over</span></span><span> </span><span class="annot"><span class="annottext">ASetter (Task env a) (Task env a) [SomeException] [SomeException]
+forall env a. Lens' (Task env a) [SomeException]
+</span><a href="P2P.TaskQueue.html#taskFailures"><span class="hs-identifier hs-var">taskFailures</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="hs-glyph">:</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681500081"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-189"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681500076"><span class="annot"><span class="annottext">attempts :: AttemptsCount
+</span><a href="#local-6989586621681500076"><span class="hs-identifier hs-var hs-var">attempts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; AttemptsCount
+forall env a. Task env a -&gt; AttemptsCount
+</span><a href="P2P.TaskQueue.html#_taskAttemptsCount"><span class="hs-identifier hs-var hs-var">_taskAttemptsCount</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var">task'</span></a></span><span>
+</span><span id="line-190"></span><span>        </span><span class="hs-keyword">if</span><span>
+</span><span id="line-191"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; AttemptsCount
+forall env a. Task env a -&gt; AttemptsCount
+</span><a href="P2P.TaskQueue.html#_taskAttemptsCount"><span class="hs-identifier hs-var hs-var">_taskAttemptsCount</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var">task'</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount -&gt; AttemptsCount -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;</span></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+</span><a href="#local-6989586621681500102"><span class="hs-identifier hs-var">limit</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-192"></span><span>                </span><span class="annot"><span class="annottext">Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+forall env a. Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+</span><a href="#local-6989586621681500092"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var">task'</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;task failed: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">AttemptsCount -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+</span><a href="#local-6989586621681500076"><span class="hs-identifier hs-var">attempts</span></a></span><span>
+</span><span id="line-193"></span><span>                </span><span class="annot"><span class="annottext">PQueue (Task env a) -&gt; Task env a -&gt; IO ()
+forall a. Ord a =&gt; PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var">pQueueInsert</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681500101"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var">task'</span></a></span><span>
+</span><span id="line-194"></span><span>                </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span>
+</span><span id="line-195"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-196"></span><span>                </span><span class="annot"><span class="annottext">Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+forall env a. Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+</span><a href="#local-6989586621681500092"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var">task'</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Warn</span></span><span>
+</span><span id="line-197"></span><span>                    </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;task finally failed: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">AttemptsCount -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+</span><a href="#local-6989586621681500076"><span class="hs-identifier hs-var">attempts</span></a></span><span>
+</span><span id="line-198"></span><span>                    </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;, limit: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">AttemptsCount -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+</span><a href="#local-6989586621681500102"><span class="hs-identifier hs-var">limit</span></a></span><span>
+</span><span id="line-199"></span><span>                </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall (v :: * -&gt; *) a b.
+(IsWIVar v, IsRIVar v) =&gt;
+v (Either a b) -&gt; Either a b -&gt; IO Bool
+</span><a href="#local-6989586621681500086"><span class="hs-identifier hs-var">putResult</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+forall env a. Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var">task'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either [SomeException] a -&gt; IO Bool)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">[SomeException] -&gt; Either [SomeException] a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">([SomeException] -&gt; Either [SomeException] a)
+-&gt; [SomeException] -&gt; Either [SomeException] a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Task env a -&gt; [SomeException]
+forall env a. Task env a -&gt; [SomeException]
+</span><a href="P2P.TaskQueue.html#_taskFailures"><span class="hs-identifier hs-var hs-var">_taskFailures</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500080"><span class="hs-identifier hs-var">task'</span></a></span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span>    </span><span id="local-6989586621681500092"><span class="annot"><span class="annottext">logg :: Task env a -&gt; LogLevel -&gt; Text -&gt; IO ()
+</span><a href="#local-6989586621681500092"><span class="hs-identifier hs-var hs-var">logg</span></a></span></span><span> </span><span id="local-6989586621681500070"><span class="annot"><span class="annottext">task :: Task env a
+</span><a href="#local-6989586621681500070"><span class="hs-identifier hs-var">task</span></a></span></span><span> </span><span id="local-6989586621681500069"><span class="annot"><span class="annottext">l :: LogLevel
+</span><a href="#local-6989586621681500069"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span id="local-6989586621681500068"><span class="annot"><span class="annottext">m :: Text
+</span><a href="#local-6989586621681500068"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel -&gt; Text -&gt; IO ()
+LogFunction
+</span><a href="#local-6989586621681500100"><span class="hs-identifier hs-var">logFun</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681500069"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TaskId -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; TaskId
+forall env a. Task env a -&gt; TaskId
+</span><a href="P2P.TaskQueue.html#_taskId"><span class="hs-identifier hs-var hs-var">_taskId</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681500070"><span class="hs-identifier hs-var">task</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681500068"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-202"></span><span>
+</span><span id="line-203"></span><span>    </span><span class="hs-comment">-- Put result. If the variable is already filled, derive the return value on</span><span>
+</span><span id="line-204"></span><span>    </span><span class="hs-comment">-- the existing result.</span><span>
+</span><span id="line-205"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-206"></span><span>    </span><span id="local-6989586621681500086"><span class="annot"><span class="annottext">putResult :: v (Either a b) -&gt; Either a b -&gt; IO Bool
+</span><a href="#local-6989586621681500086"><span class="hs-identifier hs-var hs-var">putResult</span></a></span></span><span> </span><span id="local-6989586621681500067"><span class="annot"><span class="annottext">var :: v (Either a b)
+</span><a href="#local-6989586621681500067"><span class="hs-identifier hs-var">var</span></a></span></span><span> </span><span id="local-6989586621681500066"><span class="annot"><span class="annottext">result :: Either a b
+</span><a href="#local-6989586621681500066"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">v (Either a b) -&gt; Either a b -&gt; IO Bool
+forall (v :: * -&gt; *) a. IsWIVar v =&gt; v a -&gt; a -&gt; IO Bool
+</span><a href="Data.IVar.html#putIVar"><span class="hs-identifier hs-var">putIVar</span></a></span><span> </span><span class="annot"><span class="annottext">v (Either a b)
+</span><a href="#local-6989586621681500067"><span class="hs-identifier hs-var">var</span></a></span><span> </span><span class="annot"><span class="annottext">Either a b
+</span><a href="#local-6989586621681500066"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; (Bool -&gt; IO Bool) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-207"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">True</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-208"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">False</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either a b -&gt; Bool
+forall a b. Either a b -&gt; Bool
+</span><span class="hs-identifier hs-var">isRight</span></span><span> </span><span class="annot"><span class="annottext">(Either a b -&gt; Bool) -&gt; IO (Either a b) -&gt; IO Bool
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">v (Either a b) -&gt; IO (Either a b)
+forall (v :: * -&gt; *) a. IsRIVar v =&gt; v a -&gt; IO a
+</span><a href="Data.IVar.html#awaitIVar"><span class="hs-identifier hs-var">awaitIVar</span></a></span><span> </span><span class="annot"><span class="annottext">v (Either a b)
+</span><a href="#local-6989586621681500067"><span class="hs-identifier hs-var">var</span></a></span><span>
+</span><span id="line-209"></span><span>            </span><span class="hs-comment">-- note that the var won't change it's value once it is filled</span><span>
+</span><span id="line-210"></span><span>
+</span><span id="line-211"></span></pre></body></html>

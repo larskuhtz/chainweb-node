@@ -1,0 +1,270 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Module: Data.PQueue</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Data.PQueue</span><span>
+</span><span id="line-14"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier">PQueue</span></a></span><span>
+</span><span id="line-15"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier">newEmptyPQueue</span></a></span><span>
+</span><span id="line-16"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier">pQueueInsert</span></a></span><span>
+</span><span id="line-17"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.PQueue.html#pQueueInsertLimit"><span class="hs-identifier">pQueueInsertLimit</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.PQueue.html#pQueueRemove"><span class="hs-identifier">pQueueRemove</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.PQueue.html#pQueueIsEmpty"><span class="hs-identifier">pQueueIsEmpty</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.PQueue.html#pQueueSize"><span class="hs-identifier">pQueueSize</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">evaluate</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Heap</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">H</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- PQueue</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- | A thread safe priority queue.</span><span>
+</span><span id="line-37"></span><span class="hs-comment">--</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- The queue is fair for users of the queue. It does not guarantee progress for</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- items in the queue. An item of low priority my starve in the queue if higher</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- priority items are added a rate at least as high as items are removed.</span><span>
+</span><span id="line-41"></span><span class="hs-comment">--</span><span>
+</span><span id="line-42"></span><span id="local-6989586621681474477"><span id="local-6989586621681474478"></span></span><span class="hs-keyword">data</span><span> </span><span id="PQueue"><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-var">PQueue</span></a></span></span><span> </span><span id="local-6989586621681474534"><span class="annot"><a href="#local-6989586621681474534"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="PQueue"><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-var">PQueue</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">H.Heap</span></span><span> </span><span class="annot"><a href="#local-6989586621681474534"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall x. PQueue a -&gt; Rep (PQueue a) x)
+-&gt; (forall x. Rep (PQueue a) x -&gt; PQueue a) -&gt; Generic (PQueue a)
+forall x. Rep (PQueue a) x -&gt; PQueue a
+forall x. PQueue a -&gt; Rep (PQueue a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall a x. Rep (PQueue a) x -&gt; PQueue a
+forall a x. PQueue a -&gt; Rep (PQueue a) x
+$cto :: forall a x. Rep (PQueue a) x -&gt; PQueue a
+$cfrom :: forall a x. PQueue a -&gt; Rep (PQueue a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span id="local-6989586621681474472"><span class="annot"><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-type">newEmptyPQueue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474472"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-46"></span><span id="newEmptyPQueue"><span class="annot"><span class="annottext">newEmptyPQueue :: IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var hs-var">newEmptyPQueue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; MVar (Heap a) -&gt; PQueue a
+forall a. MVar () -&gt; MVar (Heap a) -&gt; PQueue a
+</span><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-var">PQueue</span></a></span><span> </span><span class="annot"><span class="annottext">(MVar () -&gt; MVar (Heap a) -&gt; PQueue a)
+-&gt; IO (MVar ()) -&gt; IO (MVar (Heap a) -&gt; PQueue a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (MVar ())
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span> </span><span class="annot"><span class="annottext">IO (MVar (Heap a) -&gt; PQueue a)
+-&gt; IO (MVar (Heap a)) -&gt; IO (PQueue a)
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="annot"><span class="annottext">Heap a -&gt; IO (MVar (Heap a))
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">Heap a
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span id="local-6989586621681474468"><span class="annot"><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-type">pQueueInsert</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621681474468"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474468"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474468"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-49"></span><span id="pQueueInsert"><span class="annot"><span class="annottext">pQueueInsert :: PQueue a -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsert"><span class="hs-identifier hs-var hs-var">pQueueInsert</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span id="local-6989586621681474467"><span class="annot"><span class="annottext">s :: MVar ()
+</span><a href="#local-6989586621681474467"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681474466"><span class="annot"><span class="annottext">q :: MVar (Heap a)
+</span><a href="#local-6989586621681474466"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681474465"><span class="annot"><span class="annottext">t :: a
+</span><a href="#local-6989586621681474465"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Heap a) -&gt; (Heap a -&gt; IO (Heap a)) -&gt; IO ()
+forall a. MVar a -&gt; (a -&gt; IO a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">modifyMVarMasked_</span></span><span> </span><span class="annot"><span class="annottext">MVar (Heap a)
+</span><a href="#local-6989586621681474466"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">((Heap a -&gt; IO (Heap a)) -&gt; IO ())
+-&gt; (Heap a -&gt; IO (Heap a)) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681474463"><span class="annot"><span class="annottext">h :: Heap a
+</span><a href="#local-6989586621681474463"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-50"></span><span>    </span><span id="local-6989586621681474462"><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474462"><span class="hs-identifier hs-var">h'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Heap a -&gt; IO (Heap a)
+forall a. a -&gt; IO a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="annot"><span class="annottext">(Heap a -&gt; IO (Heap a)) -&gt; Heap a -&gt; IO (Heap a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Heap a -&gt; Heap a
+forall a. Ord a =&gt; a -&gt; Heap a -&gt; Heap a
+</span><span class="hs-identifier hs-var">H.insert</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474465"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474463"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">IO Bool -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; IO ()) -&gt; IO Bool -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; () -&gt; IO Bool
+forall a. MVar a -&gt; a -&gt; IO Bool
+</span><span class="hs-identifier hs-var">tryPutMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621681474467"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><span class="annottext">Heap a -&gt; IO (Heap a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474462"><span class="hs-identifier hs-var">h'</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span id="local-6989586621681474458"><span class="annot"><a href="Data.PQueue.html#pQueueInsertLimit"><span class="hs-identifier hs-type">pQueueInsertLimit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ord</span></span><span> </span><span class="annot"><a href="#local-6989586621681474458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681474458"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-55"></span><span id="pQueueInsertLimit"><span class="annot"><span class="annottext">pQueueInsertLimit :: PQueue a -&gt; Natural -&gt; a -&gt; IO ()
+</span><a href="Data.PQueue.html#pQueueInsertLimit"><span class="hs-identifier hs-var hs-var">pQueueInsertLimit</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span id="local-6989586621681474457"><span class="annot"><span class="annottext">s :: MVar ()
+</span><a href="#local-6989586621681474457"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681474456"><span class="annot"><span class="annottext">q :: MVar (Heap a)
+</span><a href="#local-6989586621681474456"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681474455"><span class="annot"><span class="annottext">l :: Natural
+</span><a href="#local-6989586621681474455"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span id="local-6989586621681474454"><span class="annot"><span class="annottext">t :: a
+</span><a href="#local-6989586621681474454"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Heap a) -&gt; (Heap a -&gt; IO (Heap a)) -&gt; IO ()
+forall a. MVar a -&gt; (a -&gt; IO a) -&gt; IO ()
+</span><span class="hs-identifier hs-var">modifyMVarMasked_</span></span><span> </span><span class="annot"><span class="annottext">MVar (Heap a)
+</span><a href="#local-6989586621681474456"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">((Heap a -&gt; IO (Heap a)) -&gt; IO ())
+-&gt; (Heap a -&gt; IO (Heap a)) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681474453"><span class="annot"><span class="annottext">h :: Heap a
+</span><a href="#local-6989586621681474453"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-56"></span><span>    </span><span id="local-6989586621681474452"><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474452"><span class="hs-identifier hs-var">h'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Heap a -&gt; IO (Heap a)
+forall a. a -&gt; IO a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="annot"><span class="annottext">(Heap a -&gt; IO (Heap a)) -&gt; Heap a -&gt; IO (Heap a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Heap a -&gt; Heap a
+forall a. Ord a =&gt; a -&gt; Heap a -&gt; Heap a
+</span><span class="hs-identifier hs-var">H.insert</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474454"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474453"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="annot"><span class="annottext">IO Bool -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; IO ()) -&gt; IO Bool -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; () -&gt; IO Bool
+forall a. MVar a -&gt; a -&gt; IO Bool
+</span><span class="hs-identifier hs-var">tryPutMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621681474457"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">Heap a -&gt; IO (Heap a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Heap a -&gt; IO (Heap a)) -&gt; Heap a -&gt; IO (Heap a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Heap a -&gt; Int
+forall a. Heap a -&gt; Int
+</span><span class="hs-identifier hs-var">H.size</span></span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474453"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681474455"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-59"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Heap a -&gt; Heap a
+forall a. Int -&gt; Heap a -&gt; Heap a
+</span><span class="hs-identifier hs-var">H.take</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681474455"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474452"><span class="hs-identifier hs-var">h'</span></a></span><span>
+</span><span id="line-60"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474452"><span class="hs-identifier hs-var">h'</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span id="local-6989586621681474446"><span class="annot"><a href="Data.PQueue.html#pQueueIsEmpty"><span class="hs-identifier hs-type">pQueueIsEmpty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474446"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span><span>
+</span><span id="line-63"></span><span id="pQueueIsEmpty"><span class="annot"><span class="annottext">pQueueIsEmpty :: PQueue a -&gt; IO Bool
+</span><a href="Data.PQueue.html#pQueueIsEmpty"><span class="hs-identifier hs-var hs-var">pQueueIsEmpty</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681474445"><span class="annot"><span class="annottext">q :: MVar (Heap a)
+</span><a href="#local-6989586621681474445"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Heap a -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">H.null</span></span><span> </span><span class="annot"><span class="annottext">(Heap a -&gt; Bool) -&gt; IO (Heap a) -&gt; IO Bool
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar (Heap a) -&gt; IO (Heap a)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Heap a)
+</span><a href="#local-6989586621681474445"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span id="local-6989586621681474441"><span class="annot"><a href="Data.PQueue.html#pQueueSize"><span class="hs-identifier hs-type">pQueueSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474441"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span></span><span>
+</span><span id="line-66"></span><span id="pQueueSize"><span class="annot"><span class="annottext">pQueueSize :: PQueue a -&gt; IO Natural
+</span><a href="Data.PQueue.html#pQueueSize"><span class="hs-identifier hs-var hs-var">pQueueSize</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681474440"><span class="annot"><span class="annottext">q :: MVar (Heap a)
+</span><a href="#local-6989586621681474440"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Natural
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Natural) -&gt; (Heap a -&gt; Int) -&gt; Heap a -&gt; Natural
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Heap a -&gt; Int
+forall a. Heap a -&gt; Int
+</span><span class="hs-identifier hs-var">H.size</span></span><span> </span><span class="annot"><span class="annottext">(Heap a -&gt; Natural) -&gt; IO (Heap a) -&gt; IO Natural
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; b) -&gt; m a -&gt; m b
+</span><span class="hs-operator hs-var">&lt;$!&gt;</span></span><span> </span><span class="annot"><span class="annottext">MVar (Heap a) -&gt; IO (Heap a)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (Heap a)
+</span><a href="#local-6989586621681474440"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-comment">-- | It the queue is empty it blocks and races for new items</span><span>
+</span><span id="line-69"></span><span class="hs-comment">--</span><span>
+</span><span id="line-70"></span><span id="local-6989586621681474438"><span class="annot"><a href="Data.PQueue.html#pQueueRemove"><span class="hs-identifier hs-type">pQueueRemove</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681474438"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681474438"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-71"></span><span id="pQueueRemove"><span class="annot"><span class="annottext">pQueueRemove :: PQueue a -&gt; IO a
+</span><a href="Data.PQueue.html#pQueueRemove"><span class="hs-identifier hs-var hs-var">pQueueRemove</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span id="local-6989586621681474437"><span class="annot"><span class="annottext">s :: MVar ()
+</span><a href="#local-6989586621681474437"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681474436"><span class="annot"><span class="annottext">q :: MVar (Heap a)
+</span><a href="#local-6989586621681474436"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621681474435"><span class="hs-identifier hs-var">run</span></a></span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>    </span><span id="local-6989586621681474435"><span class="annot"><span class="annottext">run :: IO a
+</span><a href="#local-6989586621681474435"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-74"></span><span>        </span><span id="local-6989586621681474434"><span class="annot"><span class="annottext">Maybe a
+</span><a href="#local-6989586621681474434"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar (Heap a) -&gt; (Heap a -&gt; IO (Heap a, Maybe a)) -&gt; IO (Maybe a)
+forall a b. MVar a -&gt; (a -&gt; IO (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">modifyMVarMasked</span></span><span> </span><span class="annot"><span class="annottext">MVar (Heap a)
+</span><a href="#local-6989586621681474436"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">((Heap a -&gt; IO (Heap a, Maybe a)) -&gt; IO (Maybe a))
+-&gt; (Heap a -&gt; IO (Heap a, Maybe a)) -&gt; IO (Maybe a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681474432"><span class="annot"><span class="annottext">h :: Heap a
+</span><a href="#local-6989586621681474432"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Heap a -&gt; Maybe (a, Heap a)
+forall a. Heap a -&gt; Maybe (a, Heap a)
+</span><span class="hs-identifier hs-var">H.uncons</span></span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474432"><span class="hs-identifier hs-var">h</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-75"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Heap a, Maybe a) -&gt; IO (Heap a, Maybe a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((Heap a, Maybe a) -&gt; IO (Heap a, Maybe a))
+-&gt; (Heap a, Maybe a) -&gt; IO (Heap a, Maybe a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474432"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe a
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">!</span><span id="local-6989586621681474430"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474430"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681474429"><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474429"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-77"></span><span>                </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Heap a -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">H.null</span></span><span> </span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474429"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO (Maybe ()) -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe ()) -&gt; IO ()) -&gt; IO (Maybe ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; IO (Maybe ())
+forall a. MVar a -&gt; IO (Maybe a)
+</span><span class="hs-identifier hs-var">tryTakeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621681474437"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-78"></span><span>                </span><span class="annot"><span class="annottext">(Heap a, Maybe a) -&gt; IO (Heap a, Maybe a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">((Heap a, Maybe a) -&gt; IO (Heap a, Maybe a))
+-&gt; (Heap a, Maybe a) -&gt; IO (Heap a, Maybe a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Heap a
+</span><a href="#local-6989586621681474429"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474430"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><a href="#local-6989586621681474434"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-80"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MVar () -&gt; IO ()
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">takeMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar ()
+</span><a href="#local-6989586621681474437"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO a -&gt; IO a
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621681474435"><span class="hs-identifier hs-var">run</span></a></span><span>
+</span><span id="line-81"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681474425"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474425"><span class="hs-identifier hs-var">x</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681474425"><span class="hs-identifier hs-var">x</span></a></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span></pre></body></html>

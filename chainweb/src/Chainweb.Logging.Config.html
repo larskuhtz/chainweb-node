@@ -1,0 +1,840 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Module: Chainweb.Logging.Config</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Chainweb Logging Configuration</span><span>
+</span><span id="line-20"></span><span class="hs-comment">--</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Logging.Config</span><span>
+</span><span id="line-22"></span><span class="hs-special">(</span><span>
+</span><span id="line-23"></span><span class="annot"><span class="hs-comment">-- * Logging Config</span></span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Chainweb.Logging.Config.html#ClusterId"><span class="hs-identifier">ClusterId</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier">LogConfig</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#logConfigLogger"><span class="hs-identifier">logConfigLogger</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#logConfigBackend"><span class="hs-identifier">logConfigBackend</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#logConfigTelemetryBackend"><span class="hs-identifier">logConfigTelemetryBackend</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#logConfigClusterId"><span class="hs-identifier">logConfigClusterId</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#logConfigAmberdataBackend"><span class="hs-identifier">logConfigAmberdataBackend</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#defaultLogConfig"><span class="hs-identifier">defaultLogConfig</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#validateLogConfig"><span class="hs-identifier">validateLogConfig</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#pLogConfig"><span class="hs-identifier">pLogConfig</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#pLogConfig_"><span class="hs-identifier">pLogConfig_</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Configuration.Utils</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Configuration.Utils.Validation</span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens.TH</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bifunctor</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String</span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Logger.Logger</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Logging.Amberdata.html"><span class="hs-identifier">Chainweb.Logging.Amberdata</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Utils.Logging.Config.html"><span class="hs-identifier">Utils.Logging.Config</span></a></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Utils.Logging.html"><span class="hs-identifier">Utils.Logging</span></a></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- Logging System Configuration</span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- | An user provided label that is used to tag log messages from nodes.</span><span>
+</span><span id="line-63"></span><span class="hs-comment">--</span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- It intended purpose is to allow users to defines arbitrary groups of nodes</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- and tag the respective log messages.</span><span>
+</span><span id="line-66"></span><span class="hs-comment">--</span><span>
+</span><span id="line-67"></span><span id="local-6989586621681507639"><span id="local-6989586621681507640"></span></span><span class="hs-keyword">newtype</span><span> </span><span id="ClusterId"><span class="annot"><a href="Chainweb.Logging.Config.html#ClusterId"><span class="hs-identifier hs-var">ClusterId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ClusterId"><span class="annot"><a href="Chainweb.Logging.Config.html#ClusterId"><span class="hs-identifier hs-var">ClusterId</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681507632"><span id="local-6989586621681507634"><span id="local-6989586621681507636"><span class="annot"><span class="annottext">Int -&gt; ClusterId -&gt; ShowS
+[ClusterId] -&gt; ShowS
+ClusterId -&gt; String
+(Int -&gt; ClusterId -&gt; ShowS)
+-&gt; (ClusterId -&gt; String)
+-&gt; ([ClusterId] -&gt; ShowS)
+-&gt; Show ClusterId
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [ClusterId] -&gt; ShowS
+$cshowList :: [ClusterId] -&gt; ShowS
+show :: ClusterId -&gt; String
+$cshow :: ClusterId -&gt; String
+showsPrec :: Int -&gt; ClusterId -&gt; ShowS
+$cshowsPrec :: Int -&gt; ClusterId -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681507627"><span id="local-6989586621681507629"><span class="annot"><span class="annottext">ClusterId -&gt; ClusterId -&gt; Bool
+(ClusterId -&gt; ClusterId -&gt; Bool)
+-&gt; (ClusterId -&gt; ClusterId -&gt; Bool) -&gt; Eq ClusterId
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: ClusterId -&gt; ClusterId -&gt; Bool
+$c/= :: ClusterId -&gt; ClusterId -&gt; Bool
+== :: ClusterId -&gt; ClusterId -&gt; Bool
+$c== :: ClusterId -&gt; ClusterId -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681507611"><span id="local-6989586621681507613"><span id="local-6989586621681507615"><span id="local-6989586621681507617"><span id="local-6989586621681507619"><span id="local-6989586621681507621"><span id="local-6989586621681507623"><span class="annot"><span class="annottext">Eq ClusterId
+Eq ClusterId =&gt;
+(ClusterId -&gt; ClusterId -&gt; Ordering)
+-&gt; (ClusterId -&gt; ClusterId -&gt; Bool)
+-&gt; (ClusterId -&gt; ClusterId -&gt; Bool)
+-&gt; (ClusterId -&gt; ClusterId -&gt; Bool)
+-&gt; (ClusterId -&gt; ClusterId -&gt; Bool)
+-&gt; (ClusterId -&gt; ClusterId -&gt; ClusterId)
+-&gt; (ClusterId -&gt; ClusterId -&gt; ClusterId)
+-&gt; Ord ClusterId
+ClusterId -&gt; ClusterId -&gt; Bool
+ClusterId -&gt; ClusterId -&gt; Ordering
+ClusterId -&gt; ClusterId -&gt; ClusterId
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: ClusterId -&gt; ClusterId -&gt; ClusterId
+$cmin :: ClusterId -&gt; ClusterId -&gt; ClusterId
+max :: ClusterId -&gt; ClusterId -&gt; ClusterId
+$cmax :: ClusterId -&gt; ClusterId -&gt; ClusterId
+&gt;= :: ClusterId -&gt; ClusterId -&gt; Bool
+$c&gt;= :: ClusterId -&gt; ClusterId -&gt; Bool
+&gt; :: ClusterId -&gt; ClusterId -&gt; Bool
+$c&gt; :: ClusterId -&gt; ClusterId -&gt; Bool
+&lt;= :: ClusterId -&gt; ClusterId -&gt; Bool
+$c&lt;= :: ClusterId -&gt; ClusterId -&gt; Bool
+&lt; :: ClusterId -&gt; ClusterId -&gt; Bool
+$c&lt; :: ClusterId -&gt; ClusterId -&gt; Bool
+compare :: ClusterId -&gt; ClusterId -&gt; Ordering
+$ccompare :: ClusterId -&gt; ClusterId -&gt; Ordering
+$cp1Ord :: Eq ClusterId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. ClusterId -&gt; Rep ClusterId x)
+-&gt; (forall x. Rep ClusterId x -&gt; ClusterId) -&gt; Generic ClusterId
+forall x. Rep ClusterId x -&gt; ClusterId
+forall x. ClusterId -&gt; Rep ClusterId x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep ClusterId x -&gt; ClusterId
+$cfrom :: forall x. ClusterId -&gt; Rep ClusterId x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681507605"><span class="annot"><span class="annottext">String -&gt; ClusterId
+(String -&gt; ClusterId) -&gt; IsString ClusterId
+forall a. (String -&gt; a) -&gt; IsString a
+fromString :: String -&gt; ClusterId
+$cfromString :: String -&gt; ClusterId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">IsString</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681507596"><span id="local-6989586621681507598"><span id="local-6989586621681507600"><span id="local-6989586621681507602"><span class="annot"><span class="annottext">[ClusterId] -&gt; Encoding
+[ClusterId] -&gt; Value
+ClusterId -&gt; Encoding
+ClusterId -&gt; Value
+(ClusterId -&gt; Value)
+-&gt; (ClusterId -&gt; Encoding)
+-&gt; ([ClusterId] -&gt; Value)
+-&gt; ([ClusterId] -&gt; Encoding)
+-&gt; ToJSON ClusterId
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; ToJSON a
+toEncodingList :: [ClusterId] -&gt; Encoding
+$ctoEncodingList :: [ClusterId] -&gt; Encoding
+toJSONList :: [ClusterId] -&gt; Value
+$ctoJSONList :: [ClusterId] -&gt; Value
+toEncoding :: ClusterId -&gt; Encoding
+$ctoEncoding :: ClusterId -&gt; Encoding
+toJSON :: ClusterId -&gt; Value
+$ctoJSON :: ClusterId -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681507591"><span id="local-6989586621681507593"><span class="annot"><span class="annottext">Value -&gt; Parser [ClusterId]
+Value -&gt; Parser ClusterId
+(Value -&gt; Parser ClusterId)
+-&gt; (Value -&gt; Parser [ClusterId]) -&gt; FromJSON ClusterId
+forall a.
+(Value -&gt; Parser a) -&gt; (Value -&gt; Parser [a]) -&gt; FromJSON a
+parseJSONList :: Value -&gt; Parser [ClusterId]
+$cparseJSONList :: Value -&gt; Parser [ClusterId]
+parseJSON :: Value -&gt; Parser ClusterId
+$cparseJSON :: Value -&gt; Parser ClusterId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681507588"><span class="annot"><span class="annottext">ClusterId -&gt; ()
+(ClusterId -&gt; ()) -&gt; NFData ClusterId
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: ClusterId -&gt; ()
+$crnf :: ClusterId -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#HasTextRepresentation"><span class="hs-identifier hs-type">HasTextRepresentation</span></a></span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#ClusterId"><span class="hs-identifier hs-type">ClusterId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>    </span><span id="local-6989586621681507583"><span class="annot"><span class="annottext">toText :: ClusterId -&gt; Text
+</span><a href="Chainweb.Utils.html#toText"><span class="hs-identifier hs-var hs-var hs-var hs-var">toText</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Logging.Config.html#ClusterId"><span class="hs-identifier hs-type">ClusterId</span></a></span><span> </span><span id="local-6989586621681507581"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681507581"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507581"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span id="local-6989586621681507580"><span class="annot"><span class="annottext">fromText :: Text -&gt; m ClusterId
+</span><a href="Chainweb.Utils.html#fromText"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClusterId -&gt; m ClusterId
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(ClusterId -&gt; m ClusterId)
+-&gt; (Text -&gt; ClusterId) -&gt; Text -&gt; m ClusterId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ClusterId
+</span><a href="Chainweb.Logging.Config.html#ClusterId"><span class="hs-identifier hs-var">ClusterId</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- | General logging config</span><span>
+</span><span id="line-78"></span><span class="hs-comment">--</span><span>
+</span><span id="line-79"></span><span id="local-6989586621681507576"><span id="local-6989586621681507577"></span></span><span class="hs-keyword">data</span><span> </span><span id="LogConfig"><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-var">LogConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="LogConfig"><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-var">LogConfig</span></a></span></span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_logConfigLogger"><span class="annot"><span class="annottext">LogConfig -&gt; LoggerConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigLogger"><span class="hs-identifier hs-var hs-var">_logConfigLogger</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">LoggerConfig</span></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_logConfigBackend"><span class="annot"><span class="annottext">LogConfig -&gt; BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigBackend"><span class="hs-identifier hs-var hs-var">_logConfigBackend</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Utils.Logging.Config.html#BackendConfig"><span class="hs-identifier hs-type">BackendConfig</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_logConfigTelemetryBackend"><span class="annot"><span class="annottext">LogConfig -&gt; EnableConfig BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigTelemetryBackend"><span class="hs-identifier hs-var hs-var">_logConfigTelemetryBackend</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#EnableConfig"><span class="hs-identifier hs-type">EnableConfig</span></a></span><span> </span><span class="annot"><a href="Utils.Logging.Config.html#BackendConfig"><span class="hs-identifier hs-type">BackendConfig</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_logConfigAmberdataBackend"><span class="annot"><span class="annottext">LogConfig -&gt; EnableConfig AmberdataConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigAmberdataBackend"><span class="hs-identifier hs-var hs-var">_logConfigAmberdataBackend</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#EnableConfig"><span class="hs-identifier hs-type">EnableConfig</span></a></span><span> </span><span class="annot"><a href="Chainweb.Logging.Amberdata.html#AmberdataConfig"><span class="hs-identifier hs-type">AmberdataConfig</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_logConfigClusterId"><span class="annot"><span class="annottext">LogConfig -&gt; Maybe ClusterId
+</span><a href="Chainweb.Logging.Config.html#_logConfigClusterId"><span class="hs-identifier hs-var hs-var">_logConfigClusterId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#ClusterId"><span class="hs-identifier hs-type">ClusterId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_logConfigFilter"><span class="annot"><span class="annottext">LogConfig -&gt; LogFilter
+</span><a href="Chainweb.Logging.Config.html#_logConfigFilter"><span class="hs-identifier hs-var hs-var">_logConfigFilter</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Utils.Logging.html#LogFilter"><span class="hs-identifier hs-type">LogFilter</span></a></span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681507563"><span id="local-6989586621681507565"><span id="local-6989586621681507567"><span class="annot"><span class="annottext">Int -&gt; LogConfig -&gt; ShowS
+[LogConfig] -&gt; ShowS
+LogConfig -&gt; String
+(Int -&gt; LogConfig -&gt; ShowS)
+-&gt; (LogConfig -&gt; String)
+-&gt; ([LogConfig] -&gt; ShowS)
+-&gt; Show LogConfig
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [LogConfig] -&gt; ShowS
+$cshowList :: [LogConfig] -&gt; ShowS
+show :: LogConfig -&gt; String
+$cshow :: LogConfig -&gt; String
+showsPrec :: Int -&gt; LogConfig -&gt; ShowS
+$cshowsPrec :: Int -&gt; LogConfig -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681507559"><span id="local-6989586621681507561"><span class="annot"><span class="annottext">LogConfig -&gt; LogConfig -&gt; Bool
+(LogConfig -&gt; LogConfig -&gt; Bool)
+-&gt; (LogConfig -&gt; LogConfig -&gt; Bool) -&gt; Eq LogConfig
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: LogConfig -&gt; LogConfig -&gt; Bool
+$c/= :: LogConfig -&gt; LogConfig -&gt; Bool
+== :: LogConfig -&gt; LogConfig -&gt; Bool
+$c== :: LogConfig -&gt; LogConfig -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681507544"><span id="local-6989586621681507546"><span id="local-6989586621681507548"><span id="local-6989586621681507550"><span id="local-6989586621681507552"><span id="local-6989586621681507554"><span id="local-6989586621681507556"><span class="annot"><span class="annottext">Eq LogConfig
+Eq LogConfig =&gt;
+(LogConfig -&gt; LogConfig -&gt; Ordering)
+-&gt; (LogConfig -&gt; LogConfig -&gt; Bool)
+-&gt; (LogConfig -&gt; LogConfig -&gt; Bool)
+-&gt; (LogConfig -&gt; LogConfig -&gt; Bool)
+-&gt; (LogConfig -&gt; LogConfig -&gt; Bool)
+-&gt; (LogConfig -&gt; LogConfig -&gt; LogConfig)
+-&gt; (LogConfig -&gt; LogConfig -&gt; LogConfig)
+-&gt; Ord LogConfig
+LogConfig -&gt; LogConfig -&gt; Bool
+LogConfig -&gt; LogConfig -&gt; Ordering
+LogConfig -&gt; LogConfig -&gt; LogConfig
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: LogConfig -&gt; LogConfig -&gt; LogConfig
+$cmin :: LogConfig -&gt; LogConfig -&gt; LogConfig
+max :: LogConfig -&gt; LogConfig -&gt; LogConfig
+$cmax :: LogConfig -&gt; LogConfig -&gt; LogConfig
+&gt;= :: LogConfig -&gt; LogConfig -&gt; Bool
+$c&gt;= :: LogConfig -&gt; LogConfig -&gt; Bool
+&gt; :: LogConfig -&gt; LogConfig -&gt; Bool
+$c&gt; :: LogConfig -&gt; LogConfig -&gt; Bool
+&lt;= :: LogConfig -&gt; LogConfig -&gt; Bool
+$c&lt;= :: LogConfig -&gt; LogConfig -&gt; Bool
+&lt; :: LogConfig -&gt; LogConfig -&gt; Bool
+$c&lt; :: LogConfig -&gt; LogConfig -&gt; Bool
+compare :: LogConfig -&gt; LogConfig -&gt; Ordering
+$ccompare :: LogConfig -&gt; LogConfig -&gt; Ordering
+$cp1Ord :: Eq LogConfig
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. LogConfig -&gt; Rep LogConfig x)
+-&gt; (forall x. Rep LogConfig x -&gt; LogConfig) -&gt; Generic LogConfig
+forall x. Rep LogConfig x -&gt; LogConfig
+forall x. LogConfig -&gt; Rep LogConfig x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep LogConfig x -&gt; LogConfig
+$cfrom :: forall x. LogConfig -&gt; Rep LogConfig x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span id="logConfigFilter"><span id="logConfigAmberdataBackend"><span id="logConfigClusterId"><span id="logConfigTelemetryBackend"><span id="logConfigBackend"><span id="logConfigLogger"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">LogConfig</span></span></span></span></span></span></span><span>
+</span><span id="line-90"></span><span>
+</span><span id="line-91"></span><span class="annot"><a href="Chainweb.Logging.Config.html#defaultLogConfig"><span class="hs-identifier hs-type">defaultLogConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-type">LogConfig</span></a></span><span>
+</span><span id="line-92"></span><span id="defaultLogConfig"><span class="annot"><span class="annottext">defaultLogConfig :: LogConfig
+</span><a href="Chainweb.Logging.Config.html#defaultLogConfig"><span class="hs-identifier hs-var hs-var">defaultLogConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">$WLogConfig :: LoggerConfig
+-&gt; BackendConfig
+-&gt; EnableConfig BackendConfig
+-&gt; EnableConfig AmberdataConfig
+-&gt; Maybe ClusterId
+-&gt; LogFilter
+-&gt; LogConfig
+</span><a href="Chainweb.Logging.Config.html#%24WLogConfig"><span class="hs-identifier hs-type hs-type">LogConfig</span></a></span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_logConfigLogger :: LoggerConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigLogger"><span class="hs-identifier hs-var">_logConfigLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LoggerConfig
+</span><span class="hs-identifier hs-var">defaultLoggerConfig</span></span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_logConfigBackend :: BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigBackend"><span class="hs-identifier hs-var">_logConfigBackend</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BackendConfig
+</span><a href="Utils.Logging.Config.html#defaultBackendConfig"><span class="hs-identifier hs-var">defaultBackendConfig</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_logConfigTelemetryBackend :: EnableConfig BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigTelemetryBackend"><span class="hs-identifier hs-var">_logConfigTelemetryBackend</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BackendConfig -&gt; EnableConfig BackendConfig
+forall a. a -&gt; EnableConfig a
+</span><a href="Chainweb.Utils.html#defaultEnableConfig"><span class="hs-identifier hs-var">defaultEnableConfig</span></a></span><span> </span><span class="annot"><span class="annottext">BackendConfig
+</span><a href="Utils.Logging.Config.html#defaultBackendConfig"><span class="hs-identifier hs-var">defaultBackendConfig</span></a></span><span>
+</span><span id="line-96"></span><span>      </span><span class="hs-comment">-- Amberdata logging disabled by default</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_logConfigAmberdataBackend :: EnableConfig AmberdataConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigAmberdataBackend"><span class="hs-identifier hs-var">_logConfigAmberdataBackend</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; AmberdataConfig -&gt; EnableConfig AmberdataConfig
+forall a. Bool -&gt; a -&gt; EnableConfig a
+</span><a href="Chainweb.Utils.html#EnableConfig"><span class="hs-identifier hs-var">EnableConfig</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">AmberdataConfig
+</span><a href="Chainweb.Logging.Amberdata.html#defaultAmberdataConfig"><span class="hs-identifier hs-var">defaultAmberdataConfig</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_logConfigClusterId :: Maybe ClusterId
+</span><a href="Chainweb.Logging.Config.html#_logConfigClusterId"><span class="hs-identifier hs-var">_logConfigClusterId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ClusterId
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_logConfigFilter :: LogFilter
+</span><a href="Chainweb.Logging.Config.html#_logConfigFilter"><span class="hs-identifier hs-var">_logConfigFilter</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogFilter
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="annot"><a href="Chainweb.Logging.Config.html#validateLogConfig"><span class="hs-identifier hs-type">validateLogConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfigValidation</span></span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-type">LogConfig</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-103"></span><span id="validateLogConfig"><span class="annot"><span class="annottext">validateLogConfig :: LogConfig -&gt; m ()
+</span><a href="Chainweb.Logging.Config.html#validateLogConfig"><span class="hs-identifier hs-var hs-var">validateLogConfig</span></a></span></span><span> </span><span id="local-6989586621681507534"><span class="annot"><span class="annottext">o :: LogConfig
+</span><a href="#local-6989586621681507534"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-104"></span><span>    </span><span class="annot"><span class="annottext">LoggerConfig -&gt; m ()
+forall (&#955; :: * -&gt; *). ConfigValidation LoggerConfig &#955;
+</span><span class="hs-identifier hs-var">validateLoggerConfig</span></span><span> </span><span class="annot"><span class="annottext">(LoggerConfig -&gt; m ()) -&gt; LoggerConfig -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; LoggerConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigLogger"><span class="hs-identifier hs-var hs-var">_logConfigLogger</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507534"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-105"></span><span>    </span><span class="annot"><span class="annottext">BackendConfig -&gt; m ()
+ConfigValidation BackendConfig []
+</span><a href="Utils.Logging.Config.html#validateBackendConfig"><span class="hs-identifier hs-var">validateBackendConfig</span></a></span><span> </span><span class="annot"><span class="annottext">(BackendConfig -&gt; m ()) -&gt; BackendConfig -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigBackend"><span class="hs-identifier hs-var hs-var">_logConfigBackend</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507534"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="annottext">ConfigValidation BackendConfig []
+-&gt; ConfigValidation (EnableConfig BackendConfig) []
+forall a (l :: * -&gt; *).
+ConfigValidation a l -&gt; ConfigValidation (EnableConfig a) l
+</span><a href="Chainweb.Utils.html#validateEnableConfig"><span class="hs-identifier hs-var">validateEnableConfig</span></a></span><span> </span><span class="annot"><span class="annottext">ConfigValidation BackendConfig []
+</span><a href="Utils.Logging.Config.html#validateBackendConfig"><span class="hs-identifier hs-var">validateBackendConfig</span></a></span><span> </span><span class="annot"><span class="annottext">(EnableConfig BackendConfig -&gt; m ())
+-&gt; EnableConfig BackendConfig -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; EnableConfig BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigTelemetryBackend"><span class="hs-identifier hs-var hs-var">_logConfigTelemetryBackend</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507534"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="annot"><span class="annottext">ConfigValidation AmberdataConfig []
+-&gt; ConfigValidation (EnableConfig AmberdataConfig) []
+forall a (l :: * -&gt; *).
+ConfigValidation a l -&gt; ConfigValidation (EnableConfig a) l
+</span><a href="Chainweb.Utils.html#validateEnableConfig"><span class="hs-identifier hs-var">validateEnableConfig</span></a></span><span> </span><span class="annot"><span class="annottext">ConfigValidation AmberdataConfig []
+</span><a href="Chainweb.Logging.Amberdata.html#validateAmberdataConfig"><span class="hs-identifier hs-var">validateAmberdataConfig</span></a></span><span> </span><span class="annot"><span class="annottext">(EnableConfig AmberdataConfig -&gt; m ())
+-&gt; EnableConfig AmberdataConfig -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; EnableConfig AmberdataConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigAmberdataBackend"><span class="hs-identifier hs-var hs-var">_logConfigAmberdataBackend</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507534"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681507523"><span id="local-6989586621681507525"><span id="local-6989586621681507527"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-type">LogConfig</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>    </span><span id="local-6989586621681507522"><span class="annot"><span class="annottext">toJSON :: LogConfig -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span id="local-6989586621681507520"><span class="annot"><span class="annottext">o :: LogConfig
+</span><a href="#local-6989586621681507520"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-111"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;logger&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; LoggerConfig -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; LoggerConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigLogger"><span class="hs-identifier hs-var hs-var">_logConfigLogger</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507520"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-112"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;backend&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; BackendConfig -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigBackend"><span class="hs-identifier hs-var hs-var">_logConfigBackend</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507520"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-113"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;telemetryBackend&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EnableConfig BackendConfig -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; EnableConfig BackendConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigTelemetryBackend"><span class="hs-identifier hs-var hs-var">_logConfigTelemetryBackend</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507520"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-114"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;clusterId&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe ClusterId -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; Maybe ClusterId
+</span><a href="Chainweb.Logging.Config.html#_logConfigClusterId"><span class="hs-identifier hs-var hs-var">_logConfigClusterId</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507520"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-115"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;amberdataBackend&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; EnableConfig AmberdataConfig -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; EnableConfig AmberdataConfig
+</span><a href="Chainweb.Logging.Config.html#_logConfigAmberdataBackend"><span class="hs-identifier hs-var hs-var">_logConfigAmberdataBackend</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507520"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-116"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;filter&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; LogFilter -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; LogFilter
+</span><a href="Chainweb.Logging.Config.html#_logConfigFilter"><span class="hs-identifier hs-var hs-var">_logConfigFilter</span></a></span><span> </span><span class="annot"><span class="annottext">LogConfig
+</span><a href="#local-6989586621681507520"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681507515"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-type">LogConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-type">LogConfig</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-120"></span><span>    </span><span id="local-6989586621681507514"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser (LogConfig -&gt; LogConfig)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Value
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;LogConfig&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser (LogConfig -&gt; LogConfig))
+ -&gt; Value -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; (Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Value
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681507511"><span class="annot"><span class="annottext">o :: Object
+</span><a href="#local-6989586621681507511"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; LogConfig
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-121"></span><span>        </span><span class="annot"><span class="annottext">(LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall (f :: * -&gt; *) b c a.
+Functor f =&gt;
+(b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;$&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig LoggerConfig
+</span><a href="Chainweb.Logging.Config.html#logConfigLogger"><span class="hs-identifier hs-var">logConfigLogger</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig LoggerConfig
+-&gt; Text -&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall b a.
+FromJSON (b -&gt; b) =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">%.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;logger&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681507511"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-122"></span><span>        </span><span class="annot"><span class="annottext">Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig BackendConfig
+</span><a href="Chainweb.Logging.Config.html#logConfigBackend"><span class="hs-identifier hs-var">logConfigBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig BackendConfig
+-&gt; Text -&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall b a.
+FromJSON (b -&gt; b) =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">%.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;backend&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681507511"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-123"></span><span>        </span><span class="annot"><span class="annottext">Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig BackendConfig)
+</span><a href="Chainweb.Logging.Config.html#logConfigTelemetryBackend"><span class="hs-identifier hs-var">logConfigTelemetryBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig BackendConfig)
+-&gt; Text -&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall b a.
+FromJSON (b -&gt; b) =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">%.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;telemetryBackend&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681507511"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-124"></span><span>        </span><span class="annot"><span class="annottext">Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (Maybe ClusterId)
+</span><a href="Chainweb.Logging.Config.html#logConfigClusterId"><span class="hs-identifier hs-var">logConfigClusterId</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (Maybe ClusterId)
+-&gt; Text -&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall b a.
+FromJSON b =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">..:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;clusterId&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681507511"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-125"></span><span>        </span><span class="annot"><span class="annottext">Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig AmberdataConfig)
+</span><a href="Chainweb.Logging.Config.html#logConfigAmberdataBackend"><span class="hs-identifier hs-var">logConfigAmberdataBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig AmberdataConfig)
+-&gt; Text -&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall b a.
+FromJSON (b -&gt; b) =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">%.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;amberdataBackend&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681507511"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-126"></span><span>        </span><span class="annot"><span class="annottext">Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+-&gt; Parser (LogConfig -&gt; LogConfig)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">(LogFilter -&gt; f LogFilter) -&gt; LogConfig -&gt; f LogConfig
+Lens' LogConfig LogFilter
+</span><a href="Chainweb.Logging.Config.html#logConfigFilter"><span class="hs-identifier hs-var">logConfigFilter</span></a></span><span> </span><span class="annot"><span class="annottext">((LogFilter -&gt; f LogFilter) -&gt; LogConfig -&gt; f LogConfig)
+-&gt; ((LeftMonoidalUpdate LogFilter
+     -&gt; f (LeftMonoidalUpdate LogFilter))
+    -&gt; LogFilter -&gt; f LogFilter)
+-&gt; (LeftMonoidalUpdate LogFilter
+    -&gt; f (LeftMonoidalUpdate LogFilter))
+-&gt; LogConfig
+-&gt; f LogConfig
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(LeftMonoidalUpdate LogFilter -&gt; f (LeftMonoidalUpdate LogFilter))
+-&gt; LogFilter -&gt; f LogFilter
+forall a b. Iso a b (LeftMonoidalUpdate a) (LeftMonoidalUpdate b)
+</span><span class="hs-identifier hs-var">fromLeftMonoidalUpdate</span></span><span> </span><span class="annot"><span class="annottext">(forall (f :: * -&gt; *).
+ Functor f =&gt;
+ (LeftMonoidalUpdate LogFilter -&gt; f (LeftMonoidalUpdate LogFilter))
+ -&gt; LogConfig -&gt; f LogConfig)
+-&gt; Text -&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall b a.
+FromJSON (b -&gt; b) =&gt;
+Lens' a b -&gt; Text -&gt; Object -&gt; Parser (a -&gt; a)
+</span><span class="hs-operator hs-var">%.:</span></span><span> </span><span class="annot"><span class="hs-string">&quot;filter&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Object -&gt; Parser (LogConfig -&gt; LogConfig))
+-&gt; Object -&gt; Parser (LogConfig -&gt; LogConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621681507511"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="annot"><a href="Chainweb.Logging.Config.html#pLogConfig"><span class="hs-identifier hs-type">pLogConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MParser</span></span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-type">LogConfig</span></a></span><span>
+</span><span id="line-129"></span><span id="pLogConfig"><span class="annot"><span class="annottext">pLogConfig :: MParser LogConfig
+</span><a href="Chainweb.Logging.Config.html#pLogConfig"><span class="hs-identifier hs-var hs-var">pLogConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; MParser LogConfig
+</span><a href="Chainweb.Logging.Config.html#pLogConfig_"><span class="hs-identifier hs-var">pLogConfig_</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;&quot;</span></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- | A version of 'pLogConfig' that takes a prefix for the command</span><span>
+</span><span id="line-132"></span><span class="hs-comment">-- line option.</span><span>
+</span><span id="line-133"></span><span class="hs-comment">--</span><span>
+</span><span id="line-134"></span><span class="annot"><a href="Chainweb.Logging.Config.html#pLogConfig_"><span class="hs-identifier hs-type">pLogConfig_</span></a></span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-136"></span><span>        </span><span class="hs-comment">-- ^ prefix for this and all subordinate command line options.</span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MParser</span></span><span> </span><span class="annot"><a href="Chainweb.Logging.Config.html#LogConfig"><span class="hs-identifier hs-type">LogConfig</span></a></span><span>
+</span><span id="line-138"></span><span id="pLogConfig_"><span class="annot"><span class="annottext">pLogConfig_ :: Text -&gt; MParser LogConfig
+</span><a href="Chainweb.Logging.Config.html#pLogConfig_"><span class="hs-identifier hs-var hs-var">pLogConfig_</span></a></span></span><span> </span><span id="local-6989586621681507503"><span class="annot"><span class="annottext">prefix :: Text
+</span><a href="#local-6989586621681507503"><span class="hs-identifier hs-var">prefix</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogConfig -&gt; LogConfig
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-139"></span><span>    </span><span class="annot"><span class="annottext">(LogConfig -&gt; LogConfig) -&gt; MParser LogConfig -&gt; MParser LogConfig
+forall (f :: * -&gt; *) b c a.
+Functor f =&gt;
+(b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;$&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig LoggerConfig
+</span><a href="Chainweb.Logging.Config.html#logConfigLogger"><span class="hs-identifier hs-var">logConfigLogger</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig LoggerConfig
+-&gt; Parser (LoggerConfig -&gt; LoggerConfig) -&gt; MParser LogConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f (b -&gt; b) -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">%::</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Parser (LoggerConfig -&gt; LoggerConfig)
+</span><span class="hs-identifier hs-var">pLoggerConfig_</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507503"><span class="hs-identifier hs-var">prefix</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="annot"><span class="annottext">MParser LogConfig -&gt; MParser LogConfig -&gt; MParser LogConfig
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig BackendConfig
+</span><a href="Chainweb.Logging.Config.html#logConfigBackend"><span class="hs-identifier hs-var">logConfigBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig BackendConfig
+-&gt; Parser (BackendConfig -&gt; BackendConfig) -&gt; MParser LogConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f (b -&gt; b) -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">%::</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Parser (BackendConfig -&gt; BackendConfig)
+</span><a href="Utils.Logging.Config.html#pBackendConfig_"><span class="hs-identifier hs-var">pBackendConfig_</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507503"><span class="hs-identifier hs-var">prefix</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="annot"><span class="annottext">MParser LogConfig -&gt; MParser LogConfig -&gt; MParser LogConfig
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig BackendConfig)
+</span><a href="Chainweb.Logging.Config.html#logConfigTelemetryBackend"><span class="hs-identifier hs-var">logConfigTelemetryBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig BackendConfig)
+-&gt; Parser
+     (EnableConfig BackendConfig -&gt; EnableConfig BackendConfig)
+-&gt; MParser LogConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f (b -&gt; b) -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">%::</span></span><span>
+</span><span id="line-142"></span><span>        </span><span class="annot"><span class="annottext">String
+-&gt; Parser (BackendConfig -&gt; BackendConfig)
+-&gt; Parser
+     (EnableConfig BackendConfig -&gt; EnableConfig BackendConfig)
+forall a. String -&gt; MParser a -&gt; MParser (EnableConfig a)
+</span><a href="Chainweb.Utils.html#pEnableConfig"><span class="hs-identifier hs-var">pEnableConfig</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;telemetry-logger&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Parser (BackendConfig -&gt; BackendConfig)
+</span><a href="Utils.Logging.Config.html#pBackendConfig_"><span class="hs-identifier hs-var">pBackendConfig_</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser (BackendConfig -&gt; BackendConfig))
+-&gt; Text -&gt; Parser (BackendConfig -&gt; BackendConfig)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;telemetry-&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507503"><span class="hs-identifier hs-var">prefix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-143"></span><span>    </span><span class="annot"><span class="annottext">MParser LogConfig -&gt; MParser LogConfig -&gt; MParser LogConfig
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (Maybe ClusterId)
+</span><a href="Chainweb.Logging.Config.html#logConfigClusterId"><span class="hs-identifier hs-var">logConfigClusterId</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (Maybe ClusterId)
+-&gt; Parser (Maybe ClusterId) -&gt; MParser LogConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f b -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">.::</span></span><span> </span><span class="annot"><span class="annottext">(ClusterId -&gt; Maybe ClusterId)
+-&gt; Parser ClusterId -&gt; Parser (Maybe ClusterId)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">ClusterId -&gt; Maybe ClusterId
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(Parser ClusterId -&gt; Parser (Maybe ClusterId))
+-&gt; Parser ClusterId -&gt; Parser (Maybe ClusterId)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Mod OptionFields ClusterId -&gt; Parser ClusterId
+forall a. HasTextRepresentation a =&gt; Mod OptionFields a -&gt; Parser a
+</span><a href="Chainweb.Utils.html#textOption"><span class="hs-identifier hs-var">textOption</span></a></span><span>
+</span><span id="line-144"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields ClusterId -&gt; Parser ClusterId)
+-&gt; Mod OptionFields ClusterId -&gt; Parser ClusterId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; String -&gt; Mod OptionFields ClusterId
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe String -&gt; String -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe String
+</span><a href="#local-6989586621681507495"><span class="hs-identifier hs-var">maybePrefix</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;cluster-id&quot;</span></span><span>
+</span><span id="line-145"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields ClusterId
+-&gt; Mod OptionFields ClusterId -&gt; Mod OptionFields ClusterId
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields ClusterId
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;a label that is added to all log messages from this node&quot;</span></span><span>
+</span><span id="line-146"></span><span>    </span><span class="annot"><span class="annottext">MParser LogConfig -&gt; MParser LogConfig -&gt; MParser LogConfig
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig AmberdataConfig)
+</span><a href="Chainweb.Logging.Config.html#logConfigAmberdataBackend"><span class="hs-identifier hs-var">logConfigAmberdataBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig (EnableConfig AmberdataConfig)
+-&gt; Parser
+     (EnableConfig AmberdataConfig -&gt; EnableConfig AmberdataConfig)
+-&gt; MParser LogConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f (b -&gt; b) -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">%::</span></span><span>
+</span><span id="line-147"></span><span>        </span><span class="annot"><span class="annottext">String
+-&gt; MParser AmberdataConfig
+-&gt; Parser
+     (EnableConfig AmberdataConfig -&gt; EnableConfig AmberdataConfig)
+forall a. String -&gt; MParser a -&gt; MParser (EnableConfig a)
+</span><a href="Chainweb.Utils.html#pEnableConfig"><span class="hs-identifier hs-var">pEnableConfig</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;amberdata-logger&quot;</span></span><span> </span><span class="annot"><span class="annottext">MParser AmberdataConfig
+</span><a href="Chainweb.Logging.Amberdata.html#pAmberdataConfig"><span class="hs-identifier hs-var">pAmberdataConfig</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span class="annot"><span class="annottext">MParser LogConfig -&gt; MParser LogConfig -&gt; MParser LogConfig
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig LogFilter
+</span><a href="Chainweb.Logging.Config.html#logConfigFilter"><span class="hs-identifier hs-var">logConfigFilter</span></a></span><span> </span><span class="annot"><span class="annottext">Lens' LogConfig LogFilter
+-&gt; Parser (LogFilter -&gt; LogFilter) -&gt; MParser LogConfig
+forall (f :: * -&gt; *) a b.
+(Alternative f, Applicative f) =&gt;
+Lens' a b -&gt; f (b -&gt; b) -&gt; f (a -&gt; a)
+</span><span class="hs-operator hs-var">%::</span></span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; Parser (LogFilter -&gt; LogFilter)
+</span><a href="Chainweb.Logging.Config.html#pFilter_"><span class="hs-identifier hs-var">pFilter_</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe String
+</span><a href="#local-6989586621681507495"><span class="hs-identifier hs-var">maybePrefix</span></a></span><span>
+</span><span id="line-149"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-150"></span><span>    </span><span id="local-6989586621681507495"><span class="annot"><span class="annottext">maybePrefix :: Maybe String
+</span><a href="#local-6989586621681507495"><span class="hs-identifier hs-var hs-var">maybePrefix</span></a></span></span><span>
+</span><span id="line-151"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool
+</span><span class="hs-identifier hs-var">T.null</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507503"><span class="hs-identifier hs-var">prefix</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe String
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-152"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507503"><span class="hs-identifier hs-var">prefix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span class="annot"><a href="Chainweb.Logging.Config.html#pFilter_"><span class="hs-identifier hs-type">pFilter_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MParser</span></span><span> </span><span class="annot"><a href="Utils.Logging.html#LogFilter"><span class="hs-identifier hs-type">LogFilter</span></a></span><span>
+</span><span id="line-155"></span><span id="pFilter_"><span class="annot"><span class="annottext">pFilter_ :: Maybe String -&gt; Parser (LogFilter -&gt; LogFilter)
+</span><a href="Chainweb.Logging.Config.html#pFilter_"><span class="hs-identifier hs-var hs-var">pFilter_</span></a></span></span><span> </span><span id="local-6989586621681507489"><span class="annot"><span class="annottext">prefix :: Maybe String
+</span><a href="#local-6989586621681507489"><span class="hs-identifier hs-var">prefix</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogFilter -&gt; LogFilter
+forall a. a -&gt; a
+</span><span class="hs-identifier hs-var">id</span></span><span>
+</span><span id="line-156"></span><span>    </span><span class="annot"><span class="annottext">(LogFilter -&gt; LogFilter)
+-&gt; Parser (LogFilter -&gt; LogFilter)
+-&gt; Parser (LogFilter -&gt; LogFilter)
+forall (f :: * -&gt; *) b c a.
+Functor f =&gt;
+(b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;$&lt;</span></span><span> </span><span class="annot"><span class="annottext">Parser LogFilter -&gt; Parser (LogFilter -&gt; LogFilter)
+forall a. Monoid a =&gt; Parser a -&gt; MParser a
+</span><span class="hs-identifier hs-var">pLeftMonoidalUpdate</span></span><span> </span><span class="annot"><span class="annottext">Parser LogFilter
+</span><a href="#local-6989586621681507487"><span class="hs-identifier hs-var">pFilterRule</span></a></span><span>
+</span><span id="line-157"></span><span>    </span><span class="annot"><span class="annottext">Parser (LogFilter -&gt; LogFilter)
+-&gt; Parser (LogFilter -&gt; LogFilter)
+-&gt; Parser (LogFilter -&gt; LogFilter)
+forall (f :: * -&gt; *) b c a.
+Applicative f =&gt;
+f (b -&gt; c) -&gt; f (a -&gt; b) -&gt; f (a -&gt; c)
+</span><span class="hs-operator hs-var">&lt;*&lt;</span></span><span> </span><span class="annot"><span class="annottext">Parser LogFilter -&gt; Parser (LogFilter -&gt; LogFilter)
+forall a. Monoid a =&gt; Parser a -&gt; MParser a
+</span><span class="hs-identifier hs-var">pLeftMonoidalUpdate</span></span><span> </span><span class="annot"><span class="annottext">Parser LogFilter
+</span><a href="#local-6989586621681507486"><span class="hs-identifier hs-var">pFilterDefault</span></a></span><span>
+</span><span id="line-158"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-159"></span><span>    </span><span id="local-6989586621681507487"><span class="annot"><span class="annottext">pFilterRule :: Parser LogFilter
+</span><a href="#local-6989586621681507487"><span class="hs-identifier hs-var hs-var">pFilterRule</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReadM LogFilter -&gt; Mod OptionFields LogFilter -&gt; Parser LogFilter
+forall a. ReadM a -&gt; Mod OptionFields a -&gt; Parser a
+</span><span class="hs-identifier hs-var">option</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(String -&gt; Either String LogFilter) -&gt; ReadM LogFilter
+forall a. (String -&gt; Either String a) -&gt; ReadM a
+</span><span class="hs-identifier hs-var">eitherReader</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Either String LogFilter
+</span><a href="#local-6989586621681507483"><span class="hs-identifier hs-var">readEntry</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-160"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields LogFilter -&gt; Parser LogFilter)
+-&gt; Mod OptionFields LogFilter -&gt; Parser LogFilter
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; String -&gt; Mod OptionFields LogFilter
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe String -&gt; String -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe String
+</span><a href="#local-6989586621681507489"><span class="hs-identifier hs-var">prefix</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;log-filter-rule&quot;</span></span><span>
+</span><span id="line-161"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields LogFilter
+-&gt; Mod OptionFields LogFilter -&gt; Mod OptionFields LogFilter
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields LogFilter
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;A log filter rule. Log messages with matching scope are discarded if they don't meet the log level threshold.&quot;</span></span><span>
+</span><span id="line-162"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields LogFilter
+-&gt; Mod OptionFields LogFilter -&gt; Mod OptionFields LogFilter
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields LogFilter
+forall (f :: * -&gt; *) a. HasMetavar f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">metavar</span></span><span> </span><span class="annot"><span class="hs-string">&quot;KEY:VALUE:LOGLEVEL&quot;</span></span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span>    </span><span id="local-6989586621681507483"><span class="annot"><span class="annottext">readEntry :: String -&gt; Either String LogFilter
+</span><a href="#local-6989586621681507483"><span class="hs-identifier hs-var hs-var">readEntry</span></a></span></span><span> </span><span id="local-6989586621681507481"><span class="annot"><span class="annottext">s :: String
+</span><a href="#local-6989586621681507481"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; [Text]
+</span><span class="hs-identifier hs-var">T.splitOn</span></span><span> </span><span class="annot"><span class="hs-string">&quot;:&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681507481"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-165"></span><span>        </span><span class="hs-special">[</span><span id="local-6989586621681507478"><span class="annot"><span class="annottext">a :: Text
+</span><a href="#local-6989586621681507478"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621681507477"><span class="annot"><span class="annottext">b :: Text
+</span><a href="#local-6989586621681507477"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621681507476"><span class="annot"><span class="annottext">c :: Text
+</span><a href="#local-6989586621681507476"><span class="hs-identifier hs-var">c</span></a></span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; String)
+-&gt; Either Text LogFilter -&gt; Either String LogFilter
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><span class="hs-identifier hs-var">first</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
+</span><span class="hs-identifier hs-var">T.unpack</span></span><span> </span><span class="annot"><span class="annottext">(Either Text LogFilter -&gt; Either String LogFilter)
+-&gt; Either Text LogFilter -&gt; Either String LogFilter
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-166"></span><span>            </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Either Text ()
+forall (m :: * -&gt; *) a.
+(MonadError Text m, Eq a, Monoid a) =&gt;
+Text -&gt; a -&gt; m ()
+</span><span class="hs-identifier hs-var">validateNonEmpty</span></span><span> </span><span class="annot"><span class="hs-string">&quot;KEY&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507478"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-167"></span><span>            </span><span id="local-6989586621681507473"><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681507473"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text LogLevel
+forall e (m :: * -&gt; *) a.
+(MonadError e m, Eq a, Show a, FoldCase a, IsString a, IsString e,
+ Monoid e) =&gt;
+a -&gt; m LogLevel
+</span><span class="hs-identifier hs-var">readLogLevel</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507476"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-168"></span><span>            </span><span class="hs-comment">-- return $ set logFilterRules [ ((a,b),l) ] mempty</span><span>
+</span><span id="line-169"></span><span>            </span><span class="annot"><span class="annottext">LogFilter -&gt; Either Text LogFilter
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(LogFilter -&gt; Either Text LogFilter)
+-&gt; LogFilter -&gt; Either Text LogFilter
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[(LogLabel, LogLevel)] -&gt; LogLevel -&gt; LogFilter
+</span><a href="Utils.Logging.html#LogFilter"><span class="hs-identifier hs-var">LogFilter</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507478"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681507477"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681507473"><span class="hs-identifier hs-var">l</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span>
+</span><span id="line-170"></span><span>        </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Either String LogFilter
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Either String LogFilter)
+-&gt; String -&gt; Either String LogFilter
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;expecting KEY:VALUE:LOGLEVEL, but got &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681507481"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-171"></span><span>
+</span><span id="line-172"></span><span>    </span><span id="local-6989586621681507486"><span class="annot"><span class="annottext">pFilterDefault :: Parser LogFilter
+</span><a href="#local-6989586621681507486"><span class="hs-identifier hs-var hs-var">pFilterDefault</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(LogLabel, LogLevel)] -&gt; LogLevel -&gt; LogFilter
+</span><a href="Utils.Logging.html#LogFilter"><span class="hs-identifier hs-var">LogFilter</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">(LogLevel -&gt; LogFilter) -&gt; Parser LogLevel -&gt; Parser LogFilter
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ReadM LogLevel -&gt; Mod OptionFields LogLevel -&gt; Parser LogLevel
+forall a. ReadM a -&gt; Mod OptionFields a -&gt; Parser a
+</span><span class="hs-identifier hs-var">option</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(String -&gt; Either String LogLevel) -&gt; ReadM LogLevel
+forall a. (String -&gt; Either String a) -&gt; ReadM a
+</span><span class="hs-identifier hs-var">eitherReader</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Either String LogLevel
+forall e (m :: * -&gt; *) a.
+(MonadError e m, Eq a, Show a, FoldCase a, IsString a, IsString e,
+ Monoid e) =&gt;
+a -&gt; m LogLevel
+</span><span class="hs-identifier hs-var">readLogLevel</span></span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span>        </span><span class="annot"><span class="annottext">(Mod OptionFields LogLevel -&gt; Parser LogLevel)
+-&gt; Mod OptionFields LogLevel -&gt; Parser LogLevel
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">%</span></span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; String -&gt; Mod OptionFields LogLevel
+forall (f :: * -&gt; *) a.
+HasName f =&gt;
+Maybe String -&gt; String -&gt; Mod f a
+</span><a href="Chainweb.Utils.html#prefixLong"><span class="hs-identifier hs-var">prefixLong</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe String
+</span><a href="#local-6989586621681507489"><span class="hs-identifier hs-var">prefix</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;log-filter-default&quot;</span></span><span>
+</span><span id="line-174"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields LogLevel
+-&gt; Mod OptionFields LogLevel -&gt; Mod OptionFields LogLevel
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields LogLevel
+forall (f :: * -&gt; *) a. String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="hs-string">&quot;default log filter level, which is applied to all messages that don't match any other filter rule&quot;</span></span><span>
+</span><span id="line-175"></span><span>        </span><span class="annot"><span class="annottext">Mod OptionFields LogLevel
+-&gt; Mod OptionFields LogLevel -&gt; Mod OptionFields LogLevel
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Mod OptionFields LogLevel
+forall (f :: * -&gt; *) a. HasMetavar f =&gt; String -&gt; Mod f a
+</span><span class="hs-identifier hs-var">metavar</span></span><span> </span><span class="annot"><span class="hs-string">&quot;LOGLEVEL&quot;</span></span><span>
+</span><span id="line-176"></span><span>
+</span><span id="line-177"></span></pre></body></html>

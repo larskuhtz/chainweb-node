@@ -1,0 +1,641 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Module: Chainweb.TreeDB.RemoteDB</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Maintainer: Colin Woodbury &lt;colin@kadena.io&gt;</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- A `TreeDb`-compatible interface to remote `BlockHeader` databases.</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.TreeDB.RemoteDB</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier">RemoteDb</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#remoteDb"><span class="hs-identifier">remoteDb</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Error.Util</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">hush</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">handle</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">throwM</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">client</span></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Streaming</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Streaming.Prelude</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">SP</span></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier">BlockHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier">BlockHeader</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html"><span class="hs-identifier">Chainweb.BlockHeaderDB.RestAPI.Client</span></a></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier">ChainId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html"><span class="hs-identifier">Chainweb.TreeDB</span></a></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html"><span class="hs-identifier">Chainweb.Utils.Paging</span></a></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier">ChainwebVersion</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- | A representation of a tree-like data store that can be queried across a</span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- network.</span><span>
+</span><span id="line-52"></span><span class="hs-comment">--</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">data</span><span> </span><span id="RemoteDb"><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-var">RemoteDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RemoteDb"><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-var">RemoteDb</span></a></span></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_remoteEnv"><span class="annot"><span class="annottext">RemoteDb -&gt; ClientEnv
+</span><a href="Chainweb.TreeDB.RemoteDB.html#_remoteEnv"><span class="hs-identifier hs-var hs-var">_remoteEnv</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_remoteLogFunction"><span class="annot"><span class="annottext">RemoteDb -&gt; ALogFunction
+</span><a href="Chainweb.TreeDB.RemoteDB.html#_remoteLogFunction"><span class="hs-identifier hs-var hs-var">_remoteLogFunction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Data.LogMessage.html#ALogFunction"><span class="hs-identifier hs-type">ALogFunction</span></a></span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_remoteVersion"><span class="annot"><span class="annottext">RemoteDb -&gt; ChainwebVersion
+</span><a href="Chainweb.TreeDB.RemoteDB.html#_remoteVersion"><span class="hs-identifier hs-var hs-var">_remoteVersion</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_remoteChainId"><span class="annot"><span class="annottext">RemoteDb -&gt; ChainId
+</span><a href="Chainweb.TreeDB.RemoteDB.html#_remoteChainId"><span class="hs-identifier hs-var hs-var">_remoteChainId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-pragma">{-# UNPACK</span><span> </span><span class="hs-pragma">#-}</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681498760"><span id="local-6989586621681498764"><span class="annot"><a href="Chainweb.TreeDB.html#TreeDb"><span class="hs-identifier hs-type">TreeDb</span></a></span><span> </span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="DbEntry"><span class="annot"><a href="Chainweb.TreeDB.html#DbEntry"><span class="hs-identifier hs-var">DbEntry</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>    </span><span id="local-6989586621681498758"><span class="annot"><span class="annottext">maxEntry :: RemoteDb -&gt; IO (DbEntry RemoteDb)
+</span><a href="Chainweb.TreeDB.html#maxEntry"><span class="hs-identifier hs-var hs-var hs-var hs-var">maxEntry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; RemoteDb -&gt; IO BlockHeader
+forall a. HasCallStack =&gt; [Char] -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;Chainweb.TreeDB.RemoteDB.RemoteDb.maxEntry: not implemented&quot;</span></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-comment">-- If other default functions rely on this, it could be quite inefficient.</span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621681498755"><span class="annot"><span class="annottext">lookup :: RemoteDb -&gt; DbKey RemoteDb -&gt; IO (Maybe (DbEntry RemoteDb))
+</span><a href="Chainweb.TreeDB.html#lookup"><span class="hs-identifier hs-var hs-var hs-var hs-var">lookup</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span><span> </span><span id="local-6989586621681498753"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498753"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681498752"><span class="annot"><span class="annottext">alog :: ALogFunction
+</span><a href="#local-6989586621681498752"><span class="hs-identifier hs-var">alog</span></a></span></span><span> </span><span id="local-6989586621681498751"><span class="annot"><span class="annottext">ver :: ChainwebVersion
+</span><a href="#local-6989586621681498751"><span class="hs-identifier hs-var">ver</span></a></span></span><span> </span><span id="local-6989586621681498750"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681498750"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681498749"><span class="annot"><span class="annottext">k :: DbKey RemoteDb
+</span><a href="#local-6989586621681498749"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Either ClientError BlockHeader -&gt; Maybe BlockHeader
+forall a b. Either a b -&gt; Maybe b
+</span><span class="hs-identifier hs-var">hush</span></span><span> </span><span class="annot"><span class="annottext">(Either ClientError BlockHeader -&gt; Maybe BlockHeader)
+-&gt; IO (Either ClientError BlockHeader) -&gt; IO (Maybe BlockHeader)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ClientM BlockHeader
+-&gt; ClientEnv -&gt; IO (Either ClientError BlockHeader)
+forall a. ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+</span><span class="hs-identifier hs-var">runClientM</span></span><span> </span><span class="annot"><span class="annottext">ClientM BlockHeader
+</span><a href="#local-6989586621681498746"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498753"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-67"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-68"></span><span>        </span><span id="local-6989586621681498746"><span class="annot"><span class="annottext">client :: ClientM BlockHeader
+</span><a href="#local-6989586621681498746"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ALogFunction -&gt; Text -&gt; ClientM BlockHeader -&gt; ClientM BlockHeader
+forall a. ALogFunction -&gt; Text -&gt; ClientM a -&gt; ClientM a
+</span><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-var">logServantError</span></a></span><span> </span><span class="annot"><span class="annottext">ALogFunction
+</span><a href="#local-6989586621681498752"><span class="hs-identifier hs-var">alog</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;failed to query tree db entry&quot;</span></span><span>
+</span><span id="line-69"></span><span>            </span><span class="annot"><span class="annottext">(ClientM BlockHeader -&gt; ClientM BlockHeader)
+-&gt; ClientM BlockHeader -&gt; ClientM BlockHeader
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId -&gt; DbKey BlockHeaderDb -&gt; ClientM BlockHeader
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html#headerClient"><span class="hs-identifier hs-var">headerClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681498751"><span class="hs-identifier hs-var">ver</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681498750"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">DbKey BlockHeaderDb
+DbKey RemoteDb
+</span><a href="#local-6989586621681498749"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>    </span><span id="local-6989586621681498743"><span class="annot"><span class="annottext">keys :: RemoteDb
+-&gt; Maybe (NextItem (DbKey RemoteDb))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.TreeDB.html#keys"><span class="hs-identifier hs-var hs-var hs-var hs-var">keys</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span><span> </span><span id="local-6989586621681498741"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498741"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681498740"><span class="annot"><span class="annottext">alog :: ALogFunction
+</span><a href="#local-6989586621681498740"><span class="hs-identifier hs-var">alog</span></a></span></span><span> </span><span id="local-6989586621681498739"><span class="annot"><span class="annottext">ver :: ChainwebVersion
+</span><a href="#local-6989586621681498739"><span class="hs-identifier hs-var">ver</span></a></span></span><span> </span><span id="local-6989586621681498738"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681498738"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681498737"><span class="annot"><span class="annottext">next :: Maybe (NextItem (DbKey RemoteDb))
+</span><a href="#local-6989586621681498737"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621681498736"><span class="annot"><span class="annottext">limit :: Maybe Limit
+</span><a href="#local-6989586621681498736"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681498735"><span class="annot"><span class="annottext">minr :: Maybe MinRank
+</span><a href="#local-6989586621681498735"><span class="hs-identifier hs-var">minr</span></a></span></span><span> </span><span id="local-6989586621681498734"><span class="annot"><span class="annottext">maxr :: Maybe MaxRank
+</span><a href="#local-6989586621681498734"><span class="hs-identifier hs-var">maxr</span></a></span></span><span> </span><span id="local-6989586621681498733"><span class="annot"><span class="annottext">f :: Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498733"><span class="hs-identifier hs-var">f</span></a></span></span><span>
+</span><span id="line-72"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498733"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (NextItem BlockHash)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHash))
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of BlockHash) IO (Natural, Eos)
+forall k a.
+(Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a))
+-&gt; Maybe (NextItem k)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="Chainweb.TreeDB.RemoteDB.html#callAndPage"><span class="hs-identifier hs-var">callAndPage</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+</span><a href="#local-6989586621681498731"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem (DbKey RemoteDb))
+Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498737"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498741"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-73"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-74"></span><span>        </span><span class="annot"><a href="#local-6989586621681498731"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>        </span><span id="local-6989586621681498731"><span class="annot"><span class="annottext">client :: Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+</span><a href="#local-6989586621681498731"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span id="local-6989586621681498730"><span class="annot"><span class="annottext">nxt :: Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498730"><span class="hs-identifier hs-var">nxt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ALogFunction
+-&gt; Text
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+forall a. ALogFunction -&gt; Text -&gt; ClientM a -&gt; ClientM a
+</span><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-var">logServantError</span></a></span><span> </span><span class="annot"><span class="annottext">ALogFunction
+</span><a href="#local-6989586621681498740"><span class="hs-identifier hs-var">alog</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;failed to query tree db keys&quot;</span></span><span>
+</span><span id="line-76"></span><span>            </span><span class="annot"><span class="annottext">(ClientM (Page (NextItem BlockHash) BlockHash)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHash))
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html#hashesClient"><span class="hs-identifier hs-var">hashesClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681498739"><span class="hs-identifier hs-var">ver</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681498738"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+</span><a href="#local-6989586621681498736"><span class="hs-identifier hs-var">limit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498730"><span class="hs-identifier hs-var">nxt</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MinRank
+</span><a href="#local-6989586621681498735"><span class="hs-identifier hs-var">minr</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MaxRank
+</span><a href="#local-6989586621681498734"><span class="hs-identifier hs-var">maxr</span></a></span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span>    </span><span id="local-6989586621681498728"><span class="annot"><span class="annottext">entries :: RemoteDb
+-&gt; Maybe (NextItem (DbKey RemoteDb))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.TreeDB.html#entries"><span class="hs-identifier hs-var hs-var hs-var hs-var">entries</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span><span> </span><span id="local-6989586621681498726"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498726"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681498725"><span class="annot"><span class="annottext">alog :: ALogFunction
+</span><a href="#local-6989586621681498725"><span class="hs-identifier hs-var">alog</span></a></span></span><span> </span><span id="local-6989586621681498724"><span class="annot"><span class="annottext">ver :: ChainwebVersion
+</span><a href="#local-6989586621681498724"><span class="hs-identifier hs-var">ver</span></a></span></span><span> </span><span id="local-6989586621681498723"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681498723"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681498722"><span class="annot"><span class="annottext">next :: Maybe (NextItem (DbKey RemoteDb))
+</span><a href="#local-6989586621681498722"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621681498721"><span class="annot"><span class="annottext">limit :: Maybe Limit
+</span><a href="#local-6989586621681498721"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681498720"><span class="annot"><span class="annottext">minr :: Maybe MinRank
+</span><a href="#local-6989586621681498720"><span class="hs-identifier hs-var">minr</span></a></span></span><span> </span><span id="local-6989586621681498719"><span class="annot"><span class="annottext">maxr :: Maybe MaxRank
+</span><a href="#local-6989586621681498719"><span class="hs-identifier hs-var">maxr</span></a></span></span><span> </span><span id="local-6989586621681498718"><span class="annot"><span class="annottext">f :: Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498718"><span class="hs-identifier hs-var">f</span></a></span></span><span>
+</span><span id="line-79"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498718"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (NextItem BlockHash)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHeader))
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of BlockHeader) IO (Natural, Eos)
+forall k a.
+(Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a))
+-&gt; Maybe (NextItem k)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="Chainweb.TreeDB.RemoteDB.html#callAndPage"><span class="hs-identifier hs-var">callAndPage</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+</span><a href="#local-6989586621681498717"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem (DbKey RemoteDb))
+Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498722"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498726"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-80"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-81"></span><span>        </span><span class="annot"><a href="#local-6989586621681498717"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>        </span><span id="local-6989586621681498717"><span class="annot"><span class="annottext">client :: Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+</span><a href="#local-6989586621681498717"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span id="local-6989586621681498716"><span class="annot"><span class="annottext">nxt :: Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498716"><span class="hs-identifier hs-var">nxt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ALogFunction
+-&gt; Text
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+forall a. ALogFunction -&gt; Text -&gt; ClientM a -&gt; ClientM a
+</span><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-var">logServantError</span></a></span><span> </span><span class="annot"><span class="annottext">ALogFunction
+</span><a href="#local-6989586621681498725"><span class="hs-identifier hs-var">alog</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;failed to query tree db entries&quot;</span></span><span>
+</span><span id="line-83"></span><span>            </span><span class="annot"><span class="annottext">(ClientM (Page (NextItem BlockHash) BlockHeader)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHeader))
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html#headersClient"><span class="hs-identifier hs-var">headersClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681498724"><span class="hs-identifier hs-var">ver</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681498723"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+</span><a href="#local-6989586621681498721"><span class="hs-identifier hs-var">limit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498716"><span class="hs-identifier hs-var">nxt</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MinRank
+</span><a href="#local-6989586621681498720"><span class="hs-identifier hs-var">minr</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MaxRank
+</span><a href="#local-6989586621681498719"><span class="hs-identifier hs-var">maxr</span></a></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span>    </span><span id="local-6989586621681498714"><span class="annot"><span class="annottext">branchKeys :: RemoteDb
+-&gt; Maybe (NextItem (DbKey RemoteDb))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; HashSet (LowerBound (DbKey RemoteDb))
+-&gt; HashSet (UpperBound (DbKey RemoteDb))
+-&gt; (Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.TreeDB.html#branchKeys"><span class="hs-identifier hs-var hs-var hs-var hs-var">branchKeys</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span><span> </span><span id="local-6989586621681498712"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498712"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681498711"><span class="annot"><span class="annottext">alog :: ALogFunction
+</span><a href="#local-6989586621681498711"><span class="hs-identifier hs-var">alog</span></a></span></span><span> </span><span id="local-6989586621681498710"><span class="annot"><span class="annottext">ver :: ChainwebVersion
+</span><a href="#local-6989586621681498710"><span class="hs-identifier hs-var">ver</span></a></span></span><span> </span><span id="local-6989586621681498709"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681498709"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681498708"><span class="annot"><span class="annottext">next :: Maybe (NextItem (DbKey RemoteDb))
+</span><a href="#local-6989586621681498708"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621681498707"><span class="annot"><span class="annottext">limit :: Maybe Limit
+</span><a href="#local-6989586621681498707"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681498706"><span class="annot"><span class="annottext">minr :: Maybe MinRank
+</span><a href="#local-6989586621681498706"><span class="hs-identifier hs-var">minr</span></a></span></span><span> </span><span id="local-6989586621681498705"><span class="annot"><span class="annottext">maxr :: Maybe MaxRank
+</span><a href="#local-6989586621681498705"><span class="hs-identifier hs-var">maxr</span></a></span></span><span> </span><span id="local-6989586621681498704"><span class="annot"><span class="annottext">lower :: HashSet (LowerBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498704"><span class="hs-identifier hs-var">lower</span></a></span></span><span> </span><span id="local-6989586621681498703"><span class="annot"><span class="annottext">upper :: HashSet (UpperBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498703"><span class="hs-identifier hs-var">upper</span></a></span></span><span> </span><span id="local-6989586621681498702"><span class="annot"><span class="annottext">f :: Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498702"><span class="hs-identifier hs-var">f</span></a></span></span><span>
+</span><span id="line-86"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498702"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; Stream (Of (DbKey RemoteDb)) IO (Natural, Eos) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (NextItem BlockHash)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHash))
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of BlockHash) IO (Natural, Eos)
+forall k a.
+(Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a))
+-&gt; Maybe (NextItem k)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="Chainweb.TreeDB.RemoteDB.html#callAndPage"><span class="hs-identifier hs-var">callAndPage</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+</span><a href="#local-6989586621681498701"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem (DbKey RemoteDb))
+Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498708"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498712"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-87"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-88"></span><span>        </span><span class="annot"><a href="#local-6989586621681498701"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-89"></span><span>        </span><span id="local-6989586621681498701"><span class="annot"><span class="annottext">client :: Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+</span><a href="#local-6989586621681498701"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span id="local-6989586621681498700"><span class="annot"><span class="annottext">nxt :: Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498700"><span class="hs-identifier hs-var">nxt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ALogFunction
+-&gt; Text
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+forall a. ALogFunction -&gt; Text -&gt; ClientM a -&gt; ClientM a
+</span><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-var">logServantError</span></a></span><span> </span><span class="annot"><span class="annottext">ALogFunction
+</span><a href="#local-6989586621681498711"><span class="hs-identifier hs-var">alog</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;failed to query remote branch keys&quot;</span></span><span>
+</span><span id="line-90"></span><span>            </span><span class="annot"><span class="annottext">(ClientM (Page (NextItem BlockHash) BlockHash)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHash))
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; BranchBounds BlockHeaderDb
+-&gt; ClientM (Page (NextItem BlockHash) BlockHash)
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html#branchHashesClient"><span class="hs-identifier hs-var">branchHashesClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681498710"><span class="hs-identifier hs-var">ver</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681498709"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+</span><a href="#local-6989586621681498707"><span class="hs-identifier hs-var">limit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498700"><span class="hs-identifier hs-var">nxt</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MinRank
+</span><a href="#local-6989586621681498706"><span class="hs-identifier hs-var">minr</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MaxRank
+</span><a href="#local-6989586621681498705"><span class="hs-identifier hs-var">maxr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashSet (LowerBound (DbKey BlockHeaderDb))
+-&gt; HashSet (UpperBound (DbKey BlockHeaderDb))
+-&gt; BranchBounds BlockHeaderDb
+forall db.
+HashSet (LowerBound (DbKey db))
+-&gt; HashSet (UpperBound (DbKey db)) -&gt; BranchBounds db
+</span><a href="Chainweb.TreeDB.html#BranchBounds"><span class="hs-identifier hs-var">BranchBounds</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet (LowerBound (DbKey BlockHeaderDb))
+HashSet (LowerBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498704"><span class="hs-identifier hs-var">lower</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet (UpperBound (DbKey BlockHeaderDb))
+HashSet (UpperBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498703"><span class="hs-identifier hs-var">upper</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span>    </span><span id="local-6989586621681498697"><span class="annot"><span class="annottext">branchEntries :: RemoteDb
+-&gt; Maybe (NextItem (DbKey RemoteDb))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; HashSet (LowerBound (DbKey RemoteDb))
+-&gt; HashSet (UpperBound (DbKey RemoteDb))
+-&gt; (Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.TreeDB.html#branchEntries"><span class="hs-identifier hs-var hs-var hs-var hs-var">branchEntries</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span><span> </span><span id="local-6989586621681498695"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498695"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681498694"><span class="annot"><span class="annottext">alog :: ALogFunction
+</span><a href="#local-6989586621681498694"><span class="hs-identifier hs-var">alog</span></a></span></span><span> </span><span id="local-6989586621681498693"><span class="annot"><span class="annottext">ver :: ChainwebVersion
+</span><a href="#local-6989586621681498693"><span class="hs-identifier hs-var">ver</span></a></span></span><span> </span><span id="local-6989586621681498692"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681498692"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681498691"><span class="annot"><span class="annottext">next :: Maybe (NextItem (DbKey RemoteDb))
+</span><a href="#local-6989586621681498691"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span id="local-6989586621681498690"><span class="annot"><span class="annottext">limit :: Maybe Limit
+</span><a href="#local-6989586621681498690"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681498689"><span class="annot"><span class="annottext">minr :: Maybe MinRank
+</span><a href="#local-6989586621681498689"><span class="hs-identifier hs-var">minr</span></a></span></span><span> </span><span id="local-6989586621681498688"><span class="annot"><span class="annottext">maxr :: Maybe MaxRank
+</span><a href="#local-6989586621681498688"><span class="hs-identifier hs-var">maxr</span></a></span></span><span> </span><span id="local-6989586621681498687"><span class="annot"><span class="annottext">lower :: HashSet (LowerBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498687"><span class="hs-identifier hs-var">lower</span></a></span></span><span> </span><span id="local-6989586621681498686"><span class="annot"><span class="annottext">upper :: HashSet (UpperBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498686"><span class="hs-identifier hs-var">upper</span></a></span></span><span> </span><span id="local-6989586621681498685"><span class="annot"><span class="annottext">f :: Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498685"><span class="hs-identifier hs-var">f</span></a></span></span><span>
+</span><span id="line-93"></span><span>        </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a
+</span><a href="#local-6989586621681498685"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a)
+-&gt; Stream (Of (DbEntry RemoteDb)) IO (Natural, Eos) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (NextItem BlockHash)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHeader))
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of BlockHeader) IO (Natural, Eos)
+forall k a.
+(Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a))
+-&gt; Maybe (NextItem k)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="Chainweb.TreeDB.RemoteDB.html#callAndPage"><span class="hs-identifier hs-var">callAndPage</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+</span><a href="#local-6989586621681498684"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem (DbKey RemoteDb))
+Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498691"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498695"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-94"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-95"></span><span>        </span><span class="annot"><a href="#local-6989586621681498684"><span class="hs-identifier hs-type">client</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span>        </span><span id="local-6989586621681498684"><span class="annot"><span class="annottext">client :: Maybe (NextItem BlockHash)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+</span><a href="#local-6989586621681498684"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span id="local-6989586621681498683"><span class="annot"><span class="annottext">nxt :: Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498683"><span class="hs-identifier hs-var">nxt</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ALogFunction
+-&gt; Text
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+forall a. ALogFunction -&gt; Text -&gt; ClientM a -&gt; ClientM a
+</span><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-var">logServantError</span></a></span><span> </span><span class="annot"><span class="annottext">ALogFunction
+</span><a href="#local-6989586621681498694"><span class="hs-identifier hs-var">alog</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;failed to query remote branch entries&quot;</span></span><span>
+</span><span id="line-97"></span><span>            </span><span class="annot"><span class="annottext">(ClientM (Page (NextItem BlockHash) BlockHeader)
+ -&gt; ClientM (Page (NextItem BlockHash) BlockHeader))
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId
+-&gt; Maybe Limit
+-&gt; Maybe (NextItem BlockHash)
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; BranchBounds BlockHeaderDb
+-&gt; ClientM (Page (NextItem BlockHash) BlockHeader)
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html#branchHeadersClient"><span class="hs-identifier hs-var">branchHeadersClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681498693"><span class="hs-identifier hs-var">ver</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681498692"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Limit
+</span><a href="#local-6989586621681498690"><span class="hs-identifier hs-var">limit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem BlockHash)
+</span><a href="#local-6989586621681498683"><span class="hs-identifier hs-var">nxt</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MinRank
+</span><a href="#local-6989586621681498689"><span class="hs-identifier hs-var">minr</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe MaxRank
+</span><a href="#local-6989586621681498688"><span class="hs-identifier hs-var">maxr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HashSet (LowerBound (DbKey BlockHeaderDb))
+-&gt; HashSet (UpperBound (DbKey BlockHeaderDb))
+-&gt; BranchBounds BlockHeaderDb
+forall db.
+HashSet (LowerBound (DbKey db))
+-&gt; HashSet (UpperBound (DbKey db)) -&gt; BranchBounds db
+</span><a href="Chainweb.TreeDB.html#BranchBounds"><span class="hs-identifier hs-var">BranchBounds</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet (LowerBound (DbKey BlockHeaderDb))
+HashSet (LowerBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498687"><span class="hs-identifier hs-var">lower</span></a></span><span> </span><span class="annot"><span class="annottext">HashSet (UpperBound (DbKey BlockHeaderDb))
+HashSet (UpperBound (DbKey RemoteDb))
+</span><a href="#local-6989586621681498686"><span class="hs-identifier hs-var">upper</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span>    </span><span id="local-6989586621681498681"><span class="annot"><span class="annottext">insert :: RemoteDb -&gt; DbEntry RemoteDb -&gt; IO ()
+</span><a href="Chainweb.TreeDB.html#insert"><span class="hs-identifier hs-var hs-var hs-var hs-var">insert</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span><span> </span><span id="local-6989586621681498679"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498679"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681498678"><span class="annot"><span class="annottext">alog :: ALogFunction
+</span><a href="#local-6989586621681498678"><span class="hs-identifier hs-var">alog</span></a></span></span><span> </span><span id="local-6989586621681498677"><span class="annot"><span class="annottext">ver :: ChainwebVersion
+</span><a href="#local-6989586621681498677"><span class="hs-identifier hs-var">ver</span></a></span></span><span> </span><span id="local-6989586621681498676"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681498676"><span class="hs-identifier hs-var">cid</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681498675"><span class="annot"><span class="annottext">e :: DbEntry RemoteDb
+</span><a href="#local-6989586621681498675"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Either ClientError NoContent) -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO (Either ClientError NoContent) -&gt; IO ())
+-&gt; IO (Either ClientError NoContent) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientM NoContent -&gt; ClientEnv -&gt; IO (Either ClientError NoContent)
+forall a. ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+</span><span class="hs-identifier hs-var">runClientM</span></span><span> </span><span class="annot"><span class="annottext">ClientM NoContent
+</span><a href="#local-6989586621681498673"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498679"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-100"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>        </span><span id="local-6989586621681498673"><span class="annot"><span class="annottext">client :: ClientM NoContent
+</span><a href="#local-6989586621681498673"><span class="hs-identifier hs-var hs-var">client</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ALogFunction -&gt; Text -&gt; ClientM NoContent -&gt; ClientM NoContent
+forall a. ALogFunction -&gt; Text -&gt; ClientM a -&gt; ClientM a
+</span><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-var">logServantError</span></a></span><span> </span><span class="annot"><span class="annottext">ALogFunction
+</span><a href="#local-6989586621681498678"><span class="hs-identifier hs-var">alog</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;failed to put tree db entry&quot;</span></span><span>
+</span><span id="line-102"></span><span>            </span><span class="annot"><span class="annottext">(ClientM NoContent -&gt; ClientM NoContent)
+-&gt; ClientM NoContent -&gt; ClientM NoContent
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId -&gt; DbEntry BlockHeaderDb -&gt; ClientM NoContent
+</span><a href="Chainweb.BlockHeaderDB.RestAPI.Client.html#headerPutClient"><span class="hs-identifier hs-var">headerPutClient</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681498677"><span class="hs-identifier hs-var">ver</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681498676"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">DbEntry BlockHeaderDb
+DbEntry RemoteDb
+</span><a href="#local-6989586621681498675"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-comment">-- We could either use the cut or create a new API</span><span>
+</span><span id="line-105"></span><span>    </span><span class="hs-comment">-- maxEntry (RemoteDb env alog ver cid) e =</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span id="local-6989586621681498848"><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-type">logServantError</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.LogMessage.html#ALogFunction"><span class="hs-identifier hs-type">ALogFunction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="#local-6989586621681498848"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="annot"><a href="#local-6989586621681498848"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-108"></span><span id="logServantError"><span class="annot"><span class="annottext">logServantError :: ALogFunction -&gt; Text -&gt; ClientM a -&gt; ClientM a
+</span><a href="Chainweb.TreeDB.RemoteDB.html#logServantError"><span class="hs-identifier hs-var hs-var">logServantError</span></a></span></span><span> </span><span id="local-6989586621681498671"><span class="annot"><span class="annottext">alog :: ALogFunction
+</span><a href="#local-6989586621681498671"><span class="hs-identifier hs-var">alog</span></a></span></span><span> </span><span id="local-6989586621681498670"><span class="annot"><span class="annottext">msg :: Text
+</span><a href="#local-6989586621681498670"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ClientError -&gt; ClientM a) -&gt; ClientM a -&gt; ClientM a
+forall (m :: * -&gt; *) e a.
+(MonadCatch m, Exception e) =&gt;
+(e -&gt; m a) -&gt; m a -&gt; m a
+</span><span class="hs-identifier hs-var">handle</span></span><span> </span><span class="annot"><span class="annottext">((ClientError -&gt; ClientM a) -&gt; ClientM a -&gt; ClientM a)
+-&gt; (ClientError -&gt; ClientM a) -&gt; ClientM a -&gt; ClientM a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681498669"><span class="annot"><span class="annottext">ClientError
+</span><a href="#local-6989586621681498669"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientError</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-109"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; ClientM ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; ClientM ()) -&gt; IO () -&gt; ClientM ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ALogFunction -&gt; LogLevel -&gt; Text -&gt; IO ()
+ALogFunction -&gt; forall a. LogMessage a =&gt; LogLevel -&gt; a -&gt; IO ()
+</span><a href="Data.LogMessage.html#_getLogFunction"><span class="hs-identifier hs-var hs-var">_getLogFunction</span></a></span><span> </span><span class="annot"><span class="annottext">ALogFunction
+</span><a href="#local-6989586621681498671"><span class="hs-identifier hs-var">alog</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681498670"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">ClientError
+</span><a href="#local-6989586621681498669"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span class="annot"><span class="annottext">ClientError -&gt; ClientM a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">ClientError
+</span><a href="#local-6989586621681498669"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-111"></span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- | Given the proper arguments to initiate a remote request, perform said request</span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- and deconstruct consecutive pages into a `Stream`.</span><span>
+</span><span id="line-114"></span><span class="hs-comment">--</span><span>
+</span><span id="line-115"></span><span id="local-6989586621681498839"><span id="local-6989586621681498840"><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#callAndPage"><span class="hs-identifier hs-type">callAndPage</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681498840"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Page"><span class="hs-identifier hs-type">Page</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681498840"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681498839"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#NextItem"><span class="hs-identifier hs-type">NextItem</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681498840"><span class="hs-identifier hs-type">k</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681498839"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier hs-type">Eos</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-121"></span><span id="callAndPage"><span class="annot"><span class="annottext">callAndPage :: (Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a))
+-&gt; Maybe (NextItem k)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="Chainweb.TreeDB.RemoteDB.html#callAndPage"><span class="hs-identifier hs-var hs-var">callAndPage</span></a></span></span><span> </span><span id="local-6989586621681498664"><span class="annot"><span class="annottext">f :: Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a)
+</span><a href="#local-6989586621681498664"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span id="local-6989586621681498663"><span class="annot"><span class="annottext">next :: Maybe (NextItem k)
+</span><a href="#local-6989586621681498663"><span class="hs-identifier hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681498662"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681498662"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span id="local-6989586621681498661"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498661"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Either ClientError (Page (NextItem k) a))
+-&gt; Stream (Of a) IO (Either ClientError (Page (NextItem k) a))
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ClientM (Page (NextItem k) a)
+-&gt; ClientEnv -&gt; IO (Either ClientError (Page (NextItem k) a))
+forall a. ClientM a -&gt; ClientEnv -&gt; IO (Either ClientError a)
+</span><span class="hs-identifier hs-var">runClientM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a)
+</span><a href="#local-6989586621681498664"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem k)
+</span><a href="#local-6989586621681498663"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498661"><span class="hs-identifier hs-var">env</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Stream (Of a) IO (Either ClientError (Page (NextItem k) a))
+-&gt; (Either ClientError (Page (NextItem k) a)
+    -&gt; Stream (Of a) IO (Natural, Eos))
+-&gt; Stream (Of a) IO (Natural, Eos)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">(ClientError -&gt; Stream (Of a) IO (Natural, Eos))
+-&gt; (Page (NextItem k) a -&gt; Stream (Of a) IO (Natural, Eos))
+-&gt; Either ClientError (Page (NextItem k) a)
+-&gt; Stream (Of a) IO (Natural, Eos)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><span class="hs-identifier hs-var">either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO (Natural, Eos) -&gt; Stream (Of a) IO (Natural, Eos)
+forall (t :: (* -&gt; *) -&gt; * -&gt; *) (m :: * -&gt; *) a.
+(MonadTrans t, Monad m) =&gt;
+m a -&gt; t m a
+</span><span class="hs-identifier hs-var">lift</span></span><span> </span><span class="annot"><span class="annottext">(IO (Natural, Eos) -&gt; Stream (Of a) IO (Natural, Eos))
+-&gt; (ClientError -&gt; IO (Natural, Eos))
+-&gt; ClientError
+-&gt; Stream (Of a) IO (Natural, Eos)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ClientError -&gt; IO (Natural, Eos)
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Page (NextItem k) a -&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="#local-6989586621681498657"><span class="hs-identifier hs-var">g</span></a></span><span>
+</span><span id="line-122"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-comment">-- | Stream every `BlockHeader` from a `Page`, automatically requesting</span><span>
+</span><span id="line-124"></span><span>    </span><span class="hs-comment">-- the next `Page` if there is one.</span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-comment">--</span><span>
+</span><span id="line-126"></span><span>    </span><span id="local-6989586621681498657"><span class="annot"><span class="annottext">g :: Page (NextItem k) a -&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="#local-6989586621681498657"><span class="hs-identifier hs-var hs-var">g</span></a></span></span><span> </span><span id="local-6989586621681498656"><span class="annot"><span class="annottext">page :: Page (NextItem k) a
+</span><a href="#local-6989586621681498656"><span class="hs-identifier hs-var">page</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-127"></span><span>        </span><span class="annot"><span class="annottext">[a] -&gt; Stream (Of a) IO ()
+forall (m :: * -&gt; *) (f :: * -&gt; *) a.
+(Monad m, Foldable f) =&gt;
+f a -&gt; Stream (Of a) m ()
+</span><span class="hs-identifier hs-var">SP.each</span></span><span> </span><span class="annot"><span class="annottext">([a] -&gt; Stream (Of a) IO ()) -&gt; [a] -&gt; Stream (Of a) IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Page (NextItem k) a -&gt; [a]
+forall k a. Page k a -&gt; [a]
+</span><a href="Chainweb.Utils.Paging.html#_pageItems"><span class="hs-identifier hs-var hs-var">_pageItems</span></a></span><span> </span><span class="annot"><span class="annottext">Page (NextItem k) a
+</span><a href="#local-6989586621681498656"><span class="hs-identifier hs-var">page</span></a></span><span>
+</span><span id="line-128"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681498653"><span class="annot"><span class="annottext">total :: Natural
+</span><a href="#local-6989586621681498653"><span class="hs-identifier hs-var hs-var">total</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681498662"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Natural
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><span class="hs-identifier hs-var">length</span></span><span> </span><span class="annot"><span class="annottext">([a] -&gt; Int) -&gt; [a] -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Page (NextItem k) a -&gt; [a]
+forall k a. Page k a -&gt; [a]
+</span><a href="Chainweb.Utils.Paging.html#_pageItems"><span class="hs-identifier hs-var hs-var">_pageItems</span></a></span><span> </span><span class="annot"><span class="annottext">Page (NextItem k) a
+</span><a href="#local-6989586621681498656"><span class="hs-identifier hs-var">page</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Page (NextItem k) a -&gt; Maybe (NextItem k)
+forall k a. Page k a -&gt; Maybe k
+</span><a href="Chainweb.Utils.Paging.html#_pageNext"><span class="hs-identifier hs-var hs-var">_pageNext</span></a></span><span> </span><span class="annot"><span class="annottext">Page (NextItem k) a
+</span><a href="#local-6989586621681498656"><span class="hs-identifier hs-var">page</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-130"></span><span>            </span><span id="local-6989586621681498649"><span class="annot"><span class="annottext">nxt :: Maybe (NextItem k)
+</span><a href="#local-6989586621681498649"><span class="hs-identifier hs-var">nxt</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.Paging.html#Inclusive"><span class="hs-identifier hs-type">Inclusive</span></a></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a))
+-&gt; Maybe (NextItem k)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of a) IO (Natural, Eos)
+forall k a.
+(Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a))
+-&gt; Maybe (NextItem k)
+-&gt; Natural
+-&gt; ClientEnv
+-&gt; Stream (Of a) IO (Natural, Eos)
+</span><a href="Chainweb.TreeDB.RemoteDB.html#callAndPage"><span class="hs-identifier hs-var">callAndPage</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem k) -&gt; ClientM (Page (NextItem k) a)
+</span><a href="#local-6989586621681498664"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem k)
+</span><a href="#local-6989586621681498649"><span class="hs-identifier hs-var">nxt</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681498653"><span class="hs-identifier hs-var">total</span></a></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498661"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-131"></span><span>            </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Natural, Eos) -&gt; Stream (Of a) IO (Natural, Eos)
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681498653"><span class="hs-identifier hs-var">total</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Eos
+</span><a href="Chainweb.Utils.Paging.html#Eos"><span class="hs-identifier hs-var">Eos</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span class="hs-special">)</span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- | Given some connection configuration, form a `RemoteDb` interface to some</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- `TreeDb`.</span><span>
+</span><span id="line-135"></span><span class="hs-comment">--</span><span>
+</span><span id="line-136"></span><span id="local-6989586621681498646"><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#remoteDb"><span class="hs-identifier hs-type">remoteDb</span></a></span><span>
+</span><span id="line-137"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html#TreeDb"><span class="hs-identifier hs-type">TreeDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681498646"><span class="hs-identifier hs-type">db</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html#DbEntry"><span class="hs-identifier hs-type">DbEntry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681498646"><span class="hs-identifier hs-type">db</span></a></span><span> </span><span class="annot"><span class="hs-glyph hs-type">~</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681498646"><span class="hs-identifier hs-type">db</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-type">RemoteDb</span></a></span></span><span>
+</span><span id="line-143"></span><span id="remoteDb"><span class="annot"><span class="annottext">remoteDb :: db
+-&gt; (forall a. LogMessage a =&gt; LogLevel -&gt; a -&gt; IO ())
+-&gt; ClientEnv
+-&gt; IO RemoteDb
+</span><a href="Chainweb.TreeDB.RemoteDB.html#remoteDb"><span class="hs-identifier hs-var hs-var">remoteDb</span></a></span></span><span> </span><span id="local-6989586621681498644"><span class="annot"><span class="annottext">db :: db
+</span><a href="#local-6989586621681498644"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681498643"><span class="annot"><span class="annottext">logg :: forall a. LogMessage a =&gt; LogLevel -&gt; a -&gt; IO ()
+</span><a href="#local-6989586621681498643"><span class="hs-identifier hs-var">logg</span></a></span></span><span> </span><span id="local-6989586621681498642"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681498642"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-144"></span><span>    </span><span id="local-6989586621681498641"><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681498641"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">db -&gt; IO (DbEntry db)
+forall db. TreeDb db =&gt; db -&gt; IO (DbEntry db)
+</span><a href="Chainweb.TreeDB.html#root"><span class="hs-identifier hs-var">root</span></a></span><span> </span><span class="annot"><span class="annottext">db
+</span><a href="#local-6989586621681498644"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-145"></span><span>    </span><span class="annot"><span class="annottext">RemoteDb -&gt; IO RemoteDb
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(RemoteDb -&gt; IO RemoteDb) -&gt; RemoteDb -&gt; IO RemoteDb
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv -&gt; ALogFunction -&gt; ChainwebVersion -&gt; ChainId -&gt; RemoteDb
+</span><a href="Chainweb.TreeDB.RemoteDB.html#RemoteDb"><span class="hs-identifier hs-var">RemoteDb</span></a></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681498642"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall a. LogMessage a =&gt; LogLevel -&gt; a -&gt; IO ()) -&gt; ALogFunction
+</span><a href="Data.LogMessage.html#ALogFunction"><span class="hs-identifier hs-var">ALogFunction</span></a></span><span> </span><span class="annot"><span class="annottext">forall a. LogMessage a =&gt; LogLevel -&gt; a -&gt; IO ()
+</span><a href="#local-6989586621681498643"><span class="hs-identifier hs-var">logg</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; ChainwebVersion
+</span><a href="Chainweb.BlockHeader.html#_blockChainwebVersion"><span class="hs-identifier hs-var hs-var">_blockChainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681498641"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHeader -&gt; ChainId
+</span><a href="Chainweb.BlockHeader.html#_blockChainId"><span class="hs-identifier hs-var hs-var">_blockChainId</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681498641"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span></pre></body></html>

@@ -1,0 +1,497 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Module: Chainweb.Chainweb.MinerResources</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Chainweb.MinerResources</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * In-process Mining</span></span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MinerResources"><span class="hs-identifier">MinerResources</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#withMinerResources"><span class="hs-identifier">withMinerResources</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#runMiner"><span class="hs-identifier">runMiner</span></a></span><span>
+</span><span id="line-23"></span><span>    </span><span class="annot"><span class="hs-comment">-- * Remote Work Requests</span></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier">MiningCoordination</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#withMiningCoordination"><span class="hs-identifier">withMiningCoordination</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Generics.Wrapped</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">_Unwrapped</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">atomicWriteIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">newIORef</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readIORef</span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Map.Strict</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">M</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Tuple.Strict</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">T3</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">V</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">threadDelay</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">concurrently</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.STM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">atomically</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.STM.TVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TVar</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">modifyTVar'</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">newTVarIO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">readTVar</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">over</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">LogLevel</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Random.MWC</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MWC</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier">BlockCreationTime</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier">CutDb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Logger.html"><span class="hs-identifier">Chainweb.Logger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier">Logger</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier">logFunction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.Config.html"><span class="hs-identifier">Chainweb.Miner.Config</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Config.html#MinerConfig"><span class="hs-identifier">MinerConfig</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.Coordinator.html"><span class="hs-identifier">Chainweb.Miner.Coordinator</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#MiningState"><span class="hs-identifier">MiningState</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#MiningStats"><span class="hs-identifier">MiningStats</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#PrevTime"><span class="hs-identifier">PrevTime</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.Miners.html"><span class="hs-identifier">Chainweb.Miner.Miners</span></a></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier">PayloadWithOutputs</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Time.html"><span class="hs-identifier">Chainweb.Time</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Time.html#Micros"><span class="hs-identifier">Micros</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Time.html#Time"><span class="hs-identifier">Time</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Time.html#getCurrentTimeIntegral"><span class="hs-identifier">getCurrentTimeIntegral</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#EnableConfig"><span class="hs-identifier">EnableConfig</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#int"><span class="hs-identifier">int</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#runForever"><span class="hs-identifier">runForever</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier">ChainwebVersion</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Version.html#window"><span class="hs-identifier">window</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.LogMessage.html#JsonLog"><span class="hs-identifier">JsonLog</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier">LogFunction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-61"></span><span class="hs-comment">-- Miner</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- | For coordinating requests for work and mining solutions from remote Mining</span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- Clients.</span><span>
+</span><span id="line-65"></span><span class="hs-comment">--</span><span>
+</span><span id="line-66"></span><span class="hs-keyword">data</span><span> </span><span id="MiningCoordination"><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-var">MiningCoordination</span></a></span></span><span> </span><span id="local-6989586621681508257"><span class="annot"><a href="#local-6989586621681508257"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span id="local-6989586621681508256"><span class="annot"><a href="#local-6989586621681508256"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MiningCoordination"><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-var">MiningCoordination</span></a></span></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_coordLogger"><span class="annot"><span class="annottext">MiningCoordination logger cas -&gt; logger
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordLogger"><span class="hs-identifier hs-var hs-var">_coordLogger</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621681508257"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_coordCutDb"><span class="annot"><span class="annottext">MiningCoordination logger cas -&gt; CutDb cas
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordCutDb"><span class="hs-identifier hs-var hs-var">_coordCutDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508256"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_coordState"><span class="annot"><span class="annottext">MiningCoordination logger cas -&gt; TVar MiningState
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordState"><span class="hs-identifier hs-var hs-var">_coordState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#MiningState"><span class="hs-identifier hs-type">MiningState</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_coordLimit"><span class="annot"><span class="annottext">MiningCoordination logger cas -&gt; Int
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordLimit"><span class="hs-identifier hs-var hs-var">_coordLimit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_coord503s"><span class="annot"><span class="annottext">MiningCoordination logger cas -&gt; IORef Int
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coord503s"><span class="hs-identifier hs-var hs-var">_coord503s</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span id="local-6989586621681508142"><span id="local-6989586621681508143"><span id="local-6989586621681508144"><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#withMiningCoordination"><span class="hs-identifier hs-type">withMiningCoordination</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508144"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681508144"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508143"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MiningCoordination"><span class="hs-identifier hs-type">MiningCoordination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508144"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508143"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508142"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508142"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-80"></span><span id="withMiningCoordination"><span class="annot"><span class="annottext">withMiningCoordination :: logger
+-&gt; Bool
+-&gt; CutDb cas
+-&gt; (Maybe (MiningCoordination logger cas) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Chainweb.MinerResources.html#withMiningCoordination"><span class="hs-identifier hs-var hs-var">withMiningCoordination</span></a></span></span><span> </span><span id="local-6989586621681508141"><span class="annot"><span class="annottext">logger :: logger
+</span><a href="#local-6989586621681508141"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681508140"><span class="annot"><span class="annottext">enabled :: Bool
+</span><a href="#local-6989586621681508140"><span class="hs-identifier hs-var">enabled</span></a></span></span><span> </span><span id="local-6989586621681508139"><span class="annot"><span class="annottext">cutDb :: CutDb cas
+</span><a href="#local-6989586621681508139"><span class="hs-identifier hs-var">cutDb</span></a></span></span><span> </span><span id="local-6989586621681508138"><span class="annot"><span class="annottext">inner :: Maybe (MiningCoordination logger cas) -&gt; IO a
+</span><a href="#local-6989586621681508138"><span class="hs-identifier hs-var">inner</span></a></span></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681508140"><span class="hs-identifier hs-var">enabled</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas) -&gt; IO a
+</span><a href="#local-6989586621681508138"><span class="hs-identifier hs-var">inner</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-83"></span><span>        </span><span id="local-6989586621681508136"><span class="annot"><span class="annottext">TVar MiningState
+</span><a href="#local-6989586621681508136"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MiningState -&gt; IO (TVar MiningState)
+forall a. a -&gt; IO (TVar a)
+</span><span class="hs-identifier hs-var">newTVarIO</span></span><span> </span><span class="annot"><span class="annottext">MiningState
+forall a. Monoid a =&gt; a
+</span><span class="hs-identifier hs-var">mempty</span></span><span>
+</span><span id="line-84"></span><span>        </span><span id="local-6989586621681508135"><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681508135"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-85"></span><span>        </span><span class="annot"><span class="annottext">(((), a) -&gt; a) -&gt; IO ((), a) -&gt; IO a
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">((), a) -&gt; a
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span> </span><span class="annot"><span class="annottext">(IO ((), a) -&gt; IO a) -&gt; (IO a -&gt; IO ((), a)) -&gt; IO a -&gt; IO a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO a -&gt; IO ((), a)
+forall a b. IO a -&gt; IO b -&gt; IO (a, b)
+</span><span class="hs-identifier hs-var">concurrently</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar MiningState -&gt; IORef Int -&gt; IO ()
+</span><a href="#local-6989586621681508133"><span class="hs-identifier hs-var">prune</span></a></span><span> </span><span class="annot"><span class="annottext">TVar MiningState
+</span><a href="#local-6989586621681508136"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681508135"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; IO a) -&gt; IO a -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Maybe (MiningCoordination logger cas) -&gt; IO a
+</span><a href="#local-6989586621681508138"><span class="hs-identifier hs-var">inner</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (MiningCoordination logger cas) -&gt; IO a)
+-&gt; (MiningCoordination logger cas
+    -&gt; Maybe (MiningCoordination logger cas))
+-&gt; MiningCoordination logger cas
+-&gt; IO a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MiningCoordination logger cas
+-&gt; Maybe (MiningCoordination logger cas)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(MiningCoordination logger cas -&gt; IO a)
+-&gt; MiningCoordination logger cas -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">$WMiningCoordination :: forall logger (cas :: * -&gt; *).
+logger
+-&gt; CutDb cas
+-&gt; TVar MiningState
+-&gt; Int
+-&gt; IORef Int
+-&gt; MiningCoordination logger cas
+</span><a href="Chainweb.Chainweb.MinerResources.html#%24WMiningCoordination"><span class="hs-identifier hs-type hs-type">MiningCoordination</span></a></span><span>
+</span><span id="line-86"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_coordLogger :: logger
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordLogger"><span class="hs-identifier hs-var">_coordLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508141"><span class="hs-identifier hs-var">logger</span></a></span><span>
+</span><span id="line-87"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_coordCutDb :: CutDb cas
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordCutDb"><span class="hs-identifier hs-var">_coordCutDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681508139"><span class="hs-identifier hs-var">cutDb</span></a></span><span>
+</span><span id="line-88"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_coordState :: TVar MiningState
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordState"><span class="hs-identifier hs-var">_coordState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar MiningState
+</span><a href="#local-6989586621681508136"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-89"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_coordLimit :: Int
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coordLimit"><span class="hs-identifier hs-var">_coordLimit</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">2500</span></span><span>
+</span><span id="line-90"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_coord503s :: IORef Int
+</span><a href="Chainweb.Chainweb.MinerResources.html#_coord503s"><span class="hs-identifier hs-var">_coord503s</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681508135"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-91"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-92"></span><span>    </span><span class="annot"><a href="#local-6989586621681508133"><span class="hs-identifier hs-type">prune</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#MiningState"><span class="hs-identifier hs-type">MiningState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>    </span><span id="local-6989586621681508133"><span class="annot"><span class="annottext">prune :: TVar MiningState -&gt; IORef Int -&gt; IO ()
+</span><a href="#local-6989586621681508133"><span class="hs-identifier hs-var hs-var">prune</span></a></span></span><span> </span><span id="local-6989586621681508131"><span class="annot"><span class="annottext">t :: TVar MiningState
+</span><a href="#local-6989586621681508131"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621681508130"><span class="annot"><span class="annottext">c :: IORef Int
+</span><a href="#local-6989586621681508130"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(LogLevel -&gt; Text -&gt; IO ()) -&gt; Text -&gt; IO () -&gt; IO ()
+</span><a href="Chainweb.Utils.html#runForever"><span class="hs-identifier hs-var">runForever</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">logger -&gt; LogFunction
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508141"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;Chainweb.Chainweb.MinerResources.prune&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-94"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681508129"><span class="annot"><span class="annottext">d :: Int
+</span><a href="#local-6989586621681508129"><span class="hs-identifier hs-var hs-var">d</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">300000000</span></span><span>  </span><span class="hs-comment">-- 5 minutes</span><span>
+</span><span id="line-95"></span><span>        </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508129"><span class="hs-identifier hs-var">d</span></a></span><span>
+</span><span id="line-96"></span><span>        </span><span id="local-6989586621681508128"><span class="annot"><span class="annottext">Time Micros
+</span><a href="#local-6989586621681508128"><span class="hs-identifier hs-var">ago</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ASetter (Time Micros) (Time Micros) Micros Micros
+-&gt; (Micros -&gt; Micros) -&gt; Time Micros -&gt; Time Micros
+forall s t a b. ASetter s t a b -&gt; (a -&gt; b) -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">over</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TimeSpan Micros -&gt; Identity (TimeSpan Micros))
+-&gt; Time Micros -&gt; Identity (Time Micros)
+forall s t a b. Wrapped s t a b =&gt; Iso s t a b
+</span><span class="hs-identifier hs-var">_Unwrapped</span></span><span> </span><span class="annot"><span class="annottext">((TimeSpan Micros -&gt; Identity (TimeSpan Micros))
+ -&gt; Time Micros -&gt; Identity (Time Micros))
+-&gt; ((Micros -&gt; Identity Micros)
+    -&gt; TimeSpan Micros -&gt; Identity (TimeSpan Micros))
+-&gt; ASetter (Time Micros) (Time Micros) Micros Micros
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Micros -&gt; Identity Micros)
+-&gt; TimeSpan Micros -&gt; Identity (TimeSpan Micros)
+forall s t a b. Wrapped s t a b =&gt; Iso s t a b
+</span><span class="hs-identifier hs-var">_Unwrapped</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Micros -&gt; Micros -&gt; Micros
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">subtract</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Micros
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508129"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Time Micros -&gt; Time Micros)
+-&gt; IO (Time Micros) -&gt; IO (Time Micros)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO (Time Micros)
+forall a. Integral a =&gt; IO (Time a)
+</span><a href="Chainweb.Time.html#getCurrentTimeIntegral"><span class="hs-identifier hs-var">getCurrentTimeIntegral</span></a></span><span>
+</span><span id="line-97"></span><span>        </span><span id="local-6989586621681508125"><span class="annot"><span class="annottext">m :: MiningState
+</span><a href="#local-6989586621681508125"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#MiningState"><span class="hs-identifier hs-type">MiningState</span></a></span><span> </span><span id="local-6989586621681508123"><span class="annot"><span class="annottext">ms :: Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+</span><a href="#local-6989586621681508123"><span class="hs-identifier hs-var">ms</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM MiningState -&gt; IO MiningState
+forall a. STM a -&gt; IO a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM MiningState -&gt; IO MiningState)
+-&gt; STM MiningState -&gt; IO MiningState
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>            </span><span id="local-6989586621681508122"><span class="annot"><span class="annottext">MiningState
+</span><a href="#local-6989586621681508122"><span class="hs-identifier hs-var">ms</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar MiningState -&gt; STM MiningState
+forall a. TVar a -&gt; STM a
+</span><span class="hs-identifier hs-var">readTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar MiningState
+</span><a href="#local-6989586621681508131"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-99"></span><span>            </span><span class="annot"><span class="annottext">TVar MiningState -&gt; (MiningState -&gt; MiningState) -&gt; STM ()
+forall a. TVar a -&gt; (a -&gt; a) -&gt; STM ()
+</span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar MiningState
+</span><a href="#local-6989586621681508131"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">((MiningState -&gt; MiningState) -&gt; STM ())
+-&gt; ((Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+     -&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+    -&gt; MiningState -&gt; MiningState)
+-&gt; (Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+    -&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+-&gt; STM ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ASetter
+  MiningState
+  MiningState
+  (Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+  (Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+-&gt; (Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+    -&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+-&gt; MiningState
+-&gt; MiningState
+forall s t a b. ASetter s t a b -&gt; (a -&gt; b) -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">over</span></span><span> </span><span class="annot"><span class="annottext">ASetter
+  MiningState
+  MiningState
+  (Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+  (Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+forall s t a b. Wrapped s t a b =&gt; Iso s t a b
+</span><span class="hs-identifier hs-var">_Unwrapped</span></span><span> </span><span class="annot"><span class="annottext">((Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+  -&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+ -&gt; STM ())
+-&gt; (Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+    -&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs))
+-&gt; STM ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">(T3 Miner PrevTime PayloadWithOutputs -&gt; Bool)
+-&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+-&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+forall a k. (a -&gt; Bool) -&gt; Map k a -&gt; Map k a
+</span><span class="hs-identifier hs-var">M.filter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Time Micros -&gt; T3 Miner PrevTime PayloadWithOutputs -&gt; Bool
+forall a b. Time Micros -&gt; T3 a PrevTime b -&gt; Bool
+</span><a href="#local-6989586621681508120"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+</span><a href="#local-6989586621681508128"><span class="hs-identifier hs-var">ago</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-100"></span><span>            </span><span class="annot"><span class="annottext">MiningState -&gt; STM MiningState
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">MiningState
+</span><a href="#local-6989586621681508122"><span class="hs-identifier hs-var">ms</span></a></span><span>
+</span><span id="line-101"></span><span>        </span><span id="local-6989586621681508119"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508119"><span class="hs-identifier hs-var">count</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Int
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681508130"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-102"></span><span>        </span><span class="annot"><span class="annottext">IORef Int -&gt; Int -&gt; IO ()
+forall a. IORef a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">atomicWriteIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681508130"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-103"></span><span>        </span><span class="annot"><span class="annottext">logger -&gt; LogLevel -&gt; JsonLog MiningStats -&gt; IO ()
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508141"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">(JsonLog MiningStats -&gt; IO ())
+-&gt; (MiningStats -&gt; JsonLog MiningStats) -&gt; MiningStats -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MiningStats -&gt; JsonLog MiningStats
+forall a. a -&gt; JsonLog a
+</span><a href="Data.LogMessage.html#JsonLog"><span class="hs-identifier hs-var">JsonLog</span></a></span><span> </span><span class="annot"><span class="annottext">(MiningStats -&gt; IO ()) -&gt; MiningStats -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int -&gt; MiningStats
+</span><a href="Chainweb.Miner.Coordinator.html#MiningStats"><span class="hs-identifier hs-var">MiningStats</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs) -&gt; Int
+forall k a. Map k a -&gt; Int
+</span><span class="hs-identifier hs-var">M.size</span></span><span> </span><span class="annot"><span class="annottext">Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+</span><a href="#local-6989586621681508123"><span class="hs-identifier hs-var">ms</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508119"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MiningState -&gt; Int
+</span><a href="#local-6989586621681508114"><span class="hs-identifier hs-var">avgTxs</span></a></span><span> </span><span class="annot"><span class="annottext">MiningState
+</span><a href="#local-6989586621681508125"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621681508215"><span id="local-6989586621681508216"><span class="annot"><a href="#local-6989586621681508120"><span class="hs-identifier hs-type">f</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Time.html#Time"><span class="hs-identifier hs-type">Time</span></a></span><span> </span><span class="annot"><a href="Chainweb.Time.html#Micros"><span class="hs-identifier hs-type">Micros</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T3</span></span><span> </span><span class="annot"><a href="#local-6989586621681508216"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#PrevTime"><span class="hs-identifier hs-type">PrevTime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508215"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span></span></span><span>
+</span><span id="line-106"></span><span>    </span><span id="local-6989586621681508120"><span class="annot"><span class="annottext">f :: Time Micros -&gt; T3 a PrevTime b -&gt; Bool
+</span><a href="#local-6989586621681508120"><span class="hs-identifier hs-var hs-var">f</span></a></span></span><span> </span><span id="local-6989586621681508113"><span class="annot"><span class="annottext">ago :: Time Micros
+</span><a href="#local-6989586621681508113"><span class="hs-identifier hs-var">ago</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T3</span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#PrevTime"><span class="hs-identifier hs-type">PrevTime</span></a></span><span> </span><span id="local-6989586621681508110"><span class="annot"><span class="annottext">p :: BlockCreationTime
+</span><a href="#local-6989586621681508110"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockCreationTime
+</span><a href="#local-6989586621681508110"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">BlockCreationTime -&gt; BlockCreationTime -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&gt;</span></span><span> </span><span class="annot"><span class="annottext">Time Micros -&gt; BlockCreationTime
+</span><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-var">BlockCreationTime</span></a></span><span> </span><span class="annot"><span class="annottext">Time Micros
+</span><a href="#local-6989586621681508113"><span class="hs-identifier hs-var">ago</span></a></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span>    </span><span class="annot"><a href="#local-6989586621681508114"><span class="hs-identifier hs-type">avgTxs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#MiningState"><span class="hs-identifier hs-type">MiningState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-109"></span><span>    </span><span id="local-6989586621681508114"><span class="annot"><span class="annottext">avgTxs :: MiningState -&gt; Int
+</span><a href="#local-6989586621681508114"><span class="hs-identifier hs-var hs-var">avgTxs</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Miner.Coordinator.html#MiningState"><span class="hs-identifier hs-type">MiningState</span></a></span><span> </span><span id="local-6989586621681508107"><span class="annot"><span class="annottext">ms :: Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+</span><a href="#local-6989586621681508107"><span class="hs-identifier hs-var">ms</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508106"><span class="hs-identifier hs-var">summed</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs) -&gt; Int
+forall k a. Map k a -&gt; Int
+</span><span class="hs-identifier hs-var">M.size</span></span><span> </span><span class="annot"><span class="annottext">Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+</span><a href="#local-6989586621681508107"><span class="hs-identifier hs-var">ms</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-111"></span><span>        </span><span class="annot"><a href="#local-6989586621681508106"><span class="hs-identifier hs-type">summed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-112"></span><span>        </span><span id="local-6989586621681508106"><span class="annot"><span class="annottext">summed :: Int
+</span><a href="#local-6989586621681508106"><span class="hs-identifier hs-var hs-var">summed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Int -&gt; T3 Miner PrevTime PayloadWithOutputs -&gt; Int)
+-&gt; Int
+-&gt; Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+-&gt; Int
+forall a b k. (a -&gt; b -&gt; a) -&gt; a -&gt; Map k b -&gt; a
+</span><span class="hs-identifier hs-var">M.foldl'</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681508102"><span class="annot"><span class="annottext">acc :: Int
+</span><a href="#local-6989586621681508102"><span class="hs-identifier hs-var">acc</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T3</span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681508101"><span class="annot"><span class="annottext">ps :: PayloadWithOutputs
+</span><a href="#local-6989586621681508101"><span class="hs-identifier hs-var">ps</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508102"><span class="hs-identifier hs-var">acc</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">+</span></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; Int
+</span><a href="#local-6989586621681508099"><span class="hs-identifier hs-var">g</span></a></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs
+</span><a href="#local-6989586621681508101"><span class="hs-identifier hs-var">ps</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Map BlockPayloadHash (T3 Miner PrevTime PayloadWithOutputs)
+</span><a href="#local-6989586621681508107"><span class="hs-identifier hs-var">ms</span></a></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span>        </span><span class="annot"><a href="#local-6989586621681508099"><span class="hs-identifier hs-type">g</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-115"></span><span>        </span><span id="local-6989586621681508099"><span class="annot"><span class="annottext">g :: PayloadWithOutputs -&gt; Int
+</span><a href="#local-6989586621681508099"><span class="hs-identifier hs-var hs-var">g</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Vector (Transaction, TransactionOutput) -&gt; Int
+forall a. Vector a -&gt; Int
+</span><span class="hs-identifier hs-var">V.length</span></span><span> </span><span class="annot"><span class="annottext">(Vector (Transaction, TransactionOutput) -&gt; Int)
+-&gt; (PayloadWithOutputs -&gt; Vector (Transaction, TransactionOutput))
+-&gt; PayloadWithOutputs
+-&gt; Int
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; Vector (Transaction, TransactionOutput)
+</span><a href="Chainweb.Payload.html#_payloadWithOutputsTransactions"><span class="hs-identifier hs-var hs-var">_payloadWithOutputsTransactions</span></a></span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span class="hs-comment">-- | For in-process CPU mining by a Chainweb Node.</span><span>
+</span><span id="line-118"></span><span class="hs-comment">--</span><span>
+</span><span id="line-119"></span><span class="hs-keyword">data</span><span> </span><span id="MinerResources"><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MinerResources"><span class="hs-identifier hs-var">MinerResources</span></a></span></span><span> </span><span id="local-6989586621681508181"><span class="annot"><a href="#local-6989586621681508181"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span id="local-6989586621681508180"><span class="annot"><a href="#local-6989586621681508180"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="MinerResources"><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MinerResources"><span class="hs-identifier hs-var">MinerResources</span></a></span></span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_minerResLogger"><span class="annot"><span class="annottext">MinerResources logger cas -&gt; logger
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResLogger"><span class="hs-identifier hs-var hs-var">_minerResLogger</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621681508181"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_minerResCutDb"><span class="annot"><span class="annottext">MinerResources logger cas -&gt; CutDb cas
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResCutDb"><span class="hs-identifier hs-var hs-var">_minerResCutDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508180"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_minerResConfig"><span class="annot"><span class="annottext">MinerResources logger cas -&gt; MinerConfig
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResConfig"><span class="hs-identifier hs-var hs-var">_minerResConfig</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Miner.Config.html#MinerConfig"><span class="hs-identifier hs-type">MinerConfig</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span id="local-6989586621681508090"><span id="local-6989586621681508091"><span id="local-6989586621681508092"><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#withMinerResources"><span class="hs-identifier hs-type">withMinerResources</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681508092"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-127"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Utils.html#EnableConfig"><span class="hs-identifier hs-type">EnableConfig</span></a></span><span> </span><span class="annot"><a href="Chainweb.Miner.Config.html#MinerConfig"><span class="hs-identifier hs-type">MinerConfig</span></a></span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508091"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MinerResources"><span class="hs-identifier hs-type">MinerResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508092"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508091"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508090"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508090"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-131"></span><span id="withMinerResources"><span class="annot"><span class="annottext">withMinerResources :: logger
+-&gt; EnableConfig MinerConfig
+-&gt; CutDb cas
+-&gt; (Maybe (MinerResources logger cas) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Chainweb.MinerResources.html#withMinerResources"><span class="hs-identifier hs-var hs-var">withMinerResources</span></a></span></span><span> </span><span id="local-6989586621681508089"><span class="annot"><span class="annottext">logger :: logger
+</span><a href="#local-6989586621681508089"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#EnableConfig"><span class="hs-identifier hs-type">EnableConfig</span></a></span><span> </span><span id="local-6989586621681508087"><span class="annot"><span class="annottext">enabled :: Bool
+</span><a href="#local-6989586621681508087"><span class="hs-identifier hs-var">enabled</span></a></span></span><span> </span><span id="local-6989586621681508086"><span class="annot"><span class="annottext">conf :: MinerConfig
+</span><a href="#local-6989586621681508086"><span class="hs-identifier hs-var">conf</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681508085"><span class="annot"><span class="annottext">cutDb :: CutDb cas
+</span><a href="#local-6989586621681508085"><span class="hs-identifier hs-var">cutDb</span></a></span></span><span> </span><span id="local-6989586621681508084"><span class="annot"><span class="annottext">inner :: Maybe (MinerResources logger cas) -&gt; IO a
+</span><a href="#local-6989586621681508084"><span class="hs-identifier hs-var">inner</span></a></span></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681508087"><span class="hs-identifier hs-var">enabled</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (MinerResources logger cas) -&gt; IO a
+</span><a href="#local-6989586621681508084"><span class="hs-identifier hs-var">inner</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (MinerResources logger cas)
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-134"></span><span>        </span><span class="annot"><span class="annottext">Maybe (MinerResources logger cas) -&gt; IO a
+</span><a href="#local-6989586621681508084"><span class="hs-identifier hs-var">inner</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (MinerResources logger cas) -&gt; IO a)
+-&gt; (MinerResources logger cas -&gt; Maybe (MinerResources logger cas))
+-&gt; MinerResources logger cas
+-&gt; IO a
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MinerResources logger cas -&gt; Maybe (MinerResources logger cas)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(MinerResources logger cas -&gt; IO a)
+-&gt; MinerResources logger cas -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">$WMinerResources :: forall logger (cas :: * -&gt; *).
+logger -&gt; CutDb cas -&gt; MinerConfig -&gt; MinerResources logger cas
+</span><a href="Chainweb.Chainweb.MinerResources.html#%24WMinerResources"><span class="hs-identifier hs-type hs-type">MinerResources</span></a></span><span>
+</span><span id="line-135"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_minerResLogger :: logger
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResLogger"><span class="hs-identifier hs-var">_minerResLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508089"><span class="hs-identifier hs-var">logger</span></a></span><span>
+</span><span id="line-136"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_minerResCutDb :: CutDb cas
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResCutDb"><span class="hs-identifier hs-var">_minerResCutDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681508085"><span class="hs-identifier hs-var">cutDb</span></a></span><span>
+</span><span id="line-137"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_minerResConfig :: MinerConfig
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResConfig"><span class="hs-identifier hs-var">_minerResConfig</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MinerConfig
+</span><a href="#local-6989586621681508086"><span class="hs-identifier hs-var">conf</span></a></span><span>
+</span><span id="line-138"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-139"></span><span>
+</span><span id="line-140"></span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#runMiner"><span class="hs-identifier hs-type">runMiner</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681508082"><span class="annot"><a href="#local-6989586621681508082"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span id="local-6989586621681508081"><span class="annot"><a href="#local-6989586621681508081"><span class="hs-identifier hs-type">cas</span></a></span></span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-operator">.</span><span>  </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508082"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508081"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.MinerResources.html#MinerResources"><span class="hs-identifier hs-type">MinerResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508082"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508081"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-146"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span id="runMiner"><span class="annot"><span class="annottext">runMiner :: ChainwebVersion -&gt; MinerResources logger cas -&gt; IO ()
+</span><a href="Chainweb.Chainweb.MinerResources.html#runMiner"><span class="hs-identifier hs-var hs-var">runMiner</span></a></span></span><span> </span><span id="local-6989586621681508079"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681508079"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681508078"><span class="annot"><span class="annottext">mr :: MinerResources logger cas
+</span><a href="#local-6989586621681508078"><span class="hs-identifier hs-var">mr</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; Maybe WindowWidth
+</span><a href="Chainweb.Version.html#window"><span class="hs-identifier hs-var">window</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508079"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-148"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681508077"><span class="hs-identifier hs-var">testMiner</span></a></span><span>
+</span><span id="line-149"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><a href="#local-6989586621681508076"><span class="hs-identifier hs-var">powMiner</span></a></span><span>
+</span><span id="line-150"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-151"></span><span>    </span><span class="annot"><a href="#local-6989586621681508075"><span class="hs-identifier hs-type">cdb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508081"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-152"></span><span>    </span><span id="local-6989586621681508075"><span class="annot"><span class="annottext">cdb :: CutDb cas
+</span><a href="#local-6989586621681508075"><span class="hs-identifier hs-var hs-var">cdb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MinerResources logger cas -&gt; CutDb cas
+forall logger (cas :: * -&gt; *).
+MinerResources logger cas -&gt; CutDb cas
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResCutDb"><span class="hs-identifier hs-var hs-var">_minerResCutDb</span></a></span><span> </span><span class="annot"><span class="annottext">MinerResources logger cas
+</span><a href="#local-6989586621681508078"><span class="hs-identifier hs-var">mr</span></a></span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span>    </span><span class="annot"><a href="#local-6989586621681508074"><span class="hs-identifier hs-type">conf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Config.html#MinerConfig"><span class="hs-identifier hs-type">MinerConfig</span></a></span><span>
+</span><span id="line-155"></span><span>    </span><span id="local-6989586621681508074"><span class="annot"><span class="annottext">conf :: MinerConfig
+</span><a href="#local-6989586621681508074"><span class="hs-identifier hs-var hs-var">conf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MinerResources logger cas -&gt; MinerConfig
+forall logger (cas :: * -&gt; *).
+MinerResources logger cas -&gt; MinerConfig
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResConfig"><span class="hs-identifier hs-var hs-var">_minerResConfig</span></a></span><span> </span><span class="annot"><span class="annottext">MinerResources logger cas
+</span><a href="#local-6989586621681508078"><span class="hs-identifier hs-var">mr</span></a></span><span>
+</span><span id="line-156"></span><span>
+</span><span id="line-157"></span><span>    </span><span class="annot"><a href="#local-6989586621681508073"><span class="hs-identifier hs-type">lf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span id="local-6989586621681508073"><span class="annot"><span class="annottext">lf :: LogLevel -&gt; a -&gt; IO ()
+</span><a href="#local-6989586621681508073"><span class="hs-identifier hs-var hs-var">lf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">logger -&gt; LogLevel -&gt; a -&gt; IO ()
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">(logger -&gt; LogLevel -&gt; a -&gt; IO ())
+-&gt; logger -&gt; LogLevel -&gt; a -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">MinerResources logger cas -&gt; logger
+forall logger (cas :: * -&gt; *). MinerResources logger cas -&gt; logger
+</span><a href="Chainweb.Chainweb.MinerResources.html#_minerResLogger"><span class="hs-identifier hs-var hs-var">_minerResLogger</span></a></span><span> </span><span class="annot"><span class="annottext">MinerResources logger cas
+</span><a href="#local-6989586621681508078"><span class="hs-identifier hs-var">mr</span></a></span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span>    </span><span class="annot"><a href="#local-6989586621681508077"><span class="hs-identifier hs-type">testMiner</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span>    </span><span id="local-6989586621681508077"><span class="annot"><span class="annottext">testMiner :: IO ()
+</span><a href="#local-6989586621681508077"><span class="hs-identifier hs-var hs-var">testMiner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-162"></span><span>        </span><span id="local-6989586621681508072"><span class="annot"><span class="annottext">Gen RealWorld
+</span><a href="#local-6989586621681508072"><span class="hs-identifier hs-var">gen</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Gen RealWorld)
+IO GenIO
+</span><span class="hs-identifier hs-var">MWC.createSystemRandom</span></span><span>
+</span><span id="line-163"></span><span>        </span><span class="annot"><span class="annottext">LogFunction
+-&gt; ChainwebVersion
+-&gt; Miner
+-&gt; CutDb cas
+-&gt; GenIO
+-&gt; MinerCount
+-&gt; IO ()
+forall (cas :: * -&gt; *).
+LogFunction
+-&gt; ChainwebVersion
+-&gt; Miner
+-&gt; CutDb cas
+-&gt; GenIO
+-&gt; MinerCount
+-&gt; IO ()
+</span><a href="Chainweb.Miner.Miners.html#localTest"><span class="hs-identifier hs-var">localTest</span></a></span><span> </span><span class="annot"><span class="annottext">LogFunction
+</span><a href="#local-6989586621681508073"><span class="hs-identifier hs-var">lf</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508079"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MinerConfig -&gt; Miner
+</span><a href="Chainweb.Miner.Config.html#_configMinerInfo"><span class="hs-identifier hs-var hs-var">_configMinerInfo</span></a></span><span> </span><span class="annot"><span class="annottext">MinerConfig
+</span><a href="#local-6989586621681508074"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681508075"><span class="hs-identifier hs-var">cdb</span></a></span><span> </span><span class="annot"><span class="annottext">Gen RealWorld
+GenIO
+</span><a href="#local-6989586621681508072"><span class="hs-identifier hs-var">gen</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MinerConfig -&gt; MinerCount
+</span><a href="Chainweb.Miner.Config.html#_configTestMiners"><span class="hs-identifier hs-var hs-var">_configTestMiners</span></a></span><span> </span><span class="annot"><span class="annottext">MinerConfig
+</span><a href="#local-6989586621681508074"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>
+</span><span id="line-165"></span><span>    </span><span class="annot"><a href="#local-6989586621681508076"><span class="hs-identifier hs-type">powMiner</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>    </span><span id="local-6989586621681508076"><span class="annot"><span class="annottext">powMiner :: IO ()
+</span><a href="#local-6989586621681508076"><span class="hs-identifier hs-var hs-var">powMiner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogFunction -&gt; ChainwebVersion -&gt; Miner -&gt; CutDb cas -&gt; IO ()
+forall (cas :: * -&gt; *).
+LogFunction -&gt; ChainwebVersion -&gt; Miner -&gt; CutDb cas -&gt; IO ()
+</span><a href="Chainweb.Miner.Miners.html#localPOW"><span class="hs-identifier hs-var">localPOW</span></a></span><span> </span><span class="annot"><span class="annottext">LogFunction
+</span><a href="#local-6989586621681508073"><span class="hs-identifier hs-var">lf</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508079"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MinerConfig -&gt; Miner
+</span><a href="Chainweb.Miner.Config.html#_configMinerInfo"><span class="hs-identifier hs-var hs-var">_configMinerInfo</span></a></span><span> </span><span class="annot"><span class="annottext">MinerConfig
+</span><a href="#local-6989586621681508074"><span class="hs-identifier hs-var">conf</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681508075"><span class="hs-identifier hs-var">cdb</span></a></span><span>
+</span><span id="line-167"></span></pre></body></html>

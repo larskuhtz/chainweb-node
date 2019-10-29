@@ -1,0 +1,721 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE GADTs #-}</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Module: Chainweb.Pact.PactService</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- License: See LICENSE file</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Maintainers: Emily Pillmore &lt;emily@kadena.io&gt;</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Pact Service SPV support</span><span>
+</span><span id="line-16"></span><span class="hs-comment">--</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Pact.SPV</span><span>
+</span><span id="line-18"></span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-comment">-- * spv support</span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="Chainweb.Pact.SPV.html#pactSPV"><span class="hs-identifier">pactSPV</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.SPV.html#verifySPV"><span class="hs-identifier">verifySPV</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.SPV.html#verifyCont"><span class="hs-identifier">verifyCont</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-comment">-- * spv api utilities</span></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.SPV.html#getTxIdx"><span class="hs-identifier">getTxIdx</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Stack</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Error</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">index</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Object</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Default</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">def</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">pack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text.Encoding</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crypto.Hash.Algorithms</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Streaming.Prelude</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">S</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- internal chainweb modules</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.html"><span class="hs-identifier">Chainweb.BlockHeaderDB</span></a></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier">CutDb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html"><span class="hs-identifier">Chainweb.Pact.Service.Types</span></a></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Types.html"><span class="hs-identifier">Chainweb.Pact.Types</span></a></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Utils.html"><span class="hs-identifier">Chainweb.Pact.Utils</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Utils.html#aeson"><span class="hs-identifier">aeson</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.SPV.html"><span class="hs-identifier">Chainweb.SPV</span></a></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.SPV.VerifyProof.html"><span class="hs-identifier">Chainweb.SPV.VerifyProof</span></a></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.TreeDB.html"><span class="hs-identifier">Chainweb.TreeDB</span></a></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">CW</span></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- internal pact modules</span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Command</span></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Hash</span></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.PactValue</span></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Runtime</span></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.SPV</span></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- | Spv support for pact</span><span>
+</span><span id="line-73"></span><span class="hs-comment">--</span><span>
+</span><span id="line-74"></span><span class="annot"><a href="Chainweb.Pact.SPV.html#pactSPV"><span class="hs-identifier hs-type">pactSPV</span></a></span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681504619"><span class="annot"><a href="#local-6989586621681504619"><span class="hs-identifier hs-type">cas</span></a></span></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">CW.ChainId</span></a></span><span>
+</span><span id="line-77"></span><span>      </span><span class="hs-comment">-- ^ chain id of the running pact service</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504619"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>      </span><span class="hs-comment">-- ^ handle into the cutdb</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SPVSupport</span></span><span>
+</span><span id="line-81"></span><span id="pactSPV"><span class="annot"><span class="annottext">pactSPV :: ChainId -&gt; MVar (CutDb cas) -&gt; SPVSupport
+</span><a href="Chainweb.Pact.SPV.html#pactSPV"><span class="hs-identifier hs-var hs-var">pactSPV</span></a></span></span><span> </span><span id="local-6989586621681504618"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681504618"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681504617"><span class="annot"><span class="annottext">cdbv :: MVar (CutDb cas)
+</span><a href="#local-6989586621681504617"><span class="hs-identifier hs-var">cdbv</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Object Name -&gt; IO (Either Text (Object Name)))
+-&gt; (ContProof -&gt; IO (Either Text PactExec)) -&gt; SPVSupport
+</span><span class="hs-identifier hs-var">SPVSupport</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainId
+-&gt; MVar (CutDb cas)
+-&gt; Text
+-&gt; Object Name
+-&gt; IO (Either Text (Object Name))
+forall (cas :: * -&gt; *).
+ChainId
+-&gt; MVar (CutDb cas)
+-&gt; Text
+-&gt; Object Name
+-&gt; IO (Either Text (Object Name))
+</span><a href="Chainweb.Pact.SPV.html#verifySPV"><span class="hs-identifier hs-var">verifySPV</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504618"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">MVar (CutDb cas)
+</span><a href="#local-6989586621681504617"><span class="hs-identifier hs-var">cdbv</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainId
+-&gt; MVar (CutDb cas) -&gt; ContProof -&gt; IO (Either Text PactExec)
+forall (cas :: * -&gt; *).
+ChainId
+-&gt; MVar (CutDb cas) -&gt; ContProof -&gt; IO (Either Text PactExec)
+</span><a href="Chainweb.Pact.SPV.html#verifyCont"><span class="hs-identifier hs-var">verifyCont</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504618"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">MVar (CutDb cas)
+</span><a href="#local-6989586621681504617"><span class="hs-identifier hs-var">cdbv</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- | SPV transaction verification support. Calls to 'verify-spv' in Pact</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- will thread through this function and verify an SPV receipt, making the</span><span>
+</span><span id="line-85"></span><span class="hs-comment">-- requisite calls to the SPV api and verifying the output proof.</span><span>
+</span><span id="line-86"></span><span class="hs-comment">--</span><span>
+</span><span id="line-87"></span><span class="annot"><a href="Chainweb.Pact.SPV.html#verifySPV"><span class="hs-identifier hs-type">verifySPV</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681504769"><span class="annot"><a href="#local-6989586621681504769"><span class="hs-identifier hs-type">cas</span></a></span></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">CW.ChainId</span></a></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504769"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>      </span><span class="hs-comment">-- ^ handle into the cut db</span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-93"></span><span>      </span><span class="hs-comment">-- ^ TXOUT or TXIN - defines the type of proof</span><span>
+</span><span id="line-94"></span><span>      </span><span class="hs-comment">-- used in validation</span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Object</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span>
+</span><span id="line-96"></span><span>      </span><span class="hs-comment">-- ^ the 'TransactionOutputProof' object to validate</span><span>
+</span><span id="line-97"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Object</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span id="verifySPV"><span class="annot"><span class="annottext">verifySPV :: ChainId
+-&gt; MVar (CutDb cas)
+-&gt; Text
+-&gt; Object Name
+-&gt; IO (Either Text (Object Name))
+</span><a href="Chainweb.Pact.SPV.html#verifySPV"><span class="hs-identifier hs-var hs-var">verifySPV</span></a></span></span><span> </span><span id="local-6989586621681504615"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681504615"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681504614"><span class="annot"><span class="annottext">cdbv :: MVar (CutDb cas)
+</span><a href="#local-6989586621681504614"><span class="hs-identifier hs-var">cdbv</span></a></span></span><span> </span><span id="local-6989586621681504613"><span class="annot"><span class="annottext">typ :: Text
+</span><a href="#local-6989586621681504613"><span class="hs-identifier hs-var">typ</span></a></span></span><span> </span><span id="local-6989586621681504612"><span class="annot"><span class="annottext">proof :: Object Name
+</span><a href="#local-6989586621681504612"><span class="hs-identifier hs-var">proof</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (CutDb cas) -&gt; IO (CutDb cas)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (CutDb cas)
+</span><a href="#local-6989586621681504614"><span class="hs-identifier hs-var">cdbv</span></a></span><span> </span><span class="annot"><span class="annottext">IO (CutDb cas)
+-&gt; (CutDb cas -&gt; IO (Either Text (Object Name)))
+-&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Object Name -&gt; CutDb cas -&gt; IO (Either Text (Object Name))
+</span><a href="#local-6989586621681504610"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681504613"><span class="hs-identifier hs-var">typ</span></a></span><span> </span><span class="annot"><span class="annottext">Object Name
+</span><a href="#local-6989586621681504612"><span class="hs-identifier hs-var">proof</span></a></span><span>
+</span><span id="line-99"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-100"></span><span>    </span><span id="local-6989586621681504610"><span class="annot"><span class="annottext">go :: Text -&gt; Object Name -&gt; CutDb cas -&gt; IO (Either Text (Object Name))
+</span><a href="#local-6989586621681504610"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621681504609"><span class="annot"><span class="annottext">s :: Text
+</span><a href="#local-6989586621681504609"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681504608"><span class="annot"><span class="annottext">o :: Object Name
+</span><a href="#local-6989586621681504608"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span id="local-6989586621681504607"><span class="annot"><span class="annottext">cdb :: CutDb cas
+</span><a href="#local-6989586621681504607"><span class="hs-identifier hs-var">cdb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681504609"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-101"></span><span>      </span><span class="hs-string">&quot;TXOUT&quot;</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Object Name -&gt; Either Text (TransactionOutputProof SHA512t_256)
+</span><a href="Chainweb.Pact.SPV.html#extractProof"><span class="hs-identifier hs-var">extractProof</span></a></span><span> </span><span class="annot"><span class="annottext">Object Name
+</span><a href="#local-6989586621681504608"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-102"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681504605"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681504605"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Either Text (Object Name)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681504605"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-103"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681504604"><span class="annot"><span class="annottext">u :: TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504604"><span class="hs-identifier hs-var">u</span></a></span></span><span>
+</span><span id="line-104"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting ChainId (TransactionOutputProof SHA512t_256) ChainId
+-&gt; TransactionOutputProof SHA512t_256 -&gt; ChainId
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting ChainId (TransactionOutputProof SHA512t_256) ChainId
+forall a. Getter (TransactionOutputProof a) ChainId
+</span><a href="Chainweb.SPV.html#outputProofChainId"><span class="hs-identifier hs-var">outputProofChainId</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504604"><span class="hs-identifier hs-var">u</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; ChainId -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504615"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-105"></span><span>            </span><span class="annot"><span class="annottext">Text -&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;cannot redeem spv proof on wrong target chain&quot;</span></span><span>
+</span><span id="line-106"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span>            </span><span class="hs-comment">-- SPV proof verification is a 3 step process:</span><span>
+</span><span id="line-109"></span><span>            </span><span class="hs-comment">--</span><span>
+</span><span id="line-110"></span><span>            </span><span class="hs-comment">--  1. verify spv tx output proof via chainweb spv api</span><span>
+</span><span id="line-111"></span><span>            </span><span class="hs-comment">--</span><span>
+</span><span id="line-112"></span><span>            </span><span class="hs-comment">--  2. Decode tx outputs to 'HashCommandResult'</span><span>
+</span><span id="line-113"></span><span>            </span><span class="hs-comment">--</span><span>
+</span><span id="line-114"></span><span>            </span><span class="hs-comment">--  3. Extract tx outputs as a pact object and return the</span><span>
+</span><span id="line-115"></span><span>            </span><span class="hs-comment">--  object.</span><span>
+</span><span id="line-116"></span><span>
+</span><span id="line-117"></span><span>            </span><span class="annot"><a href="Chainweb.Payload.html#TransactionOutput"><span class="hs-identifier hs-type">TransactionOutput</span></a></span><span> </span><span id="local-6989586621681504598"><span class="annot"><span class="annottext">p :: ByteString
+</span><a href="#local-6989586621681504598"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+-&gt; TransactionOutputProof SHA512t_256 -&gt; IO TransactionOutput
+forall (cas :: * -&gt; *).
+CutDb cas
+-&gt; TransactionOutputProof SHA512t_256 -&gt; IO TransactionOutput
+</span><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionOutputProof"><span class="hs-identifier hs-var">verifyTransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504607"><span class="hs-identifier hs-var">cdb</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504604"><span class="hs-identifier hs-var">u</span></a></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span>            </span><span id="local-6989586621681504596"><span class="annot"><span class="annottext">HashCommandResult
+</span><a href="#local-6989586621681504596"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe HashCommandResult
+forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
+</span><span class="hs-identifier hs-var">decodeStrict'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681504598"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Types.html#HashCommandResult"><span class="hs-identifier hs-type">HashCommandResult</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-120"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO HashCommandResult
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;unable to decode spv transaction output&quot;</span></span><span>
+</span><span id="line-121"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681504594"><span class="annot"><span class="annottext">cr :: HashCommandResult
+</span><a href="#local-6989586621681504594"><span class="hs-identifier hs-var">cr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HashCommandResult -&gt; IO HashCommandResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">HashCommandResult
+</span><a href="#local-6989586621681504594"><span class="hs-identifier hs-var">cr</span></a></span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span>            </span><span id="local-6989586621681504593"><span class="annot"><span class="annottext">Either Text (Object Name)
+</span><a href="#local-6989586621681504593"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HashCommandResult -&gt; PactResult
+forall l. CommandResult l -&gt; PactResult
+</span><span class="hs-identifier hs-var hs-var">_crResult</span></span><span> </span><span class="annot"><span class="annottext">HashCommandResult
+</span><a href="#local-6989586621681504596"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-124"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">PactResult</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-125"></span><span>                </span><span class="annot"><span class="annottext">Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either Text (Object Name) -&gt; IO (Either Text (Object Name)))
+-&gt; Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text (Object Name)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="hs-string">&quot;invalid command result in tx output proof&quot;</span></span><span>
+</span><span id="line-126"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">PactResult</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681504589"><span class="annot"><span class="annottext">v :: PactValue
+</span><a href="#local-6989586621681504589"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PactValue -&gt; Term Name
+</span><span class="hs-identifier hs-var">fromPactValue</span></span><span> </span><span class="annot"><span class="annottext">PactValue
+</span><a href="#local-6989586621681504589"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-127"></span><span>                </span><span class="annot"><span class="hs-identifier hs-type">TObject</span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681504586"><span class="annot"><span class="annottext">Object Name
+</span><a href="#local-6989586621681504586"><span class="hs-identifier hs-var">j</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either Text (Object Name) -&gt; IO (Either Text (Object Name)))
+-&gt; Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Object Name -&gt; Either Text (Object Name)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">Object Name
+</span><a href="#local-6989586621681504586"><span class="hs-identifier hs-var">j</span></a></span><span>
+</span><span id="line-128"></span><span>                </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either Text (Object Name) -&gt; IO (Either Text (Object Name)))
+-&gt; Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text (Object Name)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="hs-string">&quot;spv-verified tx output has invalid type&quot;</span></span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span>            </span><span class="annot"><span class="annottext">Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Either Text (Object Name)
+</span><a href="#local-6989586621681504593"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span>      </span><span id="local-6989586621681504585"><span class="annot"><span class="annottext">t :: Text
+</span><a href="#local-6989586621681504585"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Text (Object Name) -&gt; IO (Either Text (Object Name))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either Text (Object Name) -&gt; IO (Either Text (Object Name)))
+-&gt; (Text -&gt; Either Text (Object Name))
+-&gt; Text
+-&gt; IO (Either Text (Object Name))
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text (Object Name)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO (Either Text (Object Name)))
+-&gt; Text -&gt; IO (Either Text (Object Name))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="hs-string">&quot;unsupported SPV types: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681504585"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- | SPV defpact transaction verification support. This call validates a pact 'endorsement'</span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- in Pact, providing a validation that the yield data of a cross-chain pact is valid.</span><span>
+</span><span id="line-136"></span><span class="hs-comment">--</span><span>
+</span><span id="line-137"></span><span class="annot"><a href="Chainweb.Pact.SPV.html#verifyCont"><span class="hs-identifier hs-type">verifyCont</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681504768"><span class="annot"><a href="#local-6989586621681504768"><span class="hs-identifier hs-type">cas</span></a></span></span><span>
+</span><span id="line-139"></span><span>    </span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">CW.ChainId</span></a></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504768"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>      </span><span class="hs-comment">-- ^ handle into the cut db</span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContProof</span></span><span>
+</span><span id="line-143"></span><span>      </span><span class="hs-comment">-- ^ bytestring of 'TransactionOutputP roof' object to validate</span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PactExec</span></span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span id="verifyCont"><span class="annot"><span class="annottext">verifyCont :: ChainId
+-&gt; MVar (CutDb cas) -&gt; ContProof -&gt; IO (Either Text PactExec)
+</span><a href="Chainweb.Pact.SPV.html#verifyCont"><span class="hs-identifier hs-var hs-var">verifyCont</span></a></span></span><span> </span><span id="local-6989586621681504583"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681504583"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681504582"><span class="annot"><span class="annottext">cdbv :: MVar (CutDb cas)
+</span><a href="#local-6989586621681504582"><span class="hs-identifier hs-var">cdbv</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ContProof</span></span><span> </span><span id="local-6989586621681504580"><span class="annot"><span class="annottext">cp :: ByteString
+</span><a href="#local-6989586621681504580"><span class="hs-identifier hs-var">cp</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-146"></span><span>    </span><span id="local-6989586621681504579"><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504579"><span class="hs-identifier hs-var">cdb</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MVar (CutDb cas) -&gt; IO (CutDb cas)
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (CutDb cas)
+</span><a href="#local-6989586621681504582"><span class="hs-identifier hs-var">cdbv</span></a></span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621681504578"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681504578"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ByteString
+forall (m :: * -&gt; *). MonadThrow m =&gt; Text -&gt; m ByteString
+</span><a href="Chainweb.Utils.html#decodeB64UrlNoPaddingText"><span class="hs-identifier hs-var">decodeB64UrlNoPaddingText</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ByteString) -&gt; Text -&gt; IO ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+</span><span class="hs-identifier hs-var">T.decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681504580"><span class="hs-identifier hs-var">cp</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe (TransactionOutputProof SHA512t_256)
+forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
+</span><span class="hs-identifier hs-var">decodeStrict'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681504578"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-149"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO (Either Text PactExec)
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;unable to decode continuation proof&quot;</span></span><span>
+</span><span id="line-150"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681504575"><span class="annot"><span class="annottext">u :: TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504575"><span class="hs-identifier hs-var">u</span></a></span></span><span>
+</span><span id="line-151"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Getting ChainId (TransactionOutputProof SHA512t_256) ChainId
+-&gt; TransactionOutputProof SHA512t_256 -&gt; ChainId
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting ChainId (TransactionOutputProof SHA512t_256) ChainId
+forall a. Getter (TransactionOutputProof a) ChainId
+</span><a href="Chainweb.SPV.html#outputProofChainId"><span class="hs-identifier hs-var">outputProofChainId</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504575"><span class="hs-identifier hs-var">u</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; ChainId -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">/=</span></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681504583"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-152"></span><span>          </span><span class="annot"><span class="annottext">Text -&gt; IO (Either Text PactExec)
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;cannot redeem continuation proof on wrong target chain&quot;</span></span><span>
+</span><span id="line-153"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span><span>          </span><span class="hs-comment">-- Cont proof verification is a 3 step process:</span><span>
+</span><span id="line-156"></span><span>          </span><span class="hs-comment">--</span><span>
+</span><span id="line-157"></span><span>          </span><span class="hs-comment">--  1. verify spv tx output proof via chainweb spv api</span><span>
+</span><span id="line-158"></span><span>          </span><span class="hs-comment">--</span><span>
+</span><span id="line-159"></span><span>          </span><span class="hs-comment">--  2. Decode tx outputs to 'HashCommandResult'</span><span>
+</span><span id="line-160"></span><span>          </span><span class="hs-comment">--</span><span>
+</span><span id="line-161"></span><span>          </span><span class="hs-comment">--  3. Extract continuation 'PactExec' from decoded result</span><span>
+</span><span id="line-162"></span><span>          </span><span class="hs-comment">--  and return the cont exec object</span><span>
+</span><span id="line-163"></span><span>
+</span><span id="line-164"></span><span>          </span><span class="annot"><a href="Chainweb.Payload.html#TransactionOutput"><span class="hs-identifier hs-type">TransactionOutput</span></a></span><span> </span><span id="local-6989586621681504574"><span class="annot"><span class="annottext">p :: ByteString
+</span><a href="#local-6989586621681504574"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CutDb cas
+-&gt; TransactionOutputProof SHA512t_256 -&gt; IO TransactionOutput
+forall (cas :: * -&gt; *).
+CutDb cas
+-&gt; TransactionOutputProof SHA512t_256 -&gt; IO TransactionOutput
+</span><a href="Chainweb.SPV.VerifyProof.html#verifyTransactionOutputProof"><span class="hs-identifier hs-var">verifyTransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="annottext">CutDb cas
+</span><a href="#local-6989586621681504579"><span class="hs-identifier hs-var">cdb</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionOutputProof SHA512t_256
+</span><a href="#local-6989586621681504575"><span class="hs-identifier hs-var">u</span></a></span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span>          </span><span id="local-6989586621681504573"><span class="annot"><span class="annottext">HashCommandResult
+</span><a href="#local-6989586621681504573"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe HashCommandResult
+forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
+</span><span class="hs-identifier hs-var">decodeStrict'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681504574"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Types.html#HashCommandResult"><span class="hs-identifier hs-type">HashCommandResult</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-167"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO HashCommandResult
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;unable to decode spv transaction output&quot;</span></span><span>
+</span><span id="line-168"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681504572"><span class="annot"><span class="annottext">cr :: HashCommandResult
+</span><a href="#local-6989586621681504572"><span class="hs-identifier hs-var">cr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HashCommandResult -&gt; IO HashCommandResult
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">HashCommandResult
+</span><a href="#local-6989586621681504572"><span class="hs-identifier hs-var">cr</span></a></span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span>          </span><span id="local-6989586621681504571"><span class="annot"><span class="annottext">Either Text PactExec
+</span><a href="#local-6989586621681504571"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HashCommandResult -&gt; Maybe PactExec
+forall l. CommandResult l -&gt; Maybe PactExec
+</span><span class="hs-identifier hs-var hs-var">_crContinuation</span></span><span> </span><span class="annot"><span class="annottext">HashCommandResult
+</span><a href="#local-6989586621681504573"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-171"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Nothing</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Text PactExec -&gt; IO (Either Text PactExec)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either Text PactExec -&gt; IO (Either Text PactExec))
+-&gt; Either Text PactExec -&gt; IO (Either Text PactExec)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text PactExec
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="hs-string">&quot;no pact exec found in command result&quot;</span></span><span>
+</span><span id="line-172"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">Just</span></span><span> </span><span id="local-6989586621681504569"><span class="annot"><span class="annottext">pe :: PactExec
+</span><a href="#local-6989586621681504569"><span class="hs-identifier hs-var">pe</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Text PactExec -&gt; IO (Either Text PactExec)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either Text PactExec -&gt; IO (Either Text PactExec))
+-&gt; Either Text PactExec -&gt; IO (Either Text PactExec)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">PactExec -&gt; Either Text PactExec
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span> </span><span class="annot"><span class="annottext">PactExec
+</span><a href="#local-6989586621681504569"><span class="hs-identifier hs-var">pe</span></a></span><span>
+</span><span id="line-173"></span><span>
+</span><span id="line-174"></span><span>          </span><span class="annot"><span class="annottext">Either Text PactExec -&gt; IO (Either Text PactExec)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Either Text PactExec
+</span><a href="#local-6989586621681504571"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="hs-comment">-- | Extract a 'TransactionOutputProof' from a generic pact object</span><span>
+</span><span id="line-177"></span><span class="hs-comment">--</span><span>
+</span><span id="line-178"></span><span class="annot"><a href="Chainweb.Pact.SPV.html#extractProof"><span class="hs-identifier hs-type">extractProof</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Object</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.SPV.html#TransactionOutputProof"><span class="hs-identifier hs-type">TransactionOutputProof</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SHA512t_256</span></span><span class="hs-special">)</span><span>
+</span><span id="line-179"></span><span id="extractProof"><span class="annot"><span class="annottext">extractProof :: Object Name -&gt; Either Text (TransactionOutputProof SHA512t_256)
+</span><a href="Chainweb.Pact.SPV.html#extractProof"><span class="hs-identifier hs-var hs-var">extractProof</span></a></span></span><span> </span><span id="local-6989586621681504568"><span class="annot"><span class="annottext">o :: Object Name
+</span><a href="#local-6989586621681504568"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Term Name -&gt; Either Text PactValue
+</span><span class="hs-identifier hs-var">toPactValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object Name -&gt; Info -&gt; Term Name
+forall n. Object n -&gt; Info -&gt; Term n
+</span><span class="hs-identifier hs-var">TObject</span></span><span> </span><span class="annot"><span class="annottext">Object Name
+</span><a href="#local-6989586621681504568"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Info
+forall a. Default a =&gt; a
+</span><span class="hs-identifier hs-var">def</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either Text PactValue
+-&gt; (PactValue -&gt; Either Text (TransactionOutputProof SHA512t_256))
+-&gt; Either Text (TransactionOutputProof SHA512t_256)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">PactValue -&gt; Either Text (TransactionOutputProof SHA512t_256)
+</span><a href="#local-6989586621681504566"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><span id="line-180"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-181"></span><span>    </span><span id="local-6989586621681504566"><span class="annot"><span class="annottext">k :: PactValue -&gt; Either Text (TransactionOutputProof SHA512t_256)
+</span><a href="#local-6989586621681504566"><span class="hs-identifier hs-var hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(String -&gt; Either Text (TransactionOutputProof SHA512t_256))
+-&gt; (TransactionOutputProof SHA512t_256
+    -&gt; Either Text (TransactionOutputProof SHA512t_256))
+-&gt; Result (TransactionOutputProof SHA512t_256)
+-&gt; Either Text (TransactionOutputProof SHA512t_256)
+forall b a. (String -&gt; b) -&gt; (a -&gt; b) -&gt; Result a -&gt; b
+</span><a href="Chainweb.Pact.Utils.html#aeson"><span class="hs-identifier hs-var">aeson</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Either Text (TransactionOutputProof SHA512t_256)
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either Text (TransactionOutputProof SHA512t_256))
+-&gt; (String -&gt; Text)
+-&gt; String
+-&gt; Either Text (TransactionOutputProof SHA512t_256)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">pack</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TransactionOutputProof SHA512t_256
+-&gt; Either Text (TransactionOutputProof SHA512t_256)
+forall a b. b -&gt; Either a b
+</span><span class="hs-identifier hs-var">Right</span></span><span>
+</span><span id="line-182"></span><span>      </span><span class="annot"><span class="annottext">(Result (TransactionOutputProof SHA512t_256)
+ -&gt; Either Text (TransactionOutputProof SHA512t_256))
+-&gt; (PactValue -&gt; Result (TransactionOutputProof SHA512t_256))
+-&gt; PactValue
+-&gt; Either Text (TransactionOutputProof SHA512t_256)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Result (TransactionOutputProof SHA512t_256)
+forall a. FromJSON a =&gt; Value -&gt; Result a
+</span><span class="hs-identifier hs-var">fromJSON</span></span><span>
+</span><span id="line-183"></span><span>      </span><span class="annot"><span class="annottext">(Value -&gt; Result (TransactionOutputProof SHA512t_256))
+-&gt; (PactValue -&gt; Value)
+-&gt; PactValue
+-&gt; Result (TransactionOutputProof SHA512t_256)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PactValue -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span>
+</span><span id="line-184"></span><span>
+</span><span id="line-185"></span><span class="hs-comment">-- | Look up pact tx hash at some block height in the</span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- payload db, and return the tx index for proof creation.</span><span>
+</span><span id="line-187"></span><span class="hs-comment">--</span><span>
+</span><span id="line-188"></span><span class="hs-comment">-- Note: runs in O(n) - this should be revisited if possible</span><span>
+</span><span id="line-189"></span><span class="hs-comment">--</span><span>
+</span><span id="line-190"></span><span id="local-6989586621681504563"><span class="annot"><a href="Chainweb.Pact.SPV.html#getTxIdx"><span class="hs-identifier hs-type">getTxIdx</span></a></span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasCallStack</span></span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504563"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-193"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span>
+</span><span id="line-194"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681504563"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-195"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PactHash</span></span><span>
+</span><span id="line-197"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-198"></span><span id="getTxIdx"><span class="annot"><span class="annottext">getTxIdx :: BlockHeaderDb
+-&gt; PayloadDb cas -&gt; BlockHeight -&gt; PactHash -&gt; IO (Either Text Int)
+</span><a href="Chainweb.Pact.SPV.html#getTxIdx"><span class="hs-identifier hs-var hs-var">getTxIdx</span></a></span></span><span> </span><span id="local-6989586621681504560"><span class="annot"><span class="annottext">bdb :: BlockHeaderDb
+</span><a href="#local-6989586621681504560"><span class="hs-identifier hs-var">bdb</span></a></span></span><span> </span><span id="local-6989586621681504559"><span class="annot"><span class="annottext">pdb :: PayloadDb cas
+</span><a href="#local-6989586621681504559"><span class="hs-identifier hs-var">pdb</span></a></span></span><span> </span><span id="local-6989586621681504558"><span class="annot"><span class="annottext">bh :: BlockHeight
+</span><a href="#local-6989586621681504558"><span class="hs-identifier hs-var">bh</span></a></span></span><span> </span><span id="local-6989586621681504557"><span class="annot"><span class="annottext">th :: PactHash
+</span><a href="#local-6989586621681504557"><span class="hs-identifier hs-var">th</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-199"></span><span>    </span><span class="hs-comment">-- get BlockPayloadHash</span><span>
+</span><span id="line-200"></span><span>    </span><span id="local-6989586621681504556"><span class="annot"><span class="annottext">Either Text BlockPayloadHash
+</span><a href="#local-6989586621681504556"><span class="hs-identifier hs-var">ph</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Either Text BlockHeader -&gt; Either Text BlockPayloadHash)
+-&gt; IO (Either Text BlockHeader)
+-&gt; IO (Either Text BlockPayloadHash)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockHeader -&gt; BlockPayloadHash)
+-&gt; Either Text BlockHeader -&gt; Either Text BlockPayloadHash
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">BlockHeader -&gt; BlockPayloadHash
+</span><a href="Chainweb.BlockHeader.html#_blockPayloadHash"><span class="hs-identifier hs-var hs-var">_blockPayloadHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-201"></span><span>        </span><span class="annot"><span class="annottext">(IO (Either Text BlockHeader) -&gt; IO (Either Text BlockPayloadHash))
+-&gt; IO (Either Text BlockHeader)
+-&gt; IO (Either Text BlockPayloadHash)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+-&gt; Maybe (NextItem (DbKey BlockHeaderDb))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbEntry BlockHeaderDb)) IO (Natural, Eos)
+    -&gt; IO (Maybe BlockHeader))
+-&gt; IO (Maybe BlockHeader)
+forall db a.
+TreeDb db =&gt;
+db
+-&gt; Maybe (NextItem (DbKey db))
+-&gt; Maybe Limit
+-&gt; Maybe MinRank
+-&gt; Maybe MaxRank
+-&gt; (Stream (Of (DbEntry db)) IO (Natural, Eos) -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.TreeDB.html#entries"><span class="hs-identifier hs-var">entries</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681504560"><span class="hs-identifier hs-var">bdb</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (NextItem (DbKey BlockHeaderDb))
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Limit -&gt; Maybe Limit
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MinRank -&gt; Maybe MinRank
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">(MinRank -&gt; Maybe MinRank) -&gt; MinRank -&gt; Maybe MinRank
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BlockHeight -&gt; MinRank
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeight
+</span><a href="#local-6989586621681504558"><span class="hs-identifier hs-var">bh</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe MaxRank
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span> </span><span class="annot"><span class="annottext">Stream (Of (DbEntry BlockHeaderDb)) IO (Natural, Eos)
+-&gt; IO (Maybe BlockHeader)
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var">S.head_</span></span><span>
+</span><span id="line-202"></span><span>        </span><span class="annot"><span class="annottext">IO (Maybe BlockHeader)
+-&gt; (Maybe BlockHeader -&gt; IO (Either Text BlockHeader))
+-&gt; IO (Either Text BlockHeader)
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Either Text BlockHeader -&gt; IO (Either Text BlockHeader)
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span> </span><span class="annot"><span class="annottext">(Either Text BlockHeader -&gt; IO (Either Text BlockHeader))
+-&gt; (Maybe BlockHeader -&gt; Either Text BlockHeader)
+-&gt; Maybe BlockHeader
+-&gt; IO (Either Text BlockHeader)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe BlockHeader -&gt; Either Text BlockHeader
+forall a b. a -&gt; Maybe b -&gt; Either a b
+</span><span class="hs-identifier hs-var">note</span></span><span> </span><span class="annot"><span class="hs-string">&quot;unable to find payload associated with transaction hash&quot;</span></span><span>
+</span><span id="line-203"></span><span>
+</span><span id="line-204"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either Text BlockPayloadHash
+</span><a href="#local-6989586621681504556"><span class="hs-identifier hs-var">ph</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-205"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681504550"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681504550"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either Text Int -&gt; IO (Either Text Int)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Either Text Int -&gt; IO (Either Text Int))
+-&gt; Either Text Int -&gt; IO (Either Text Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$!</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text Int
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681504550"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-206"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681504549"><span class="annot"><span class="annottext">BlockPayloadHash
+</span><a href="#local-6989586621681504549"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-207"></span><span>        </span><span class="hs-comment">-- get payload</span><span>
+</span><span id="line-208"></span><span>        </span><span id="local-6989586621681504548"><span class="annot"><span class="annottext">Vector (Transaction, TransactionOutput)
+</span><a href="#local-6989586621681504548"><span class="hs-identifier hs-var">payload</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PayloadWithOutputs -&gt; Vector (Transaction, TransactionOutput)
+</span><a href="Chainweb.Payload.html#_payloadWithOutputsTransactions"><span class="hs-identifier hs-var hs-var">_payloadWithOutputsTransactions</span></a></span><span> </span><span class="annot"><span class="annottext">(PayloadWithOutputs -&gt; Vector (Transaction, TransactionOutput))
+-&gt; IO PayloadWithOutputs
+-&gt; IO (Vector (Transaction, TransactionOutput))
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+-&gt; CasKeyType (CasValueType (PayloadDb cas))
+-&gt; IO (CasValueType (PayloadDb cas))
+forall a.
+IsCas a =&gt;
+a -&gt; CasKeyType (CasValueType a) -&gt; IO (CasValueType a)
+</span><span class="hs-identifier hs-var">casLookupM</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681504559"><span class="hs-identifier hs-var">pdb</span></a></span><span> </span><span class="annot"><span class="annottext">CasKeyType (CasValueType (PayloadDb cas))
+BlockPayloadHash
+</span><a href="#local-6989586621681504549"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-209"></span><span>
+</span><span id="line-210"></span><span>        </span><span class="hs-comment">-- Find transaction index</span><span>
+</span><span id="line-211"></span><span>        </span><span id="local-6989586621681504544"><span class="annot"><span class="annottext">Maybe Natural
+</span><a href="#local-6989586621681504544"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Vector (Transaction, TransactionOutput)
+-&gt; Stream (Of (Transaction, TransactionOutput)) IO ()
+forall (m :: * -&gt; *) (f :: * -&gt; *) a.
+(Monad m, Foldable f) =&gt;
+f a -&gt; Stream (Of a) m ()
+</span><span class="hs-identifier hs-var">S.each</span></span><span> </span><span class="annot"><span class="annottext">Vector (Transaction, TransactionOutput)
+</span><a href="#local-6989586621681504548"><span class="hs-identifier hs-var">payload</span></a></span><span>
+</span><span id="line-212"></span><span>          </span><span class="annot"><span class="annottext">Stream (Of (Transaction, TransactionOutput)) IO ()
+-&gt; (Stream (Of (Transaction, TransactionOutput)) IO ()
+    -&gt; Stream (Of Transaction) IO ())
+-&gt; Stream (Of Transaction) IO ()
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">((Transaction, TransactionOutput) -&gt; Transaction)
+-&gt; Stream (Of (Transaction, TransactionOutput)) IO ()
+-&gt; Stream (Of Transaction) IO ()
+forall (m :: * -&gt; *) a b r.
+Monad m =&gt;
+(a -&gt; b) -&gt; Stream (Of a) m r -&gt; Stream (Of b) m r
+</span><span class="hs-identifier hs-var">S.map</span></span><span> </span><span class="annot"><span class="annottext">(Transaction, TransactionOutput) -&gt; Transaction
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span>
+</span><span id="line-213"></span><span>          </span><span class="annot"><span class="annottext">Stream (Of Transaction) IO ()
+-&gt; (Stream (Of Transaction) IO () -&gt; Stream (Of PactHash) IO ())
+-&gt; Stream (Of PactHash) IO ()
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Transaction -&gt; IO PactHash)
+-&gt; Stream (Of Transaction) IO () -&gt; Stream (Of PactHash) IO ()
+forall (m :: * -&gt; *) a b r.
+Monad m =&gt;
+(a -&gt; m b) -&gt; Stream (Of a) m r -&gt; Stream (Of b) m r
+</span><span class="hs-identifier hs-var">S.mapM</span></span><span> </span><span class="annot"><span class="annottext">Transaction -&gt; IO PactHash
+forall (m :: * -&gt; *). MonadThrow m =&gt; Transaction -&gt; m PactHash
+</span><a href="#local-6989586621681504539"><span class="hs-identifier hs-var">toTxHash</span></a></span><span>
+</span><span id="line-214"></span><span>          </span><span class="annot"><span class="annottext">Stream (Of PactHash) IO ()
+-&gt; (Stream (Of PactHash) IO () -&gt; IO (Maybe Natural))
+-&gt; IO (Maybe Natural)
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(PactHash -&gt; Bool)
+-&gt; Stream (Of PactHash) IO () -&gt; IO (Maybe Natural)
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+(a -&gt; Bool) -&gt; Stream (Of a) m () -&gt; m (Maybe Natural)
+</span><a href="#local-6989586621681504538"><span class="hs-identifier hs-var">sindex</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PactHash -&gt; PactHash -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">PactHash
+</span><a href="#local-6989586621681504557"><span class="hs-identifier hs-var">th</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-215"></span><span>
+</span><span id="line-216"></span><span>        </span><span class="annot"><span class="annottext">Maybe Natural
+</span><a href="#local-6989586621681504544"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Natural
+-&gt; (Maybe Natural -&gt; Either Text Natural) -&gt; Either Text Natural
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe Natural -&gt; Either Text Natural
+forall a b. a -&gt; Maybe b -&gt; Either a b
+</span><span class="hs-identifier hs-var">note</span></span><span> </span><span class="annot"><span class="hs-string">&quot;unable to find transaction at the given block height&quot;</span></span><span>
+</span><span id="line-217"></span><span>          </span><span class="annot"><span class="annottext">Either Text Natural
+-&gt; (Either Text Natural -&gt; Either Text Int) -&gt; Either Text Int
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Int) -&gt; Either Text Natural -&gt; Either Text Int
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span>
+</span><span id="line-218"></span><span>          </span><span class="annot"><span class="annottext">Either Text Int
+-&gt; (Either Text Int -&gt; IO (Either Text Int))
+-&gt; IO (Either Text Int)
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">Either Text Int -&gt; IO (Either Text Int)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span>
+</span><span id="line-219"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-220"></span><span>    </span><span id="local-6989586621681504646"><span class="annot"><a href="#local-6989586621681504537"><span class="hs-identifier hs-type">toPactTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681504646"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681504646"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Command</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span></span><span>
+</span><span id="line-221"></span><span>    </span><span id="local-6989586621681504537"><span class="annot"><span class="annottext">toPactTx :: Transaction -&gt; m (Command Text)
+</span><a href="#local-6989586621681504537"><span class="hs-identifier hs-var hs-var">toPactTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a></span><span> </span><span id="local-6989586621681504535"><span class="annot"><span class="annottext">b :: ByteString
+</span><a href="#local-6989586621681504535"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; m (Command Text)
+forall (m :: * -&gt; *) a.
+(MonadThrow m, FromJSON a) =&gt;
+ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#decodeStrictOrThrow%27"><span class="hs-identifier hs-var">decodeStrictOrThrow'</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681504535"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-222"></span><span>
+</span><span id="line-223"></span><span>    </span><span id="local-6989586621681504655"><span class="annot"><a href="#local-6989586621681504539"><span class="hs-identifier hs-type">toTxHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadThrow</span></span><span> </span><span class="annot"><a href="#local-6989586621681504655"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#Transaction"><span class="hs-identifier hs-type">Transaction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681504655"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PactHash</span></span></span><span>
+</span><span id="line-224"></span><span>    </span><span id="local-6989586621681504539"><span class="annot"><span class="annottext">toTxHash :: Transaction -&gt; m PactHash
+</span><a href="#local-6989586621681504539"><span class="hs-identifier hs-var hs-var">toTxHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Command Text -&gt; PactHash) -&gt; m (Command Text) -&gt; m PactHash
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">Command Text -&gt; PactHash
+forall a. Command a -&gt; PactHash
+</span><span class="hs-identifier hs-var hs-var">_cmdHash</span></span><span> </span><span class="annot"><span class="annottext">(m (Command Text) -&gt; m PactHash)
+-&gt; (Transaction -&gt; m (Command Text)) -&gt; Transaction -&gt; m PactHash
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Transaction -&gt; m (Command Text)
+forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+Transaction -&gt; m (Command Text)
+</span><a href="#local-6989586621681504537"><span class="hs-identifier hs-var">toPactTx</span></a></span><span>
+</span><span id="line-225"></span><span>
+</span><span id="line-226"></span><span>    </span><span id="local-6989586621681504633"><span id="local-6989586621681504634"><span class="annot"><a href="#local-6989586621681504532"><span class="hs-identifier hs-type">sfind</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681504634"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681504633"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">S.Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681504633"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681504634"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681504634"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="#local-6989586621681504633"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-227"></span><span>    </span><span id="local-6989586621681504532"><span class="annot"><span class="annottext">sfind :: (a -&gt; Bool) -&gt; Stream (Of a) m () -&gt; m (Maybe a)
+</span><a href="#local-6989586621681504532"><span class="hs-identifier hs-var hs-var">sfind</span></a></span></span><span> </span><span id="local-6989586621681504531"><span class="annot"><span class="annottext">p :: a -&gt; Bool
+</span><a href="#local-6989586621681504531"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m () -&gt; m (Maybe a)
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+Stream (Of a) m r -&gt; m (Maybe a)
+</span><span class="hs-identifier hs-var">S.head_</span></span><span> </span><span class="annot"><span class="annottext">(Stream (Of a) m () -&gt; m (Maybe a))
+-&gt; (Stream (Of a) m () -&gt; Stream (Of a) m ())
+-&gt; Stream (Of a) m ()
+-&gt; m (Maybe a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Bool) -&gt; Stream (Of a) m () -&gt; Stream (Of a) m ()
+forall (m :: * -&gt; *) a r.
+Monad m =&gt;
+(a -&gt; Bool) -&gt; Stream (Of a) m r -&gt; Stream (Of a) m r
+</span><span class="hs-identifier hs-var">S.dropWhile</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><span class="hs-identifier hs-var">not</span></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; (a -&gt; Bool) -&gt; a -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621681504531"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span>    </span><span id="local-6989586621681504653"><span id="local-6989586621681504654"><span class="annot"><a href="#local-6989586621681504538"><span class="hs-identifier hs-type">sindex</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Monad</span></span><span> </span><span class="annot"><a href="#local-6989586621681504654"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681504653"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">S.Stream</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">S.Of</span></span><span> </span><span class="annot"><a href="#local-6989586621681504653"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681504654"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681504654"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-230"></span><span>    </span><span id="local-6989586621681504538"><span class="annot"><span class="annottext">sindex :: (a -&gt; Bool) -&gt; Stream (Of a) m () -&gt; m (Maybe Natural)
+</span><a href="#local-6989586621681504538"><span class="hs-identifier hs-var hs-var">sindex</span></a></span></span><span> </span><span id="local-6989586621681504528"><span class="annot"><span class="annottext">p :: a -&gt; Bool
+</span><a href="#local-6989586621681504528"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span id="local-6989586621681504527"><span class="annot"><span class="annottext">s :: Stream (Of a) m ()
+</span><a href="#local-6989586621681504527"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Stream (Of Natural) m ()
+-&gt; Stream (Of a) m () -&gt; Stream (Of (Natural, a)) m ()
+forall (m :: * -&gt; *) a r b.
+Monad m =&gt;
+Stream (Of a) m r -&gt; Stream (Of b) m r -&gt; Stream (Of (a, b)) m r
+</span><span class="hs-identifier hs-var">S.zip</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Natural] -&gt; Stream (Of Natural) m ()
+forall (m :: * -&gt; *) (f :: * -&gt; *) a.
+(Monad m, Foldable f) =&gt;
+f a -&gt; Stream (Of a) m ()
+</span><span class="hs-identifier hs-var">S.each</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Stream (Of a) m ()
+</span><a href="#local-6989586621681504527"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Stream (Of (Natural, a)) m ()
+-&gt; (Stream (Of (Natural, a)) m () -&gt; m (Maybe (Natural, a)))
+-&gt; m (Maybe (Natural, a))
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">((Natural, a) -&gt; Bool)
+-&gt; Stream (Of (Natural, a)) m () -&gt; m (Maybe (Natural, a))
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+(a -&gt; Bool) -&gt; Stream (Of a) m () -&gt; m (Maybe a)
+</span><a href="#local-6989586621681504532"><span class="hs-identifier hs-var">sfind</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; Bool
+</span><a href="#local-6989586621681504528"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">(a -&gt; Bool) -&gt; ((Natural, a) -&gt; a) -&gt; (Natural, a) -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Natural, a) -&gt; a
+forall a b. (a, b) -&gt; b
+</span><span class="hs-identifier hs-var">snd</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">m (Maybe (Natural, a))
+-&gt; (m (Maybe (Natural, a)) -&gt; m (Maybe Natural))
+-&gt; m (Maybe Natural)
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (Natural, a) -&gt; Maybe Natural)
+-&gt; m (Maybe (Natural, a)) -&gt; m (Maybe Natural)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">((Natural, a) -&gt; Natural) -&gt; Maybe (Natural, a) -&gt; Maybe Natural
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">(Natural, a) -&gt; Natural
+forall a b. (a, b) -&gt; a
+</span><span class="hs-identifier hs-var">fst</span></span><span class="hs-special">)</span><span>
+</span><span id="line-231"></span></pre></body></html>

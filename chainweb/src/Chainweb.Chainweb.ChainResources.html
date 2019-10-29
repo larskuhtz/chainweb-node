@@ -1,0 +1,711 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Module: Chainweb.Chainweb.ChainResources</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-18"></span><span class="hs-comment">--</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Allocate chainweb resources for individual chains</span><span>
+</span><span id="line-20"></span><span class="hs-comment">--</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Chainweb.ChainResources</span><span>
+</span><span id="line-22"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier">ChainResources</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#chainResBlockHeaderDb"><span class="hs-identifier">chainResBlockHeaderDb</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#chainResPeer"><span class="hs-identifier">chainResPeer</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#chainResMempool"><span class="hs-identifier">chainResMempool</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#chainResLogger"><span class="hs-identifier">chainResLogger</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#chainResPact"><span class="hs-identifier">chainResPact</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#withChainResources"><span class="hs-identifier">withChainResources</span></a></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Mempool Sync</span></span><span>
+</span><span id="line-31"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#runMempoolSyncClient"><span class="hs-identifier">runMempoolSyncClient</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Time.html"><span class="hs-identifier">Chainweb.Time</span></a></span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(&lt;.&gt;)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Maybe</span></span><span>
+</span><span id="line-42"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Semigroup</span></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Client</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HTTP</span></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">log</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeaderDB.html"><span class="hs-identifier">Chainweb.BlockHeaderDB</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html"><span class="hs-identifier">Chainweb.Chainweb.PeerResources</span></a></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.CutDB.html"><span class="hs-identifier">Chainweb.CutDB</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier">CutDb</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Graph.html"><span class="hs-identifier">Chainweb.Graph</span></a></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Logger.html"><span class="hs-identifier">Chainweb.Logger</span></a></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Consensus.html"><span class="hs-identifier">Chainweb.Mempool.Consensus</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MPCon</span></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Mempool.InMem.html"><span class="hs-identifier">Chainweb.Mempool.InMem</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Mempool</span></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Mempool.InMemTypes.html"><span class="hs-identifier">Chainweb.Mempool.InMemTypes</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Mempool</span></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html"><span class="hs-identifier">Chainweb.Mempool.Mempool</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier">MempoolBackend</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Mempool.Mempool.html"><span class="hs-identifier">Chainweb.Mempool.Mempool</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Mempool</span></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html"><span class="hs-identifier">Chainweb.Mempool.P2pConfig</span></a></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><a href="Chainweb.Mempool.RestAPI.Client.html"><span class="hs-identifier">Chainweb.Mempool.RestAPI.Client</span></a></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">MPC</span></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.NodeId.html"><span class="hs-identifier">Chainweb.NodeId</span></a></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.PactInProcApi.html"><span class="hs-identifier">Chainweb.Pact.Service.PactInProcApi</span></a></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-69"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.RestAPI.NetworkID.html"><span class="hs-identifier">Chainweb.RestAPI.NetworkID</span></a></span><span>
+</span><span id="line-70"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html"><span class="hs-identifier">Chainweb.Transaction</span></a></span><span>
+</span><span id="line-71"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-72"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.WebPactExecutionService.html"><span class="hs-identifier">Chainweb.WebPactExecutionService</span></a></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS.RocksDB</span></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.html"><span class="hs-identifier">P2P.Node</span></a></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Node.Configuration.html"><span class="hs-identifier">P2P.Node.Configuration</span></a></span><span>
+</span><span id="line-79"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.Session.html"><span class="hs-identifier">P2P.Session</span></a></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Sv</span></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-84"></span><span class="hs-comment">-- Single Chain Resources</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="hs-keyword">data</span><span> </span><span id="ChainResources"><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-var">ChainResources</span></a></span></span><span> </span><span id="local-6989586621681509032"><span class="annot"><a href="#local-6989586621681509032"><span class="hs-identifier hs-type">logger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ChainResources"><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-var">ChainResources</span></a></span></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_chainResPeer"><span class="annot"><span class="annottext">ChainResources logger -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResPeer"><span class="hs-identifier hs-var hs-var">_chainResPeer</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-type">PeerResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681509032"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainResBlockHeaderDb"><span class="annot"><span class="annottext">ChainResources logger -&gt; BlockHeaderDb
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResBlockHeaderDb"><span class="hs-identifier hs-var hs-var">_chainResBlockHeaderDb</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.BlockHeaderDB.Types.html#BlockHeaderDb"><span class="hs-identifier hs-type">BlockHeaderDb</span></a></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainResLogger"><span class="annot"><span class="annottext">ChainResources logger -&gt; logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResLogger"><span class="hs-identifier hs-var hs-var">_chainResLogger</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621681509032"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainResMempool"><span class="annot"><span class="annottext">ChainResources logger -&gt; MempoolBackend ChainwebTransaction
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResMempool"><span class="hs-identifier hs-var hs-var">_chainResMempool</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Mempool.Mempool.html#MempoolBackend"><span class="hs-identifier hs-type">MempoolBackend</span></a></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-type">ChainwebTransaction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_chainResPact"><span class="annot"><span class="annottext">ChainResources logger -&gt; PactExecutionService
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResPact"><span class="hs-identifier hs-var hs-var">_chainResPact</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.WebPactExecutionService.Types.html#PactExecutionService"><span class="hs-identifier hs-type">PactExecutionService</span></a></span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span id="chainResPact"><span id="chainResLogger"><span id="chainResMempool"><span id="chainResPeer"><span id="chainResBlockHeaderDb"><span id="local-6989586621681509032"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">ChainResources</span></span></span></span></span></span></span><span>
+</span><span id="line-95"></span><span>
+</span><span id="line-96"></span><span id="local-6989586621681508920"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681508917"><span class="annot"><a href="Chainweb.Version.html#HasChainwebVersion"><span class="hs-identifier hs-type">HasChainwebVersion</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-type">ChainResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508920"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-97"></span><span>    </span><span id="local-6989586621681508915"><span class="annot"><span class="annottext">_chainwebVersion :: ChainResources logger -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeaderDb -&gt; ChainwebVersion)
+-&gt; (ChainResources logger -&gt; BlockHeaderDb)
+-&gt; ChainResources logger
+-&gt; ChainwebVersion
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; BlockHeaderDb
+forall logger. ChainResources logger -&gt; BlockHeaderDb
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResBlockHeaderDb"><span class="hs-identifier hs-var hs-var">_chainResBlockHeaderDb</span></a></span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-pragma hs-type">_chainwebVersion</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-99"></span><span>
+</span><span id="line-100"></span><span id="local-6989586621681508912"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681508909"><span class="annot"><a href="Chainweb.Graph.html#HasChainGraph"><span class="hs-identifier hs-type">HasChainGraph</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-type">ChainResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508912"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>    </span><span id="local-6989586621681508907"><span class="annot"><span class="annottext">_chainGraph :: ChainResources logger -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainGraph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainGraph
+forall a. HasChainGraph a =&gt; a -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var">_chainGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainwebVersion -&gt; ChainGraph)
+-&gt; (ChainResources logger -&gt; ChainwebVersion)
+-&gt; ChainResources logger
+-&gt; ChainGraph
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-pragma hs-type">_chainGraph</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span id="local-6989586621681508905"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681508902"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-type">ChainResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508905"><span class="hs-identifier hs-type">logger</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-105"></span><span>    </span><span id="local-6989586621681508900"><span class="annot"><span class="annottext">_chainId :: ChainResources logger -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHeaderDb -&gt; ChainId)
+-&gt; (ChainResources logger -&gt; BlockHeaderDb)
+-&gt; ChainResources logger
+-&gt; ChainId
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; BlockHeaderDb
+forall logger. ChainResources logger -&gt; BlockHeaderDb
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResBlockHeaderDb"><span class="hs-identifier hs-var hs-var">_chainResBlockHeaderDb</span></a></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-107"></span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- | Intializes all local Chain resources, but doesn't start any networking.</span><span>
+</span><span id="line-109"></span><span class="hs-comment">--</span><span>
+</span><span id="line-110"></span><span id="local-6989586621681508896"><span id="local-6989586621681508897"><span id="local-6989586621681508898"><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#withChainResources"><span class="hs-identifier hs-type">withChainResources</span></a></span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508898"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCas"><span class="hs-identifier hs-type">PayloadCas</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508897"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Chainweb.Version.html#ChainwebVersion"><span class="hs-identifier hs-type">ChainwebVersion</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.PeerResources.html#PeerResources"><span class="hs-identifier hs-type">PeerResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508898"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681508898"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="annot"><a href="Chainweb.WebPactExecutionService.Types.html#PactExecutionService"><span class="hs-identifier hs-type">PactExecutionService</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.InMemTypes.html#InMemConfig"><span class="hs-identifier hs-type">Mempool.InMemConfig</span></a></span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-type">ChainwebTransaction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.CutDB.Types.html#CutDb"><span class="hs-identifier hs-type">CutDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508897"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508897"><span class="hs-identifier hs-type">cas</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-122"></span><span>        </span><span class="hs-comment">-- ^ whether to prune the chain database</span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span>
+</span><span id="line-124"></span><span>        </span><span class="hs-comment">-- ^ database directory for checkpointer</span><span>
+</span><span id="line-125"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="annot"><a href="Chainweb.NodeId.html#NodeId"><span class="hs-identifier hs-type">NodeId</span></a></span><span>
+</span><span id="line-126"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span>
+</span><span id="line-127"></span><span>        </span><span class="hs-comment">-- ^ reset database directory</span><span>
+</span><span id="line-128"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-type">ChainResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508898"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508896"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681508896"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-130"></span><span id="withChainResources"><span class="annot"><span class="annottext">withChainResources :: ChainwebVersion
+-&gt; ChainId
+-&gt; RocksDb
+-&gt; PeerResources logger
+-&gt; logger
+-&gt; (MVar PactExecutionService -&gt; InMemConfig ChainwebTransaction)
+-&gt; MVar (CutDb cas)
+-&gt; PayloadDb cas
+-&gt; Bool
+-&gt; Maybe FilePath
+-&gt; Maybe NodeId
+-&gt; Bool
+-&gt; (ChainResources logger -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Chainweb.ChainResources.html#withChainResources"><span class="hs-identifier hs-var hs-var">withChainResources</span></a></span></span><span> </span><span id="local-6989586621681508895"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681508895"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span id="local-6989586621681508894"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681508894"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681508893"><span class="annot"><span class="annottext">rdb :: RocksDb
+</span><a href="#local-6989586621681508893"><span class="hs-identifier hs-var">rdb</span></a></span></span><span> </span><span id="local-6989586621681508892"><span class="annot"><span class="annottext">peer :: PeerResources logger
+</span><a href="#local-6989586621681508892"><span class="hs-identifier hs-var">peer</span></a></span></span><span> </span><span id="local-6989586621681508891"><span class="annot"><span class="annottext">logger :: logger
+</span><a href="#local-6989586621681508891"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681508890"><span class="annot"><span class="annottext">mempoolCfg0 :: MVar PactExecutionService -&gt; InMemConfig ChainwebTransaction
+</span><a href="#local-6989586621681508890"><span class="hs-identifier hs-var">mempoolCfg0</span></a></span></span><span> </span><span id="local-6989586621681508889"><span class="annot"><span class="annottext">cdbv :: MVar (CutDb cas)
+</span><a href="#local-6989586621681508889"><span class="hs-identifier hs-var">cdbv</span></a></span></span><span> </span><span id="local-6989586621681508888"><span class="annot"><span class="annottext">payloadDb :: PayloadDb cas
+</span><a href="#local-6989586621681508888"><span class="hs-identifier hs-var">payloadDb</span></a></span></span><span> </span><span id="local-6989586621681508887"><span class="annot"><span class="annottext">prune :: Bool
+</span><a href="#local-6989586621681508887"><span class="hs-identifier hs-var">prune</span></a></span></span><span> </span><span id="local-6989586621681508886"><span class="annot"><span class="annottext">dbDir :: Maybe FilePath
+</span><a href="#local-6989586621681508886"><span class="hs-identifier hs-var">dbDir</span></a></span></span><span> </span><span id="local-6989586621681508885"><span class="annot"><span class="annottext">nodeid :: Maybe NodeId
+</span><a href="#local-6989586621681508885"><span class="hs-identifier hs-var">nodeid</span></a></span></span><span> </span><span id="local-6989586621681508884"><span class="annot"><span class="annottext">resetDb :: Bool
+</span><a href="#local-6989586621681508884"><span class="hs-identifier hs-var">resetDb</span></a></span></span><span> </span><span id="local-6989586621681508883"><span class="annot"><span class="annottext">inner :: ChainResources logger -&gt; IO a
+</span><a href="#local-6989586621681508883"><span class="hs-identifier hs-var">inner</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-131"></span><span>    </span><span class="annot"><span class="annottext">RocksDb
+-&gt; ChainwebVersion -&gt; ChainId -&gt; (BlockHeaderDb -&gt; IO a) -&gt; IO a
+forall b.
+RocksDb
+-&gt; ChainwebVersion -&gt; ChainId -&gt; (BlockHeaderDb -&gt; IO b) -&gt; IO b
+</span><a href="Chainweb.BlockHeaderDB.html#withBlockHeaderDb"><span class="hs-identifier hs-var">withBlockHeaderDb</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681508893"><span class="hs-identifier hs-var">rdb</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508895"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681508894"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">((BlockHeaderDb -&gt; IO a) -&gt; IO a)
+-&gt; (BlockHeaderDb -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681508881"><span class="annot"><span class="annottext">cdb :: BlockHeaderDb
+</span><a href="#local-6989586621681508881"><span class="hs-identifier hs-var">cdb</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-132"></span><span>      </span><span id="local-6989586621681508880"><span class="annot"><span class="annottext">MVar PactExecutionService
+</span><a href="#local-6989586621681508880"><span class="hs-identifier hs-var">pexMv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar PactExecutionService)
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-133"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681508878"><span class="annot"><span class="annottext">mempoolCfg :: InMemConfig ChainwebTransaction
+</span><a href="#local-6989586621681508878"><span class="hs-identifier hs-var hs-var">mempoolCfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar PactExecutionService -&gt; InMemConfig ChainwebTransaction
+</span><a href="#local-6989586621681508890"><span class="hs-identifier hs-var">mempoolCfg0</span></a></span><span> </span><span class="annot"><span class="annottext">MVar PactExecutionService
+</span><a href="#local-6989586621681508880"><span class="hs-identifier hs-var">pexMv</span></a></span><span>
+</span><span id="line-134"></span><span>      </span><span class="annot"><span class="annottext">logger
+-&gt; InMemConfig ChainwebTransaction
+-&gt; ChainwebVersion
+-&gt; (MempoolBackend ChainwebTransaction -&gt; IO a)
+-&gt; IO a
+forall logger t a.
+Logger logger =&gt;
+logger
+-&gt; InMemConfig t
+-&gt; ChainwebVersion
+-&gt; (MempoolBackend t -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Mempool.InMem.html#withInMemoryMempool_"><span class="hs-identifier hs-var">Mempool.withInMemoryMempool_</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; Text -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier hs-var">setComponent</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool&quot;</span></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508891"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">InMemConfig ChainwebTransaction
+</span><a href="#local-6989586621681508878"><span class="hs-identifier hs-var">mempoolCfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508895"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">((MempoolBackend ChainwebTransaction -&gt; IO a) -&gt; IO a)
+-&gt; (MempoolBackend ChainwebTransaction -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681508875"><span class="annot"><span class="annottext">mempool :: MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508875"><span class="hs-identifier hs-var">mempool</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-135"></span><span>        </span><span id="local-6989586621681508874"><span class="annot"><span class="annottext">MempoolConsensus ChainwebTransaction
+</span><a href="#local-6989586621681508874"><span class="hs-identifier hs-var">mpc</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+-&gt; BlockHeaderDb
+-&gt; Maybe (PayloadDb cas)
+-&gt; IO (MempoolConsensus ChainwebTransaction)
+forall (cas :: * -&gt; *) t.
+PayloadCas cas =&gt;
+MempoolBackend t
+-&gt; BlockHeaderDb
+-&gt; Maybe (PayloadDb cas)
+-&gt; IO (MempoolConsensus t)
+</span><a href="Chainweb.Mempool.Consensus.html#mkMempoolConsensus"><span class="hs-identifier hs-var">MPCon.mkMempoolConsensus</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508875"><span class="hs-identifier hs-var">mempool</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681508881"><span class="hs-identifier hs-var">cdb</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (PayloadDb cas)
+ -&gt; IO (MempoolConsensus ChainwebTransaction))
+-&gt; Maybe (PayloadDb cas)
+-&gt; IO (MempoolConsensus ChainwebTransaction)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas -&gt; Maybe (PayloadDb cas)
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681508888"><span class="hs-identifier hs-var">payloadDb</span></a></span><span>
+</span><span id="line-136"></span><span>        </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId
+-&gt; logger
+-&gt; MempoolConsensus ChainwebTransaction
+-&gt; MVar (CutDb cas)
+-&gt; BlockHeaderDb
+-&gt; PayloadDb cas
+-&gt; Maybe FilePath
+-&gt; Maybe NodeId
+-&gt; Bool
+-&gt; (PactQueue -&gt; IO a)
+-&gt; IO a
+forall (cas :: * -&gt; *) logger a.
+(PayloadCas cas, Logger logger) =&gt;
+ChainwebVersion
+-&gt; ChainId
+-&gt; logger
+-&gt; MempoolConsensus ChainwebTransaction
+-&gt; MVar (CutDb cas)
+-&gt; BlockHeaderDb
+-&gt; PayloadDb cas
+-&gt; Maybe FilePath
+-&gt; Maybe NodeId
+-&gt; Bool
+-&gt; (PactQueue -&gt; IO a)
+-&gt; IO a
+</span><a href="Chainweb.Pact.Service.PactInProcApi.html#withPactService"><span class="hs-identifier hs-var">withPactService</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508895"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681508894"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; Text -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier hs-var">setComponent</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;pact&quot;</span></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508891"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">MempoolConsensus ChainwebTransaction
+</span><a href="#local-6989586621681508874"><span class="hs-identifier hs-var">mpc</span></a></span><span> </span><span class="annot"><span class="annottext">MVar (CutDb cas)
+</span><a href="#local-6989586621681508889"><span class="hs-identifier hs-var">cdbv</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681508881"><span class="hs-identifier hs-var">cdb</span></a></span><span>
+</span><span id="line-137"></span><span>                        </span><span class="annot"><span class="annottext">PayloadDb cas
+</span><a href="#local-6989586621681508888"><span class="hs-identifier hs-var">payloadDb</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe FilePath
+</span><a href="#local-6989586621681508886"><span class="hs-identifier hs-var">dbDir</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe NodeId
+</span><a href="#local-6989586621681508885"><span class="hs-identifier hs-var">nodeid</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681508884"><span class="hs-identifier hs-var">resetDb</span></a></span><span> </span><span class="annot"><span class="annottext">((PactQueue -&gt; IO a) -&gt; IO a) -&gt; (PactQueue -&gt; IO a) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681508871"><span class="annot"><span class="annottext">requestQ :: PactQueue
+</span><a href="#local-6989586621681508871"><span class="hs-identifier hs-var">requestQ</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-138"></span><span>            </span><span class="hs-comment">-- prune block header db</span><span>
+</span><span id="line-139"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681508887"><span class="hs-identifier hs-var">prune</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-140"></span><span>                </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508869"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="hs-string">&quot;start pruning block header database&quot;</span></span><span>
+</span><span id="line-141"></span><span>                </span><span id="local-6989586621681508867"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508867"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">logger
+-&gt; BlockHeaderDb
+-&gt; Natural
+-&gt; (BlockHeader -&gt; Bool -&gt; IO ())
+-&gt; IO Int
+forall logger.
+Logger logger =&gt;
+logger
+-&gt; BlockHeaderDb
+-&gt; Natural
+-&gt; (BlockHeader -&gt; Bool -&gt; IO ())
+-&gt; IO Int
+</span><a href="Chainweb.BlockHeaderDB.html#pruneForks"><span class="hs-identifier hs-var">pruneForks</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508891"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681508881"><span class="hs-identifier hs-var">cdb</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681508865"><span class="hs-identifier hs-var">diam</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="hs-number">3</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((BlockHeader -&gt; Bool -&gt; IO ()) -&gt; IO Int)
+-&gt; (BlockHeader -&gt; Bool -&gt; IO ()) -&gt; IO Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681508863"><span class="annot"><span class="annottext">_h :: BlockHeader
+</span><a href="#local-6989586621681508863"><span class="hs-identifier hs-var">_h</span></a></span></span><span> </span><span id="local-6989586621681508862"><span class="annot"><span class="annottext">_payloadInUse :: Bool
+</span><a href="#local-6989586621681508862"><span class="hs-identifier hs-var">_payloadInUse</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span><span>                    </span><span class="hs-comment">-- FIXME At the time of writing his payload hashes are not</span><span>
+</span><span id="line-144"></span><span>                    </span><span class="hs-comment">-- unique. The pruning algorithm can handle non-uniquness</span><span>
+</span><span id="line-145"></span><span>                    </span><span class="hs-comment">-- between within a chain between forks, but not accross</span><span>
+</span><span id="line-146"></span><span>                    </span><span class="hs-comment">-- chains. Also cas-deletion is sound for payload hashes if</span><span>
+</span><span id="line-147"></span><span>                    </span><span class="hs-comment">-- outputs are unique for payload hashes.</span><span>
+</span><span id="line-148"></span><span>                    </span><span class="hs-comment">--</span><span>
+</span><span id="line-149"></span><span>                    </span><span class="hs-comment">-- Renable this code once pact</span><span>
+</span><span id="line-150"></span><span>                    </span><span class="hs-comment">--</span><span>
+</span><span id="line-151"></span><span>                    </span><span class="hs-comment">-- includes the parent hash into the coinbase hash,</span><span>
+</span><span id="line-152"></span><span>                    </span><span class="hs-comment">-- includes the transaction hash into the respective output hash, and</span><span>
+</span><span id="line-153"></span><span>                    </span><span class="hs-comment">-- guarantees that transaction hashes are unique.</span><span>
+</span><span id="line-154"></span><span>                    </span><span class="hs-comment">--</span><span>
+</span><span id="line-155"></span><span>                    </span><span class="hs-comment">-- unless payloadInUse</span><span>
+</span><span id="line-156"></span><span>                    </span><span class="hs-comment">--     $ casDelete payloadDb (_blockPayloadHash h)</span><span>
+</span><span id="line-157"></span><span>                    </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>                </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508869"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;finished pruning block header database. Deleted &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508867"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot; block headers.&quot;</span></span><span>
+</span><span id="line-159"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681508860"><span class="annot"><span class="annottext">pex :: PactExecutionService
+</span><a href="#local-6989586621681508860"><span class="hs-identifier hs-var hs-var">pex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PactQueue -&gt; PactExecutionService
+</span><a href="#local-6989586621681508859"><span class="hs-identifier hs-var">pes</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681508871"><span class="hs-identifier hs-var">requestQ</span></a></span><span>
+</span><span id="line-160"></span><span>            </span><span class="annot"><span class="annottext">MVar PactExecutionService -&gt; PactExecutionService -&gt; IO ()
+forall a. MVar a -&gt; a -&gt; IO ()
+</span><span class="hs-identifier hs-var">putMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar PactExecutionService
+</span><a href="#local-6989586621681508880"><span class="hs-identifier hs-var">pexMv</span></a></span><span> </span><span class="annot"><span class="annottext">PactExecutionService
+</span><a href="#local-6989586621681508860"><span class="hs-identifier hs-var">pex</span></a></span><span>
+</span><span id="line-161"></span><span>
+</span><span id="line-162"></span><span>            </span><span class="hs-comment">-- run inner</span><span>
+</span><span id="line-163"></span><span>            </span><span class="annot"><span class="annottext">ChainResources logger -&gt; IO a
+</span><a href="#local-6989586621681508883"><span class="hs-identifier hs-var">inner</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainResources logger -&gt; IO a) -&gt; ChainResources logger -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">$WChainResources :: forall logger.
+PeerResources logger
+-&gt; BlockHeaderDb
+-&gt; logger
+-&gt; MempoolBackend ChainwebTransaction
+-&gt; PactExecutionService
+-&gt; ChainResources logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#%24WChainResources"><span class="hs-identifier hs-type hs-type">ChainResources</span></a></span><span>
+</span><span id="line-164"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_chainResPeer :: PeerResources logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResPeer"><span class="hs-identifier hs-var">_chainResPeer</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerResources logger
+</span><a href="#local-6989586621681508892"><span class="hs-identifier hs-var">peer</span></a></span><span>
+</span><span id="line-165"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainResBlockHeaderDb :: BlockHeaderDb
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResBlockHeaderDb"><span class="hs-identifier hs-var">_chainResBlockHeaderDb</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeaderDb
+</span><a href="#local-6989586621681508881"><span class="hs-identifier hs-var">cdb</span></a></span><span>
+</span><span id="line-166"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainResLogger :: logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResLogger"><span class="hs-identifier hs-var">_chainResLogger</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508891"><span class="hs-identifier hs-var">logger</span></a></span><span>
+</span><span id="line-167"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainResMempool :: MempoolBackend ChainwebTransaction
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResMempool"><span class="hs-identifier hs-var">_chainResMempool</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508875"><span class="hs-identifier hs-var">mempool</span></a></span><span>
+</span><span id="line-168"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_chainResPact :: PactExecutionService
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResPact"><span class="hs-identifier hs-var">_chainResPact</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PactExecutionService
+</span><a href="#local-6989586621681508860"><span class="hs-identifier hs-var">pex</span></a></span><span>
+</span><span id="line-169"></span><span>                </span><span class="hs-special">}</span><span>
+</span><span id="line-170"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-171"></span><span>    </span><span id="local-6989586621681508869"><span class="annot"><span class="annottext">logg :: LogFunctionText
+</span><a href="#local-6989586621681508869"><span class="hs-identifier hs-var hs-var">logg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">logger -&gt; LogFunctionText
+forall l. Logger l =&gt; l -&gt; LogFunctionText
+</span><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-var">logFunctionText</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; Text -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier hs-var">setComponent</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;pact-tx-replay&quot;</span></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508891"><span class="hs-identifier hs-var">logger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span>    </span><span id="local-6989586621681508865"><span class="annot"><span class="annottext">diam :: Natural
+</span><a href="#local-6989586621681508865"><span class="hs-identifier hs-var hs-var">diam</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainGraph -&gt; Natural
+</span><a href="Chainweb.Graph.html#diameter"><span class="hs-identifier hs-var">diameter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainwebVersion -&gt; ChainGraph
+forall a. HasChainGraph a =&gt; a -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var">_chainGraph</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508895"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span>    </span><span id="local-6989586621681508859"><span class="annot"><span class="annottext">pes :: PactQueue -&gt; PactExecutionService
+</span><a href="#local-6989586621681508859"><span class="hs-identifier hs-var hs-var">pes</span></a></span></span><span> </span><span id="local-6989586621681508854"><span class="annot"><span class="annottext">requestQ :: PactQueue
+</span><a href="#local-6989586621681508854"><span class="hs-identifier hs-var">requestQ</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508895"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-174"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#Test"><span class="hs-identifier hs-type">Test</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#emptyPactExecutionService"><span class="hs-identifier hs-var">emptyPactExecutionService</span></a></span><span>
+</span><span id="line-175"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#TimedConsensus"><span class="hs-identifier hs-type">TimedConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#emptyPactExecutionService"><span class="hs-identifier hs-var">emptyPactExecutionService</span></a></span><span>
+</span><span id="line-176"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#PowConsensus"><span class="hs-identifier hs-type">PowConsensus</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#emptyPactExecutionService"><span class="hs-identifier hs-var">emptyPactExecutionService</span></a></span><span>
+</span><span id="line-177"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#TimedCPM"><span class="hs-identifier hs-type">TimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactQueue -&gt; PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#mkPactExecutionService"><span class="hs-identifier hs-var">mkPactExecutionService</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681508854"><span class="hs-identifier hs-var">requestQ</span></a></span><span>
+</span><span id="line-178"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#FastTimedCPM"><span class="hs-identifier hs-type">FastTimedCPM</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactQueue -&gt; PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#mkPactExecutionService"><span class="hs-identifier hs-var">mkPactExecutionService</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681508854"><span class="hs-identifier hs-var">requestQ</span></a></span><span>
+</span><span id="line-179"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#Development"><span class="hs-identifier hs-type">Development</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactQueue -&gt; PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#mkPactExecutionService"><span class="hs-identifier hs-var">mkPactExecutionService</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681508854"><span class="hs-identifier hs-var">requestQ</span></a></span><span>
+</span><span id="line-180"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#Testnet02"><span class="hs-identifier hs-type">Testnet02</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactQueue -&gt; PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#mkPactExecutionService"><span class="hs-identifier hs-var">mkPactExecutionService</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681508854"><span class="hs-identifier hs-var">requestQ</span></a></span><span>
+</span><span id="line-181"></span><span>        </span><span class="annot"><a href="Chainweb.Version.html#Mainnet01"><span class="hs-identifier hs-type">Mainnet01</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PactQueue -&gt; PactExecutionService
+</span><a href="Chainweb.WebPactExecutionService.html#mkPactExecutionService"><span class="hs-identifier hs-var">mkPactExecutionService</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681508854"><span class="hs-identifier hs-var">requestQ</span></a></span><span>
+</span><span id="line-182"></span><span>
+</span><span id="line-183"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-184"></span><span class="hs-comment">-- Mempool sync.</span><span>
+</span><span id="line-185"></span><span>
+</span><span id="line-186"></span><span class="hs-comment">-- | Synchronize the local mempool over the P2P network.</span><span>
+</span><span id="line-187"></span><span class="hs-comment">--</span><span>
+</span><span id="line-188"></span><span id="local-6989586621681508843"><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#runMempoolSyncClient"><span class="hs-identifier hs-type">runMempoolSyncClient</span></a></span><span>
+</span><span id="line-189"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508843"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-190"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-191"></span><span>        </span><span class="hs-comment">-- ^ HTTP connection pool</span><span>
+</span><span id="line-192"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Mempool.P2pConfig.html#MempoolP2pConfig"><span class="hs-identifier hs-type">MempoolP2pConfig</span></a></span><span>
+</span><span id="line-193"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-type">ChainResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508843"><span class="hs-identifier hs-type">logger</span></a></span><span>
+</span><span id="line-194"></span><span>        </span><span class="hs-comment">-- ^ chain resources</span><span>
+</span><span id="line-195"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-196"></span><span id="runMempoolSyncClient"><span class="annot"><span class="annottext">runMempoolSyncClient :: Manager -&gt; MempoolP2pConfig -&gt; ChainResources logger -&gt; IO ()
+</span><a href="Chainweb.Chainweb.ChainResources.html#runMempoolSyncClient"><span class="hs-identifier hs-var hs-var">runMempoolSyncClient</span></a></span></span><span> </span><span id="local-6989586621681508842"><span class="annot"><span class="annottext">mgr :: Manager
+</span><a href="#local-6989586621681508842"><span class="hs-identifier hs-var">mgr</span></a></span></span><span> </span><span id="local-6989586621681508841"><span class="annot"><span class="annottext">memP2pConfig :: MempoolP2pConfig
+</span><a href="#local-6989586621681508841"><span class="hs-identifier hs-var">memP2pConfig</span></a></span></span><span> </span><span id="local-6989586621681508840"><span class="annot"><span class="annottext">chain :: ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO P2pNode -&gt; (P2pNode -&gt; IO ()) -&gt; (P2pNode -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="annot"><span class="annottext">IO P2pNode
+</span><a href="#local-6989586621681508838"><span class="hs-identifier hs-var">create</span></a></span><span> </span><span class="annot"><span class="annottext">P2pNode -&gt; IO ()
+</span><a href="#local-6989586621681508837"><span class="hs-identifier hs-var">destroy</span></a></span><span> </span><span class="annot"><span class="annottext">P2pNode -&gt; IO ()
+</span><a href="#local-6989586621681508836"><span class="hs-identifier hs-var">go</span></a></span><span>
+</span><span id="line-197"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-198"></span><span>    </span><span id="local-6989586621681508838"><span class="annot"><span class="annottext">create :: IO P2pNode
+</span><a href="#local-6989586621681508838"><span class="hs-identifier hs-var hs-var">create</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-199"></span><span>        </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508835"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;starting mempool p2p sync&quot;</span></span><span>
+</span><span id="line-200"></span><span>        </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; NetworkId
+-&gt; Peer
+-&gt; LogFunction
+-&gt; PeerDb
+-&gt; Manager
+-&gt; P2pSession
+-&gt; IO P2pNode
+</span><a href="P2P.Node.html#p2pCreateNode"><span class="hs-identifier hs-var">p2pCreateNode</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508832"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621681508831"><span class="hs-identifier hs-var">netId</span></a></span><span> </span><span class="annot"><span class="annottext">Peer
+</span><a href="#local-6989586621681508830"><span class="hs-identifier hs-var">peer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">logger -&gt; LogFunction
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508828"><span class="hs-identifier hs-var">syncLogger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PeerDb
+</span><a href="#local-6989586621681508827"><span class="hs-identifier hs-var">peerDb</span></a></span><span> </span><span class="annot"><span class="annottext">Manager
+</span><a href="#local-6989586621681508842"><span class="hs-identifier hs-var">mgr</span></a></span><span> </span><span class="annot"><span class="annottext">(P2pSession -&gt; IO P2pNode) -&gt; P2pSession -&gt; IO P2pNode
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-201"></span><span>            </span><span class="annot"><span class="annottext">ChainResources logger -&gt; Seconds -&gt; P2pSession
+forall logger. ChainResources logger -&gt; Seconds -&gt; P2pSession
+</span><a href="Chainweb.Chainweb.ChainResources.html#mempoolSyncP2pSession"><span class="hs-identifier hs-var">mempoolSyncP2pSession</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigPollInterval"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigPollInterval</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig
+</span><a href="#local-6989586621681508841"><span class="hs-identifier hs-var">memP2pConfig</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-202"></span><span>    </span><span id="local-6989586621681508836"><span class="annot"><span class="annottext">go :: P2pNode -&gt; IO ()
+</span><a href="#local-6989586621681508836"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621681508824"><span class="annot"><span class="annottext">n :: P2pNode
+</span><a href="#local-6989586621681508824"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-203"></span><span>        </span><span class="hs-comment">-- Run P2P client node</span><span>
+</span><span id="line-204"></span><span>        </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508835"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool sync p2p node initialized, starting session&quot;</span></span><span>
+</span><span id="line-205"></span><span>        </span><span class="annot"><span class="annottext">P2pConfiguration -&gt; P2pNode -&gt; IO ()
+</span><a href="P2P.Node.html#p2pStartNode"><span class="hs-identifier hs-var">p2pStartNode</span></a></span><span> </span><span class="annot"><span class="annottext">P2pConfiguration
+</span><a href="#local-6989586621681508822"><span class="hs-identifier hs-var">p2pConfig</span></a></span><span> </span><span class="annot"><span class="annottext">P2pNode
+</span><a href="#local-6989586621681508824"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-206"></span><span>
+</span><span id="line-207"></span><span>    </span><span id="local-6989586621681508837"><span class="annot"><span class="annottext">destroy :: P2pNode -&gt; IO ()
+</span><a href="#local-6989586621681508837"><span class="hs-identifier hs-var hs-var">destroy</span></a></span></span><span> </span><span id="local-6989586621681508821"><span class="annot"><span class="annottext">n :: P2pNode
+</span><a href="#local-6989586621681508821"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">P2pNode -&gt; IO ()
+</span><a href="P2P.Node.html#p2pStopNode"><span class="hs-identifier hs-var">p2pStopNode</span></a></span><span> </span><span class="annot"><span class="annottext">P2pNode
+</span><a href="#local-6989586621681508821"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. MonadMask m =&gt; m a -&gt; m b -&gt; m a
+</span><span class="hs-operator hs-var">`finally`</span></span><span> </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508835"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool sync p2p node stopped&quot;</span></span><span>
+</span><span id="line-208"></span><span>
+</span><span id="line-209"></span><span>    </span><span id="local-6989586621681508832"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681508832"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-210"></span><span>    </span><span id="local-6989586621681508830"><span class="annot"><span class="annottext">peer :: Peer
+</span><a href="#local-6989586621681508830"><span class="hs-identifier hs-var hs-var">peer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerResources logger -&gt; Peer
+forall logger. PeerResources logger -&gt; Peer
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResPeer"><span class="hs-identifier hs-var hs-var">_peerResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerResources logger -&gt; Peer) -&gt; PeerResources logger -&gt; Peer
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; PeerResources logger
+forall logger. ChainResources logger -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResPeer"><span class="hs-identifier hs-var hs-var">_chainResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-211"></span><span>    </span><span id="local-6989586621681508822"><span class="annot"><span class="annottext">p2pConfig :: P2pConfiguration
+</span><a href="#local-6989586621681508822"><span class="hs-identifier hs-var hs-var">p2pConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerResources logger -&gt; P2pConfiguration
+forall logger. PeerResources logger -&gt; P2pConfiguration
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResConfig"><span class="hs-identifier hs-var hs-var">_peerResConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainResources logger -&gt; PeerResources logger
+forall logger. ChainResources logger -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResPeer"><span class="hs-identifier hs-var hs-var">_chainResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-212"></span><span>        </span><span class="annot"><span class="annottext">P2pConfiguration
+-&gt; (P2pConfiguration -&gt; P2pConfiguration) -&gt; P2pConfiguration
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">ASetter P2pConfiguration P2pConfiguration Natural Natural
+-&gt; Natural -&gt; P2pConfiguration -&gt; P2pConfiguration
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">set</span></span><span> </span><span class="annot"><span class="annottext">ASetter P2pConfiguration P2pConfiguration Natural Natural
+Lens' P2pConfiguration Natural
+</span><a href="P2P.Node.Configuration.html#p2pConfigMaxSessionCount"><span class="hs-identifier hs-var">p2pConfigMaxSessionCount</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Natural
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigMaxSessionCount"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigMaxSessionCount</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig
+</span><a href="#local-6989586621681508841"><span class="hs-identifier hs-var">memP2pConfig</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-213"></span><span>        </span><span class="annot"><span class="annottext">P2pConfiguration
+-&gt; (P2pConfiguration -&gt; P2pConfiguration) -&gt; P2pConfiguration
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><span class="hs-operator hs-var">&amp;</span></span><span> </span><span class="annot"><span class="annottext">ASetter P2pConfiguration P2pConfiguration Seconds Seconds
+-&gt; Seconds -&gt; P2pConfiguration -&gt; P2pConfiguration
+forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">set</span></span><span> </span><span class="annot"><span class="annottext">ASetter P2pConfiguration P2pConfiguration Seconds Seconds
+Lens' P2pConfiguration Seconds
+</span><a href="P2P.Node.Configuration.html#p2pConfigSessionTimeout"><span class="hs-identifier hs-var">p2pConfigSessionTimeout</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">MempoolP2pConfig -&gt; Seconds
+</span><a href="Chainweb.Mempool.P2pConfig.html#_mempoolP2pConfigSessionTimeout"><span class="hs-identifier hs-var hs-var">_mempoolP2pConfigSessionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolP2pConfig
+</span><a href="#local-6989586621681508841"><span class="hs-identifier hs-var">memP2pConfig</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-214"></span><span>    </span><span id="local-6989586621681508827"><span class="annot"><span class="annottext">peerDb :: PeerDb
+</span><a href="#local-6989586621681508827"><span class="hs-identifier hs-var hs-var">peerDb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PeerResources logger -&gt; PeerDb
+forall logger. PeerResources logger -&gt; PeerDb
+</span><a href="Chainweb.Chainweb.PeerResources.html#_peerResDb"><span class="hs-identifier hs-var hs-var">_peerResDb</span></a></span><span> </span><span class="annot"><span class="annottext">(PeerResources logger -&gt; PeerDb) -&gt; PeerResources logger -&gt; PeerDb
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; PeerResources logger
+forall logger. ChainResources logger -&gt; PeerResources logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResPeer"><span class="hs-identifier hs-var hs-var">_chainResPeer</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-215"></span><span>    </span><span id="local-6989586621681508831"><span class="annot"><span class="annottext">netId :: NetworkId
+</span><a href="#local-6989586621681508831"><span class="hs-identifier hs-var hs-var">netId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; NetworkId
+</span><a href="Chainweb.RestAPI.NetworkID.html#MempoolNetwork"><span class="hs-identifier hs-var">MempoolNetwork</span></a></span><span> </span><span class="annot"><span class="annottext">(ChainId -&gt; NetworkId) -&gt; ChainId -&gt; NetworkId
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-216"></span><span>
+</span><span id="line-217"></span><span>    </span><span id="local-6989586621681508835"><span class="annot"><span class="annottext">logg :: LogFunctionText
+</span><a href="#local-6989586621681508835"><span class="hs-identifier hs-var hs-var">logg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">logger -&gt; LogFunctionText
+forall l. Logger l =&gt; l -&gt; LogFunctionText
+</span><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-var">logFunctionText</span></a></span><span> </span><span class="annot"><span class="annottext">logger
+</span><a href="#local-6989586621681508828"><span class="hs-identifier hs-var">syncLogger</span></a></span><span>
+</span><span id="line-218"></span><span>    </span><span id="local-6989586621681508828"><span class="annot"><span class="annottext">syncLogger :: logger
+</span><a href="#local-6989586621681508828"><span class="hs-identifier hs-var hs-var">syncLogger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; Text -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier hs-var">setComponent</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool-sync&quot;</span></span><span> </span><span class="annot"><span class="annottext">(logger -&gt; logger) -&gt; logger -&gt; logger
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; logger
+forall logger. ChainResources logger -&gt; logger
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResLogger"><span class="hs-identifier hs-var hs-var">_chainResLogger</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508840"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-219"></span><span>
+</span><span id="line-220"></span><span id="local-6989586621681508961"><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#mempoolSyncP2pSession"><span class="hs-identifier hs-type">mempoolSyncP2pSession</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Chainweb.ChainResources.html#ChainResources"><span class="hs-identifier hs-type">ChainResources</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681508961"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Time.html#Seconds"><span class="hs-identifier hs-type">Seconds</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="P2P.Session.html#P2pSession"><span class="hs-identifier hs-type">P2pSession</span></a></span></span><span>
+</span><span id="line-221"></span><span id="mempoolSyncP2pSession"><span class="annot"><span class="annottext">mempoolSyncP2pSession :: ChainResources logger -&gt; Seconds -&gt; P2pSession
+</span><a href="Chainweb.Chainweb.ChainResources.html#mempoolSyncP2pSession"><span class="hs-identifier hs-var hs-var">mempoolSyncP2pSession</span></a></span></span><span> </span><span id="local-6989586621681508808"><span class="annot"><span class="annottext">chain :: ChainResources logger
+</span><a href="#local-6989586621681508808"><span class="hs-identifier hs-var">chain</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Time.html#Seconds"><span class="hs-identifier hs-type">Seconds</span></a></span><span> </span><span id="local-6989586621681508806"><span class="annot"><span class="annottext">pollInterval :: Integer
+</span><a href="#local-6989586621681508806"><span class="hs-identifier hs-var">pollInterval</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681508805"><span class="annot"><span class="annottext">logg0 :: LogFunction
+</span><a href="#local-6989586621681508805"><span class="hs-identifier hs-var">logg0</span></a></span></span><span> </span><span id="local-6989586621681508804"><span class="annot"><span class="annottext">env :: ClientEnv
+</span><a href="#local-6989586621681508804"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-222"></span><span>    </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508803"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool sync session starting&quot;</span></span><span>
+</span><span id="line-223"></span><span>    </span><span class="annot"><span class="annottext">LogFunctionText
+-&gt; Int
+-&gt; MempoolBackend ChainwebTransaction
+-&gt; MempoolBackend ChainwebTransaction
+-&gt; IO ()
+forall t.
+Show t =&gt;
+LogFunctionText
+-&gt; Int -&gt; MempoolBackend t -&gt; MempoolBackend t -&gt; IO ()
+</span><a href="Chainweb.Mempool.Mempool.html#syncMempools%27"><span class="hs-identifier hs-var">Mempool.syncMempools'</span></a></span><span> </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508803"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681508801"><span class="hs-identifier hs-var">syncIntervalUs</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508800"><span class="hs-identifier hs-var">pool</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508799"><span class="hs-identifier hs-var">peerMempool</span></a></span><span>
+</span><span id="line-224"></span><span>    </span><span class="annot"><span class="annottext">LogFunctionText
+</span><a href="#local-6989586621681508803"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span> </span><span class="annot"><span class="hs-string">&quot;mempool sync session finished&quot;</span></span><span>
+</span><span id="line-225"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO Bool
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">True</span></span><span>
+</span><span id="line-226"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-227"></span><span>    </span><span id="local-6989586621681508799"><span class="annot"><span class="annottext">peerMempool :: MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508799"><span class="hs-identifier hs-var hs-var">peerMempool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+-&gt; ChainId
+-&gt; TransactionConfig ChainwebTransaction
+-&gt; GasLimit
+-&gt; ClientEnv
+-&gt; MempoolBackend ChainwebTransaction
+forall t.
+(Show t, NFData t) =&gt;
+ChainwebVersion
+-&gt; ChainId
+-&gt; TransactionConfig t
+-&gt; GasLimit
+-&gt; ClientEnv
+-&gt; MempoolBackend t
+</span><a href="Chainweb.Mempool.RestAPI.Client.html#toMempool"><span class="hs-identifier hs-var">MPC.toMempool</span></a></span><span> </span><span class="annot"><span class="annottext">ChainwebVersion
+</span><a href="#local-6989586621681508797"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681508796"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">TransactionConfig ChainwebTransaction
+</span><a href="#local-6989586621681508795"><span class="hs-identifier hs-var">txcfg</span></a></span><span> </span><span class="annot"><span class="annottext">GasLimit
+</span><a href="#local-6989586621681508794"><span class="hs-identifier hs-var">gaslimit</span></a></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681508804"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span>    </span><span class="hs-comment">-- FIXME Potentially dangerous down-cast.</span><span>
+</span><span id="line-230"></span><span>    </span><span class="annot"><a href="#local-6989586621681508801"><span class="hs-identifier hs-type">syncIntervalUs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-231"></span><span>    </span><span id="local-6989586621681508801"><span class="annot"><span class="annottext">syncIntervalUs :: Int
+</span><a href="#local-6989586621681508801"><span class="hs-identifier hs-var hs-var">syncIntervalUs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#int"><span class="hs-identifier hs-var">int</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621681508806"><span class="hs-identifier hs-var">pollInterval</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="hs-number">1000000</span></span><span>
+</span><span id="line-232"></span><span>
+</span><span id="line-233"></span><span>    </span><span id="local-6989586621681508792"><span class="annot"><span class="annottext">remote :: Text
+</span><a href="#local-6989586621681508792"><span class="hs-identifier hs-var hs-var">remote</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; Text
+</span><span class="hs-identifier hs-var">T.pack</span></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; Text) -&gt; FilePath -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">BaseUrl -&gt; FilePath
+</span><span class="hs-identifier hs-var">Sv.showBaseUrl</span></span><span> </span><span class="annot"><span class="annottext">(BaseUrl -&gt; FilePath) -&gt; BaseUrl -&gt; FilePath
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv -&gt; BaseUrl
+</span><span class="hs-identifier hs-var hs-var">Sv.baseUrl</span></span><span> </span><span class="annot"><span class="annottext">ClientEnv
+</span><a href="#local-6989586621681508804"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><span id="line-234"></span><span>    </span><span id="local-6989586621681508803"><span class="annot"><span class="annottext">logg :: LogFunctionText
+</span><a href="#local-6989586621681508803"><span class="hs-identifier hs-var hs-var">logg</span></a></span></span><span> </span><span id="local-6989586621681508788"><span class="annot"><span class="annottext">d :: LogLevel
+</span><a href="#local-6989586621681508788"><span class="hs-identifier hs-var">d</span></a></span></span><span> </span><span id="local-6989586621681508787"><span class="annot"><span class="annottext">m :: Text
+</span><a href="#local-6989586621681508787"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogFunctionText
+LogFunction
+</span><a href="#local-6989586621681508805"><span class="hs-identifier hs-var">logg0</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681508788"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.concat</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;[mempool sync@&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681508792"><span class="hs-identifier hs-var">remote</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;]:&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681508787"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-235"></span><span>
+</span><span id="line-236"></span><span>    </span><span id="local-6989586621681508800"><span class="annot"><span class="annottext">pool :: MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508800"><span class="hs-identifier hs-var hs-var">pool</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; MempoolBackend ChainwebTransaction
+forall logger.
+ChainResources logger -&gt; MempoolBackend ChainwebTransaction
+</span><a href="Chainweb.Chainweb.ChainResources.html#_chainResMempool"><span class="hs-identifier hs-var hs-var">_chainResMempool</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508808"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-237"></span><span>    </span><span id="local-6989586621681508795"><span class="annot"><span class="annottext">txcfg :: TransactionConfig ChainwebTransaction
+</span><a href="#local-6989586621681508795"><span class="hs-identifier hs-var hs-var">txcfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+-&gt; TransactionConfig ChainwebTransaction
+forall t. MempoolBackend t -&gt; TransactionConfig t
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolTxConfig"><span class="hs-identifier hs-var hs-var">Mempool.mempoolTxConfig</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508800"><span class="hs-identifier hs-var">pool</span></a></span><span>
+</span><span id="line-238"></span><span>    </span><span id="local-6989586621681508794"><span class="annot"><span class="annottext">gaslimit :: GasLimit
+</span><a href="#local-6989586621681508794"><span class="hs-identifier hs-var hs-var">gaslimit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction -&gt; GasLimit
+forall t. MempoolBackend t -&gt; GasLimit
+</span><a href="Chainweb.Mempool.Mempool.html#mempoolBlockGasLimit"><span class="hs-identifier hs-var hs-var">Mempool.mempoolBlockGasLimit</span></a></span><span> </span><span class="annot"><span class="annottext">MempoolBackend ChainwebTransaction
+</span><a href="#local-6989586621681508800"><span class="hs-identifier hs-var">pool</span></a></span><span>
+</span><span id="line-239"></span><span>    </span><span id="local-6989586621681508796"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681508796"><span class="hs-identifier hs-var hs-var">cid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; ChainId
+forall a. HasChainId a =&gt; a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var">_chainId</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508808"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-240"></span><span>    </span><span id="local-6989586621681508797"><span class="annot"><span class="annottext">v :: ChainwebVersion
+</span><a href="#local-6989586621681508797"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainResources logger -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">ChainResources logger
+</span><a href="#local-6989586621681508808"><span class="hs-identifier hs-var">chain</span></a></span><span>
+</span><span id="line-241"></span></pre></body></html>

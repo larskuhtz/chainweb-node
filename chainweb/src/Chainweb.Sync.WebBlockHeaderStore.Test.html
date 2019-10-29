@@ -1,0 +1,604 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Module: Chainweb.WebBlockHeaderDB.Test</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Sync.WebBlockHeaderStore.Test</span><span>
+</span><span id="line-21"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#properties"><span class="hs-identifier">properties</span></a></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="annot"><span class="hs-comment">-- * Utils</span></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#withNoopQueueServer"><span class="hs-identifier">withNoopQueueServer</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#startNoopQueueServer"><span class="hs-identifier">startNoopQueueServer</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#testQueueServer"><span class="hs-identifier">testQueueServer</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent</span></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Async</span></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.IORef</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Numeric.Natural</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Mem</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck.Monadic</span></span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.html"><span class="hs-identifier">Chainweb.Sync.WebBlockHeaderStore</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-51"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS.HashMap</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">CAS</span></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.IVar.html"><span class="hs-identifier">Data.IVar</span></a></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.PQueue.html"><span class="hs-identifier">Data.PQueue</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.TaskMap.html"><span class="hs-identifier">Data.TaskMap</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html"><span class="hs-identifier">P2P.TaskQueue</span></a></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-59"></span><span class="hs-comment">-- Properties</span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#properties"><span class="hs-identifier hs-type">properties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-62"></span><span id="properties"><span class="annot"><span class="annottext">properties :: [(String, Property)]
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#properties"><span class="hs-identifier hs-var hs-var">properties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;Chainweb.WebBlockHeaderDB.Test.testAsyncFib&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Property) -&gt; Property
+forall prop. Testable prop =&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">((Natural -&gt; Property) -&gt; Property)
+-&gt; (Natural -&gt; Property) -&gt; Property
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PropertyM IO () -&gt; Property
+forall a. Testable a =&gt; PropertyM IO a -&gt; Property
+</span><span class="hs-identifier hs-var">monadicIO</span></span><span> </span><span class="annot"><span class="annottext">(PropertyM IO () -&gt; Property)
+-&gt; (Natural -&gt; PropertyM IO ()) -&gt; Natural -&gt; Property
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; PropertyM IO ()
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#testAsyncFib"><span class="hs-identifier hs-var">testAsyncFib</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- Test</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span id="local-6989586621681503081"><span id="local-6989586621681503082"></span></span><span class="hs-keyword">data</span><span> </span><span id="Fib"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-var">Fib</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Fib"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-var">Fib</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681503074"><span id="local-6989586621681503076"><span id="local-6989586621681503078"><span class="annot"><span class="annottext">Int -&gt; Fib -&gt; ShowS
+[Fib] -&gt; ShowS
+Fib -&gt; String
+(Int -&gt; Fib -&gt; ShowS)
+-&gt; (Fib -&gt; String) -&gt; ([Fib] -&gt; ShowS) -&gt; Show Fib
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Fib] -&gt; ShowS
+$cshowList :: [Fib] -&gt; ShowS
+show :: Fib -&gt; String
+$cshow :: Fib -&gt; String
+showsPrec :: Int -&gt; Fib -&gt; ShowS
+$cshowsPrec :: Int -&gt; Fib -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681503069"><span id="local-6989586621681503071"><span class="annot"><span class="annottext">Fib -&gt; Fib -&gt; Bool
+(Fib -&gt; Fib -&gt; Bool) -&gt; (Fib -&gt; Fib -&gt; Bool) -&gt; Eq Fib
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Fib -&gt; Fib -&gt; Bool
+$c/= :: Fib -&gt; Fib -&gt; Bool
+== :: Fib -&gt; Fib -&gt; Bool
+$c== :: Fib -&gt; Fib -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681503053"><span id="local-6989586621681503055"><span id="local-6989586621681503057"><span id="local-6989586621681503059"><span id="local-6989586621681503061"><span id="local-6989586621681503063"><span id="local-6989586621681503065"><span class="annot"><span class="annottext">Eq Fib
+Eq Fib =&gt;
+(Fib -&gt; Fib -&gt; Ordering)
+-&gt; (Fib -&gt; Fib -&gt; Bool)
+-&gt; (Fib -&gt; Fib -&gt; Bool)
+-&gt; (Fib -&gt; Fib -&gt; Bool)
+-&gt; (Fib -&gt; Fib -&gt; Bool)
+-&gt; (Fib -&gt; Fib -&gt; Fib)
+-&gt; (Fib -&gt; Fib -&gt; Fib)
+-&gt; Ord Fib
+Fib -&gt; Fib -&gt; Bool
+Fib -&gt; Fib -&gt; Ordering
+Fib -&gt; Fib -&gt; Fib
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: Fib -&gt; Fib -&gt; Fib
+$cmin :: Fib -&gt; Fib -&gt; Fib
+max :: Fib -&gt; Fib -&gt; Fib
+$cmax :: Fib -&gt; Fib -&gt; Fib
+&gt;= :: Fib -&gt; Fib -&gt; Bool
+$c&gt;= :: Fib -&gt; Fib -&gt; Bool
+&gt; :: Fib -&gt; Fib -&gt; Bool
+$c&gt; :: Fib -&gt; Fib -&gt; Bool
+&lt;= :: Fib -&gt; Fib -&gt; Bool
+$c&lt;= :: Fib -&gt; Fib -&gt; Bool
+&lt; :: Fib -&gt; Fib -&gt; Bool
+$c&lt; :: Fib -&gt; Fib -&gt; Bool
+compare :: Fib -&gt; Fib -&gt; Ordering
+$ccompare :: Fib -&gt; Fib -&gt; Ordering
+$cp1Ord :: Eq Fib
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Fib -&gt; Rep Fib x)
+-&gt; (forall x. Rep Fib x -&gt; Fib) -&gt; Generic Fib
+forall x. Rep Fib x -&gt; Fib
+forall x. Fib -&gt; Rep Fib x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep Fib x -&gt; Fib
+$cfrom :: forall x. Fib -&gt; Rep Fib x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681503045"><span id="local-6989586621681503047"><span class="annot"><span class="annottext">Int -&gt; Fib -&gt; Int
+Fib -&gt; Int
+(Int -&gt; Fib -&gt; Int) -&gt; (Fib -&gt; Int) -&gt; Hashable Fib
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: Fib -&gt; Int
+$chash :: Fib -&gt; Int
+hashWithSalt :: Int -&gt; Fib -&gt; Int
+$chashWithSalt :: Int -&gt; Fib -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#getFib"><span class="hs-identifier hs-type">getFib</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-type">Fib</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-74"></span><span id="getFib"><span class="annot"><span class="annottext">getFib :: Fib -&gt; Natural
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#getFib"><span class="hs-identifier hs-var hs-var">getFib</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-type">Fib</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span id="local-6989586621681503042"><span class="annot"><span class="annottext">b :: Natural
+</span><a href="#local-6989586621681503042"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503042"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCasValue</span></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-type">Fib</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="CasKeyType"><span class="annot"><span class="hs-identifier hs-var">CasKeyType</span></span></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-type">Fib</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span>
+</span><span id="line-78"></span><span>    </span><span id="local-6989586621681503038"><span class="annot"><span class="annottext">casKey :: Fib -&gt; CasKeyType Fib
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">casKey</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-type">Fib</span></a></span><span> </span><span id="local-6989586621681503036"><span class="annot"><span class="annottext">a :: Natural
+</span><a href="#local-6989586621681503036"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
+CasKeyType Fib
+</span><a href="#local-6989586621681503036"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#testAsyncFib"><span class="hs-identifier hs-type">testAsyncFib</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PropertyM</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span id="testAsyncFib"><span class="annot"><span class="annottext">testAsyncFib :: Natural -&gt; PropertyM IO ()
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#testAsyncFib"><span class="hs-identifier hs-var hs-var">testAsyncFib</span></a></span></span><span> </span><span id="local-6989586621681503035"><span class="annot"><span class="annottext">n :: Natural
+</span><a href="#local-6989586621681503035"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-82"></span><span>    </span><span id="local-6989586621681503034"><span class="annot"><span class="annottext">TaskMap Natural Fib
+</span><a href="#local-6989586621681503034"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (TaskMap Natural Fib) -&gt; PropertyM IO (TaskMap Natural Fib)
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">IO (TaskMap Natural Fib)
+forall k v. (Eq k, Hashable k) =&gt; IO (TaskMap k v)
+</span><a href="Data.TaskMap.html#new"><span class="hs-identifier hs-var">new</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681503031"><span class="annot"><span class="annottext">HashMapCas Fib
+</span><a href="#local-6989586621681503031"><span class="hs-identifier hs-var">cas</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (HashMapCas Fib) -&gt; PropertyM IO (HashMapCas Fib)
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">IO (HashMapCas Fib)
+forall v.
+(Hashable (CasKeyType v), IsCasValue v) =&gt;
+IO (HashMapCas v)
+</span><span class="hs-identifier hs-var">CAS.emptyCas</span></span><span>
+</span><span id="line-84"></span><span>    </span><span id="local-6989586621681503029"><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681503029"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (IORef Int) -&gt; PropertyM IO (IORef Int)
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO (IORef Int) -&gt; PropertyM IO (IORef Int))
+-&gt; IO (IORef Int) -&gt; PropertyM IO (IORef Int)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
+forall a. a -&gt; IO (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681503027"><span class="annot"><span class="annottext">fib :: Natural -&gt; IO Fib
+</span><a href="#local-6989586621681503027"><span class="hs-identifier hs-var hs-var">fib</span></a></span></span><span> </span><span class="hs-number">0</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Fib -&gt; IO Fib
+forall a b. Enum a =&gt; IORef a -&gt; IO b -&gt; IO b
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#tick"><span class="hs-identifier hs-var">tick</span></a></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681503029"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Fib -&gt; IO Fib) -&gt; IO Fib -&gt; IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Fib -&gt; IO Fib
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Fib -&gt; IO Fib) -&gt; Fib -&gt; IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Fib
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-var">Fib</span></a></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span>
+</span><span id="line-87"></span><span>        </span><span class="annot"><a href="#local-6989586621681503027"><span class="hs-identifier hs-var">fib</span></a></span><span> </span><span class="hs-number">1</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Fib -&gt; IO Fib
+forall a b. Enum a =&gt; IORef a -&gt; IO b -&gt; IO b
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#tick"><span class="hs-identifier hs-var">tick</span></a></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681503029"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Fib -&gt; IO Fib) -&gt; IO Fib -&gt; IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Fib -&gt; IO Fib
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Fib -&gt; IO Fib) -&gt; Fib -&gt; IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Fib
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-var">Fib</span></a></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span>
+</span><span id="line-88"></span><span>        </span><span class="annot"><a href="#local-6989586621681503027"><span class="hs-identifier hs-var">fib</span></a></span><span> </span><span id="local-6989586621681503025"><span class="annot"><span class="annottext">x :: Natural
+</span><a href="#local-6989586621681503025"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Fib -&gt; IO Fib
+forall a b. Enum a =&gt; IORef a -&gt; IO b -&gt; IO b
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#tick"><span class="hs-identifier hs-var">tick</span></a></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681503029"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Fib -&gt; IO Fib) -&gt; IO Fib -&gt; IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">HashMapCas Fib
+-&gt; TaskMap
+     (CasKeyType (CasValueType (HashMapCas Fib)))
+     (CasValueType (HashMapCas Fib))
+-&gt; CasKeyType (CasValueType (HashMapCas Fib))
+-&gt; (CasKeyType (CasValueType (HashMapCas Fib))
+    -&gt; IO (CasValueType (HashMapCas Fib)))
+-&gt; IO (CasValueType (HashMapCas Fib))
+forall a.
+(IsCas a, Hashable (CasKeyType (CasValueType a))) =&gt;
+a
+-&gt; TaskMap (CasKeyType (CasValueType a)) (CasValueType a)
+-&gt; CasKeyType (CasValueType a)
+-&gt; (CasKeyType (CasValueType a) -&gt; IO (CasValueType a))
+-&gt; IO (CasValueType a)
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.html#memoInsert"><span class="hs-identifier hs-var">memoInsert</span></a></span><span> </span><span class="annot"><span class="annottext">HashMapCas Fib
+</span><a href="#local-6989586621681503031"><span class="hs-identifier hs-var">cas</span></a></span><span> </span><span class="annot"><span class="annottext">TaskMap Natural Fib
+TaskMap
+  (CasKeyType (CasValueType (HashMapCas Fib)))
+  (CasValueType (HashMapCas Fib))
+</span><a href="#local-6989586621681503034"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+CasKeyType (CasValueType (HashMapCas Fib))
+</span><a href="#local-6989586621681503025"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">((CasKeyType (CasValueType (HashMapCas Fib))
+  -&gt; IO (CasValueType (HashMapCas Fib)))
+ -&gt; IO Fib)
+-&gt; (CasKeyType (CasValueType (HashMapCas Fib))
+    -&gt; IO (CasValueType (HashMapCas Fib)))
+-&gt; IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681503023"><span class="annot"><span class="annottext">k :: CasKeyType (CasValueType (HashMapCas Fib))
+</span><a href="#local-6989586621681503023"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-89"></span><span>            </span><span id="local-6989586621681503022"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503022"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(+)</span></span><span>
+</span><span id="line-90"></span><span>                </span><span class="annot"><span class="annottext">(Natural -&gt; Natural -&gt; Natural)
+-&gt; IO Natural -&gt; IO (Natural -&gt; Natural)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fib -&gt; Natural
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#getFib"><span class="hs-identifier hs-var">getFib</span></a></span><span> </span><span class="annot"><span class="annottext">(Fib -&gt; Natural) -&gt; IO Fib -&gt; IO Natural
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; IO Fib
+</span><a href="#local-6989586621681503027"><span class="hs-identifier hs-var">fib</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+CasKeyType (CasValueType (HashMapCas Fib))
+</span><a href="#local-6989586621681503023"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>                    </span><span class="hs-comment">-- FIXME: this is synchronous, so the second fetch is</span><span>
+</span><span id="line-92"></span><span>                    </span><span class="hs-comment">-- triggered only after the first completes.</span><span>
+</span><span id="line-93"></span><span>                    </span><span class="hs-comment">-- It is still concurrent/shared with other queries, though.</span><span>
+</span><span id="line-94"></span><span>                    </span><span class="hs-comment">-- Maybe, that's the right thing to do and we should</span><span>
+</span><span id="line-95"></span><span>                    </span><span class="hs-comment">-- parallelize explicitely here?</span><span>
+</span><span id="line-96"></span><span>                </span><span class="annot"><span class="annottext">IO (Natural -&gt; Natural) -&gt; IO Natural -&gt; IO Natural
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;*&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Fib -&gt; Natural
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#getFib"><span class="hs-identifier hs-var">getFib</span></a></span><span> </span><span class="annot"><span class="annottext">(Fib -&gt; Natural) -&gt; IO Fib -&gt; IO Natural
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; IO Fib
+</span><a href="#local-6989586621681503027"><span class="hs-identifier hs-var">fib</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+CasKeyType (CasValueType (HashMapCas Fib))
+</span><a href="#local-6989586621681503023"><span class="hs-identifier hs-var">k</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">2</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>            </span><span class="annot"><span class="annottext">Fib -&gt; IO Fib
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(Fib -&gt; IO Fib) -&gt; Fib -&gt; IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Fib
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-var">Fib</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503025"><span class="hs-identifier hs-var">x</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503022"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#Fib"><span class="hs-identifier hs-type">Fib</span></a></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681503019"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503019"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Fib -&gt; PropertyM IO Fib
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Fib -&gt; PropertyM IO Fib) -&gt; IO Fib -&gt; PropertyM IO Fib
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; IO Fib
+</span><a href="#local-6989586621681503027"><span class="hs-identifier hs-var">fib</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503035"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span>    </span><span class="annot"><span class="annottext">PropertyM IO ()
+forall (m :: * -&gt; *). MonadIO m =&gt; m ()
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#gc"><span class="hs-identifier hs-var">gc</span></a></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span>    </span><span class="hs-comment">-- Here we miss-use quick checks coverage mechanism for testing a</span><span>
+</span><span id="line-104"></span><span>    </span><span class="hs-comment">-- a distribution of the test restults.</span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span>    </span><span id="local-6989586621681503017"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681503017"><span class="hs-identifier hs-var">ms</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; PropertyM IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Int -&gt; PropertyM IO Int) -&gt; IO Int -&gt; PropertyM IO Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TaskMap Natural Fib -&gt; IO Int
+forall k v. TaskMap k v -&gt; IO Int
+</span><a href="Data.TaskMap.html#size"><span class="hs-identifier hs-var">size</span></a></span><span> </span><span class="annot"><span class="annottext">TaskMap Natural Fib
+</span><a href="#local-6989586621681503034"><span class="hs-identifier hs-var">m</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="annot"><span class="annottext">(Property -&gt; Property) -&gt; PropertyM IO ()
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(Property -&gt; Property) -&gt; PropertyM m ()
+</span><span class="hs-identifier hs-var">monitor</span></span><span> </span><span class="annot"><span class="annottext">((Property -&gt; Property) -&gt; PropertyM IO ())
+-&gt; (Property -&gt; Property) -&gt; PropertyM IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Bool -&gt; String -&gt; Property -&gt; Property
+forall prop.
+Testable prop =&gt;
+Double -&gt; Bool -&gt; String -&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="hs-number">0.75</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681503017"><span class="hs-identifier hs-var">ms</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;memo map is empty after gc&quot;</span></span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span>    </span><span id="local-6989586621681503013"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681503013"><span class="hs-identifier hs-var">ticks</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; PropertyM IO Int
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Int -&gt; PropertyM IO Int) -&gt; IO Int -&gt; PropertyM IO Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Int
+forall a. IORef a -&gt; IO a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621681503029"><span class="hs-identifier hs-var">t</span></a></span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621681503011"><span class="hs-identifier hs-type">expectedTicks</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Double</span></span><span>
+</span><span id="line-112"></span><span>        </span><span id="local-6989586621681503011"><span class="annot"><span class="annottext">expectedTicks :: Double
+</span><a href="#local-6989586621681503011"><span class="hs-identifier hs-var hs-var">expectedTicks</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Double
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503035"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span>
+</span><span id="line-113"></span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><span class="annottext">(Property -&gt; Property) -&gt; PropertyM IO ()
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(Property -&gt; Property) -&gt; PropertyM m ()
+</span><span class="hs-identifier hs-var">monitor</span></span><span> </span><span class="annot"><span class="annottext">((Property -&gt; Property) -&gt; PropertyM IO ())
+-&gt; (Property -&gt; Property) -&gt; PropertyM IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Bool -&gt; String -&gt; Property -&gt; Property
+forall prop.
+Testable prop =&gt;
+Double -&gt; Bool -&gt; String -&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="hs-number">0.75</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Double
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681503013"><span class="hs-identifier hs-var">ticks</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="hs-number">1.5</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">*</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621681503011"><span class="hs-identifier hs-var">expectedTicks</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;1.5 of expected ticks&quot;</span></span><span>
+</span><span id="line-115"></span><span>
+</span><span id="line-116"></span><span>    </span><span id="local-6989586621681503007"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503007"><span class="hs-identifier hs-var">casSize</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Natural -&gt; PropertyM IO Natural
+forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO Natural -&gt; PropertyM IO Natural)
+-&gt; IO Natural -&gt; PropertyM IO Natural
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Natural
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Natural) -&gt; IO Int -&gt; IO Natural
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">HashMapCas Fib -&gt; IO Int
+forall v. HashMapCas v -&gt; IO Int
+</span><span class="hs-identifier hs-var">CAS.size</span></span><span> </span><span class="annot"><span class="annottext">HashMapCas Fib
+</span><a href="#local-6989586621681503031"><span class="hs-identifier hs-var">cas</span></a></span><span>
+</span><span id="line-117"></span><span>    </span><span class="annot"><span class="annottext">(Property -&gt; Property) -&gt; PropertyM IO ()
+forall (m :: * -&gt; *).
+Monad m =&gt;
+(Property -&gt; Property) -&gt; PropertyM m ()
+</span><span class="hs-identifier hs-var">monitor</span></span><span> </span><span class="annot"><span class="annottext">((Property -&gt; Property) -&gt; PropertyM IO ())
+-&gt; (Property -&gt; Property) -&gt; PropertyM IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Bool -&gt; String -&gt; Property -&gt; Property
+forall prop.
+Testable prop =&gt;
+Double -&gt; Bool -&gt; String -&gt; prop -&gt; Property
+</span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503007"><span class="hs-identifier hs-var">casSize</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">max</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503035"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-glyph hs-var">-</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-string">&quot;expected cas size&quot;</span></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-comment">-- assert that result is correct</span><span>
+</span><span id="line-120"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; PropertyM IO ()
+forall (m :: * -&gt; *). Monad m =&gt; Bool -&gt; PropertyM m ()
+</span><span class="hs-identifier hs-var">assert</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503019"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">==</span></span><span> </span><span class="annot"><span class="annottext">[Natural]
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#fibs"><span class="hs-identifier hs-var">fibs</span></a></span><span> </span><span class="annot"><span class="annottext">[Natural] -&gt; Int -&gt; Natural
+forall a. [a] -&gt; Int -&gt; a
+</span><span class="hs-operator hs-var">!!</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Int
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621681503035"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="annottext">() -&gt; PropertyM IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- Test Task Queue Server</span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- | A test task queue server for tasks that take int values as environment.</span><span>
+</span><span id="line-127"></span><span class="hs-comment">--</span><span>
+</span><span id="line-128"></span><span id="local-6989586621681503002"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#testQueueServer"><span class="hs-identifier hs-type">testQueueServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html#AttemptsCount"><span class="hs-identifier hs-type">AttemptsCount</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span> </span><span class="annot"><a href="#local-6989586621681503002"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-129"></span><span id="testQueueServer"><span class="annot"><span class="annottext">testQueueServer :: AttemptsCount -&gt; PQueue (Task Int a) -&gt; IO ()
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#testQueueServer"><span class="hs-identifier hs-var hs-var">testQueueServer</span></a></span></span><span> </span><span id="local-6989586621681503001"><span class="annot"><span class="annottext">limit :: AttemptsCount
+</span><a href="#local-6989586621681503001"><span class="hs-identifier hs-var">limit</span></a></span></span><span> </span><span id="local-6989586621681503000"><span class="annot"><span class="annottext">q :: PQueue (Task Int a)
+</span><a href="#local-6989586621681503000"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; (Int -&gt; IO Bool) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><span class="hs-identifier hs-var">forM_</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-number">0</span></span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; IO Bool) -&gt; IO ()) -&gt; (Int -&gt; IO Bool) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+-&gt; PQueue (Task Int a) -&gt; LogFunction -&gt; Int -&gt; IO Bool
+forall env a.
+AttemptsCount
+-&gt; PQueue (Task env a) -&gt; LogFunction -&gt; env -&gt; IO Bool
+</span><a href="P2P.TaskQueue.html#session_"><span class="hs-identifier hs-var">session_</span></a></span><span> </span><span class="annot"><span class="annottext">AttemptsCount
+</span><a href="#local-6989586621681503001"><span class="hs-identifier hs-var">limit</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task Int a)
+</span><a href="#local-6989586621681503000"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-identifier">_</span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- TODO provide test with actual block header db</span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span id="local-6989586621681502995"><span id="local-6989586621681502996"><span id="local-6989586621681502997"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#withNoopQueueServer"><span class="hs-identifier hs-type">withNoopQueueServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681502997"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681502996"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681502995"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681502995"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-134"></span><span id="withNoopQueueServer"><span class="annot"><span class="annottext">withNoopQueueServer :: (PQueue (Task env a) -&gt; IO b) -&gt; IO b
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#withNoopQueueServer"><span class="hs-identifier hs-var hs-var">withNoopQueueServer</span></a></span></span><span> </span><span id="local-6989586621681502994"><span class="annot"><span class="annottext">a :: PQueue (Task env a) -&gt; IO b
+</span><a href="#local-6989586621681502994"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-135"></span><span>    </span><span id="local-6989586621681502993"><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681502993"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task env a))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681502991"><span class="annot"><span class="annottext">failTask :: IO Bool
+</span><a href="#local-6989586621681502991"><span class="hs-identifier hs-var hs-var">failTask</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-137"></span><span>            </span><span id="local-6989586621681502990"><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681502990"><span class="hs-identifier hs-var">task</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a) -&gt; IO (Task env a)
+forall a. PQueue a -&gt; IO a
+</span><a href="Data.PQueue.html#pQueueRemove"><span class="hs-identifier hs-var">pQueueRemove</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681502993"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-138"></span><span>            </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall (v :: * -&gt; *) a. IsWIVar v =&gt; v a -&gt; a -&gt; IO Bool
+</span><a href="Data.IVar.html#putIVar"><span class="hs-identifier hs-var">putIVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+forall env a. Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681502990"><span class="hs-identifier hs-var">task</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either [SomeException] a -&gt; IO Bool)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[SomeException] -&gt; Either [SomeException] a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">([SomeException] -&gt; Either [SomeException] a)
+-&gt; [SomeException] -&gt; Either [SomeException] a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-139"></span><span>    </span><span class="annot"><span class="annottext">IO Any -&gt; (Async Any -&gt; IO b) -&gt; IO b
+forall a b. IO a -&gt; (Async a -&gt; IO b) -&gt; IO b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO Bool -&gt; IO Any
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">forever</span></span><span> </span><span class="annot"><span class="annottext">IO Bool
+</span><a href="#local-6989586621681502991"><span class="hs-identifier hs-var">failTask</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async Any -&gt; IO b) -&gt; IO b) -&gt; (Async Any -&gt; IO b) -&gt; IO b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO b -&gt; Async Any -&gt; IO b
+forall a b. a -&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">const</span></span><span> </span><span class="annot"><span class="annottext">(IO b -&gt; Async Any -&gt; IO b) -&gt; IO b -&gt; Async Any -&gt; IO b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a) -&gt; IO b
+</span><a href="#local-6989586621681502994"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681502993"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-140"></span><span>
+</span><span id="line-141"></span><span id="local-6989586621681502982"><span id="local-6989586621681502983"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#startNoopQueueServer"><span class="hs-identifier hs-type">startNoopQueueServer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Async</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681502983"><span class="hs-identifier hs-type">env</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681502982"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-142"></span><span id="startNoopQueueServer"><span class="annot"><span class="annottext">startNoopQueueServer :: IO (Async (), PQueue (Task env a))
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#startNoopQueueServer"><span class="hs-identifier hs-var hs-var">startNoopQueueServer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-143"></span><span>    </span><span id="local-6989586621681502981"><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681502981"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (PQueue (Task env a))
+forall a. IO (PQueue a)
+</span><a href="Data.PQueue.html#newEmptyPQueue"><span class="hs-identifier hs-var">newEmptyPQueue</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681502980"><span class="annot"><span class="annottext">failTask :: IO Bool
+</span><a href="#local-6989586621681502980"><span class="hs-identifier hs-var hs-var">failTask</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-145"></span><span>            </span><span id="local-6989586621681502979"><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681502979"><span class="hs-identifier hs-var">task</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a) -&gt; IO (Task env a)
+forall a. PQueue a -&gt; IO a
+</span><a href="Data.PQueue.html#pQueueRemove"><span class="hs-identifier hs-var">pQueueRemove</span></a></span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681502981"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-146"></span><span>            </span><span class="annot"><span class="annottext">IVar (Either [SomeException] a)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall (v :: * -&gt; *) a. IsWIVar v =&gt; v a -&gt; a -&gt; IO Bool
+</span><a href="Data.IVar.html#putIVar"><span class="hs-identifier hs-var">putIVar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Task env a -&gt; IVar (Either [SomeException] a)
+forall env a. Task env a -&gt; IVar (Either [SomeException] a)
+</span><a href="P2P.TaskQueue.html#_taskResult"><span class="hs-identifier hs-var hs-var">_taskResult</span></a></span><span> </span><span class="annot"><span class="annottext">Task env a
+</span><a href="#local-6989586621681502979"><span class="hs-identifier hs-var">task</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either [SomeException] a -&gt; IO Bool)
+-&gt; Either [SomeException] a -&gt; IO Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">[SomeException] -&gt; Either [SomeException] a
+forall a b. a -&gt; Either a b
+</span><span class="hs-identifier hs-var">Left</span></span><span> </span><span class="annot"><span class="annottext">([SomeException] -&gt; Either [SomeException] a)
+-&gt; [SomeException] -&gt; Either [SomeException] a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-147"></span><span>    </span><span id="local-6989586621681502978"><span class="annot"><span class="annottext">Async ()
+</span><a href="#local-6989586621681502978"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO (Async ())
+forall a. IO a -&gt; IO (Async a)
+</span><span class="hs-identifier hs-var">async</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO (Async ())) -&gt; IO () -&gt; IO (Async ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; IO ()
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">forever</span></span><span> </span><span class="annot"><span class="annottext">IO Bool
+</span><a href="#local-6989586621681502980"><span class="hs-identifier hs-var">failTask</span></a></span><span>
+</span><span id="line-148"></span><span>    </span><span class="annot"><span class="annottext">(Async (), PQueue (Task env a))
+-&gt; IO (Async (), PQueue (Task env a))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Async ()
+</span><a href="#local-6989586621681502978"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">PQueue (Task env a)
+</span><a href="#local-6989586621681502981"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-151"></span><span class="hs-comment">-- Utils</span><span>
+</span><span id="line-152"></span><span>
+</span><span id="line-153"></span><span id="local-6989586621681503166"><span id="local-6989586621681503167"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#tick"><span class="hs-identifier hs-type">tick</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Enum</span></span><span> </span><span class="annot"><a href="#local-6989586621681503167"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IORef</span></span><span> </span><span class="annot"><a href="#local-6989586621681503167"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681503166"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681503166"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-154"></span><span id="tick"><span class="annot"><span class="annottext">tick :: IORef a -&gt; IO b -&gt; IO b
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#tick"><span class="hs-identifier hs-var hs-var">tick</span></a></span></span><span> </span><span id="local-6989586621681502976"><span class="annot"><span class="annottext">t :: IORef a
+</span><a href="#local-6989586621681502976"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span id="local-6989586621681502975"><span class="annot"><span class="annottext">a :: IO b
+</span><a href="#local-6989586621681502975"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IORef a -&gt; (a -&gt; (a, ())) -&gt; IO ()
+forall a b. IORef a -&gt; (a -&gt; (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">atomicModifyIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef a
+</span><a href="#local-6989586621681502976"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681502973"><span class="annot"><span class="annottext">x :: a
+</span><a href="#local-6989586621681502973"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; a
+forall a. Enum a =&gt; a -&gt; a
+</span><span class="hs-identifier hs-var">succ</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681502973"><span class="hs-identifier hs-var">x</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO b -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">IO b
+</span><a href="#local-6989586621681502975"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-155"></span><span>
+</span><span id="line-156"></span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#fibs"><span class="hs-identifier hs-type">fibs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Natural</span></span><span class="hs-special">]</span><span>
+</span><span id="line-157"></span><span id="fibs"><span class="annot"><span class="annottext">fibs :: [Natural]
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#fibs"><span class="hs-identifier hs-var hs-var">fibs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; [Natural] -&gt; [Natural]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; [Natural] -&gt; [Natural]
+forall a. a -&gt; [a] -&gt; [a]
+</span><span class="hs-glyph hs-var">:</span></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; Natural -&gt; Natural)
+-&gt; [Natural] -&gt; [Natural] -&gt; [Natural]
+forall a b c. (a -&gt; b -&gt; c) -&gt; [a] -&gt; [b] -&gt; [c]
+</span><span class="hs-identifier hs-var">zipWith</span></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(+)</span></span><span> </span><span class="annot"><span class="annottext">[Natural]
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#fibs"><span class="hs-identifier hs-var">fibs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Natural] -&gt; [Natural]
+forall a. [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">tail</span></span><span> </span><span class="annot"><span class="annottext">[Natural]
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#fibs"><span class="hs-identifier hs-var">fibs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-158"></span><span>
+</span><span id="line-159"></span><span id="local-6989586621681503153"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#gc"><span class="hs-identifier hs-type">gc</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621681503153"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681503153"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-160"></span><span id="gc"><span class="annot"><span class="annottext">gc :: m ()
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Test.html#gc"><span class="hs-identifier hs-var hs-var">gc</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO ()
+</span><span class="hs-identifier hs-var">performMajorGC</span></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO ()
+</span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="hs-number">1000</span></span><span>
+</span><span id="line-161"></span></pre></body></html>

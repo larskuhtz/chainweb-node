@@ -1,0 +1,396 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Module: Chainweb.Payload.PayloadStore.RocksDB</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Content addressable block payload store that uses RocksDB as storage backend.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Payload.PayloadStore.RocksDB</span><span>
+</span><span id="line-16"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadDb"><span class="hs-identifier">newPayloadDb</span></a></span><span>
+</span><span id="line-17"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#openPayloadDb"><span class="hs-identifier">openPayloadDb</span></a></span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="annot"><span class="hs-comment">-- * Internal</span></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockPayloadStore"><span class="hs-identifier">newBlockPayloadStore</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockTransactionsStore"><span class="hs-identifier">newBlockTransactionsStore</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionDb"><span class="hs-identifier">newTransactionDb</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockOutputsStore"><span class="hs-identifier">newBlockOutputsStore</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionTreeStore"><span class="hs-identifier">newTransactionTreeStore</span></a></span><span>
+</span><span id="line-25"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newOutputTreeStore"><span class="hs-identifier">newOutputTreeStore</span></a></span><span>
+</span><span id="line-26"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadCache"><span class="hs-identifier">newPayloadCache</span></a></span><span>
+</span><span id="line-27"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Utils.html#Codec"><span class="hs-identifier">Codec</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS.RocksDB</span></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- RocksDbCas</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockPayloadStore"><span class="hs-identifier hs-type">newBlockPayloadStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-type">BlockPayloadStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-41"></span><span id="newBlockPayloadStore"><span class="annot"><span class="annottext">newBlockPayloadStore :: RocksDb -&gt; BlockPayloadStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockPayloadStore"><span class="hs-identifier hs-var hs-var">newBlockPayloadStore</span></a></span></span><span> </span><span id="local-6989586621681490339"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490339"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RocksDbCas BlockPayload -&gt; BlockPayloadStore RocksDbCas
+forall (cas :: * -&gt; *). cas BlockPayload -&gt; BlockPayloadStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#BlockPayloadStore"><span class="hs-identifier hs-var">BlockPayloadStore</span></a></span><span> </span><span class="annot"><span class="annottext">(RocksDbCas BlockPayload -&gt; BlockPayloadStore RocksDbCas)
+-&gt; RocksDbCas BlockPayload -&gt; BlockPayloadStore RocksDbCas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+-&gt; Codec BlockPayload
+-&gt; Codec BlockPayloadHash
+-&gt; [ByteString]
+-&gt; RocksDbCas BlockPayload
+forall v k.
+(CasKeyType v ~ k) =&gt;
+RocksDb -&gt; Codec v -&gt; Codec k -&gt; [ByteString] -&gt; RocksDbCas v
+</span><span class="hs-identifier hs-var">newCas</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490339"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockPayload -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockPayload)
+-&gt; Codec BlockPayload
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="annot"><span class="annottext">BlockPayload -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><a href="Chainweb.Utils.html#encodeToByteString"><span class="hs-identifier hs-var">encodeToByteString</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m BlockPayload
+forall (m :: * -&gt; *) a.
+(MonadThrow m, FromJSON a) =&gt;
+ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#decodeStrictOrThrow%27"><span class="hs-identifier hs-var">decodeStrictOrThrow'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockPayloadHash -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockPayloadHash)
+-&gt; Codec BlockPayloadHash
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><a href="Chainweb.Utils.html#runPut"><span class="hs-identifier hs-var">runPut</span></a></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString)
+-&gt; (BlockPayloadHash -&gt; Put) -&gt; BlockPayloadHash -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BlockPayloadHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; BlockPayloadHash -&gt; m ()
+</span><a href="Chainweb.Payload.html#encodeBlockPayloadHash"><span class="hs-identifier hs-var">encodeBlockPayloadHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Get BlockPayloadHash -&gt; ByteString -&gt; m BlockPayloadHash
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Get a -&gt; ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#runGet"><span class="hs-identifier hs-var">runGet</span></a></span><span> </span><span class="annot"><span class="annottext">Get BlockPayloadHash
+forall (m :: * -&gt; *). MonadGet m =&gt; m BlockPayloadHash
+</span><a href="Chainweb.Payload.html#decodeBlockPayloadHash"><span class="hs-identifier hs-var">decodeBlockPayloadHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;BlockPayload&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockTransactionsStore"><span class="hs-identifier hs-type">newBlockTransactionsStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-type">BlockTransactionsStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-47"></span><span id="newBlockTransactionsStore"><span class="annot"><span class="annottext">newBlockTransactionsStore :: RocksDb -&gt; BlockTransactionsStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockTransactionsStore"><span class="hs-identifier hs-var hs-var">newBlockTransactionsStore</span></a></span></span><span> </span><span id="local-6989586621681490328"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490328"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RocksDbCas BlockTransactions -&gt; BlockTransactionsStore RocksDbCas
+forall (cas :: * -&gt; *).
+cas BlockTransactions -&gt; BlockTransactionsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#BlockTransactionsStore"><span class="hs-identifier hs-var">BlockTransactionsStore</span></a></span><span> </span><span class="annot"><span class="annottext">(RocksDbCas BlockTransactions -&gt; BlockTransactionsStore RocksDbCas)
+-&gt; RocksDbCas BlockTransactions
+-&gt; BlockTransactionsStore RocksDbCas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+-&gt; Codec BlockTransactions
+-&gt; Codec BlockTransactionsHash
+-&gt; [ByteString]
+-&gt; RocksDbCas BlockTransactions
+forall v k.
+(CasKeyType v ~ k) =&gt;
+RocksDb -&gt; Codec v -&gt; Codec k -&gt; [ByteString] -&gt; RocksDbCas v
+</span><span class="hs-identifier hs-var">newCas</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490328"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockTransactions -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockTransactions)
+-&gt; Codec BlockTransactions
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="annot"><span class="annottext">BlockTransactions -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><a href="Chainweb.Utils.html#encodeToByteString"><span class="hs-identifier hs-var">encodeToByteString</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+ByteString -&gt; m BlockTransactions
+forall (m :: * -&gt; *) a.
+(MonadThrow m, FromJSON a) =&gt;
+ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#decodeStrictOrThrow%27"><span class="hs-identifier hs-var">decodeStrictOrThrow'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockTransactionsHash -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockTransactionsHash)
+-&gt; Codec BlockTransactionsHash
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><a href="Chainweb.Utils.html#runPut"><span class="hs-identifier hs-var">runPut</span></a></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString)
+-&gt; (BlockTransactionsHash -&gt; Put)
+-&gt; BlockTransactionsHash
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BlockTransactionsHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; BlockTransactionsHash -&gt; m ()
+</span><a href="Chainweb.Payload.html#encodeBlockTransactionsHash"><span class="hs-identifier hs-var">encodeBlockTransactionsHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Get BlockTransactionsHash -&gt; ByteString -&gt; m BlockTransactionsHash
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Get a -&gt; ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#runGet"><span class="hs-identifier hs-var">runGet</span></a></span><span> </span><span class="annot"><span class="annottext">Get BlockTransactionsHash
+forall (m :: * -&gt; *). MonadGet m =&gt; m BlockTransactionsHash
+</span><a href="Chainweb.Payload.html#decodeBlockTransactionsHash"><span class="hs-identifier hs-var">decodeBlockTransactionsHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;BlockTransactions&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionDb"><span class="hs-identifier hs-type">newTransactionDb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier hs-type">TransactionDb</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-53"></span><span id="newTransactionDb"><span class="annot"><span class="annottext">newTransactionDb :: RocksDb -&gt; TransactionDb RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionDb"><span class="hs-identifier hs-var hs-var">newTransactionDb</span></a></span></span><span> </span><span id="local-6989586621681490324"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490324"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockTransactionsStore RocksDbCas
+-&gt; BlockPayloadStore RocksDbCas -&gt; TransactionDb RocksDbCas
+forall (cas :: * -&gt; *).
+BlockTransactionsStore cas
+-&gt; BlockPayloadStore cas -&gt; TransactionDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionDb"><span class="hs-identifier hs-var">TransactionDb</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RocksDb -&gt; BlockTransactionsStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockTransactionsStore"><span class="hs-identifier hs-var">newBlockTransactionsStore</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490324"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RocksDb -&gt; BlockPayloadStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockPayloadStore"><span class="hs-identifier hs-var">newBlockPayloadStore</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490324"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockOutputsStore"><span class="hs-identifier hs-type">newBlockOutputsStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-type">BlockOutputsStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-58"></span><span id="newBlockOutputsStore"><span class="annot"><span class="annottext">newBlockOutputsStore :: RocksDb -&gt; BlockOutputsStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockOutputsStore"><span class="hs-identifier hs-var hs-var">newBlockOutputsStore</span></a></span></span><span> </span><span id="local-6989586621681490322"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490322"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RocksDbCas BlockOutputs -&gt; BlockOutputsStore RocksDbCas
+forall (cas :: * -&gt; *). cas BlockOutputs -&gt; BlockOutputsStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#BlockOutputsStore"><span class="hs-identifier hs-var">BlockOutputsStore</span></a></span><span> </span><span class="annot"><span class="annottext">(RocksDbCas BlockOutputs -&gt; BlockOutputsStore RocksDbCas)
+-&gt; RocksDbCas BlockOutputs -&gt; BlockOutputsStore RocksDbCas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+-&gt; Codec BlockOutputs
+-&gt; Codec BlockOutputsHash
+-&gt; [ByteString]
+-&gt; RocksDbCas BlockOutputs
+forall v k.
+(CasKeyType v ~ k) =&gt;
+RocksDb -&gt; Codec v -&gt; Codec k -&gt; [ByteString] -&gt; RocksDbCas v
+</span><span class="hs-identifier hs-var">newCas</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490322"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockOutputs -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockOutputs)
+-&gt; Codec BlockOutputs
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="annot"><span class="annottext">BlockOutputs -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><a href="Chainweb.Utils.html#encodeToByteString"><span class="hs-identifier hs-var">encodeToByteString</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m BlockOutputs
+forall (m :: * -&gt; *) a.
+(MonadThrow m, FromJSON a) =&gt;
+ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#decodeStrictOrThrow%27"><span class="hs-identifier hs-var">decodeStrictOrThrow'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockOutputsHash -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockOutputsHash)
+-&gt; Codec BlockOutputsHash
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><a href="Chainweb.Utils.html#runPut"><span class="hs-identifier hs-var">runPut</span></a></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString)
+-&gt; (BlockOutputsHash -&gt; Put) -&gt; BlockOutputsHash -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BlockOutputsHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; BlockOutputsHash -&gt; m ()
+</span><a href="Chainweb.Payload.html#encodeBlockOutputsHash"><span class="hs-identifier hs-var">encodeBlockOutputsHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Get BlockOutputsHash -&gt; ByteString -&gt; m BlockOutputsHash
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Get a -&gt; ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#runGet"><span class="hs-identifier hs-var">runGet</span></a></span><span> </span><span class="annot"><span class="annottext">Get BlockOutputsHash
+forall (m :: * -&gt; *). MonadGet m =&gt; m BlockOutputsHash
+</span><a href="Chainweb.Payload.html#decodeBlockOutputsHash"><span class="hs-identifier hs-var">decodeBlockOutputsHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;BlockOutputs&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionTreeStore"><span class="hs-identifier hs-type">newTransactionTreeStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-type">TransactionTreeStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-64"></span><span id="newTransactionTreeStore"><span class="annot"><span class="annottext">newTransactionTreeStore :: RocksDb -&gt; TransactionTreeStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionTreeStore"><span class="hs-identifier hs-var hs-var">newTransactionTreeStore</span></a></span></span><span> </span><span id="local-6989586621681490318"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490318"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RocksDbCas TransactionTree -&gt; TransactionTreeStore RocksDbCas
+forall (cas :: * -&gt; *).
+cas TransactionTree -&gt; TransactionTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#TransactionTreeStore"><span class="hs-identifier hs-var">TransactionTreeStore</span></a></span><span> </span><span class="annot"><span class="annottext">(RocksDbCas TransactionTree -&gt; TransactionTreeStore RocksDbCas)
+-&gt; RocksDbCas TransactionTree -&gt; TransactionTreeStore RocksDbCas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+-&gt; Codec TransactionTree
+-&gt; Codec BlockTransactionsHash
+-&gt; [ByteString]
+-&gt; RocksDbCas TransactionTree
+forall v k.
+(CasKeyType v ~ k) =&gt;
+RocksDb -&gt; Codec v -&gt; Codec k -&gt; [ByteString] -&gt; RocksDbCas v
+</span><span class="hs-identifier hs-var">newCas</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490318"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(TransactionTree -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m TransactionTree)
+-&gt; Codec TransactionTree
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="annot"><span class="annottext">TransactionTree -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><a href="Chainweb.Utils.html#encodeToByteString"><span class="hs-identifier hs-var">encodeToByteString</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *).
+MonadThrow m =&gt;
+ByteString -&gt; m TransactionTree
+forall (m :: * -&gt; *) a.
+(MonadThrow m, FromJSON a) =&gt;
+ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#decodeStrictOrThrow%27"><span class="hs-identifier hs-var">decodeStrictOrThrow'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockTransactionsHash -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockTransactionsHash)
+-&gt; Codec BlockTransactionsHash
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><a href="Chainweb.Utils.html#runPut"><span class="hs-identifier hs-var">runPut</span></a></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString)
+-&gt; (BlockTransactionsHash -&gt; Put)
+-&gt; BlockTransactionsHash
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BlockTransactionsHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; BlockTransactionsHash -&gt; m ()
+</span><a href="Chainweb.Payload.html#encodeBlockTransactionsHash"><span class="hs-identifier hs-var">encodeBlockTransactionsHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Get BlockTransactionsHash -&gt; ByteString -&gt; m BlockTransactionsHash
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Get a -&gt; ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#runGet"><span class="hs-identifier hs-var">runGet</span></a></span><span> </span><span class="annot"><span class="annottext">Get BlockTransactionsHash
+forall (m :: * -&gt; *). MonadGet m =&gt; m BlockTransactionsHash
+</span><a href="Chainweb.Payload.html#decodeBlockTransactionsHash"><span class="hs-identifier hs-var">decodeBlockTransactionsHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;TransactionTree&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newOutputTreeStore"><span class="hs-identifier hs-type">newOutputTreeStore</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-type">OutputTreeStore</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-70"></span><span id="newOutputTreeStore"><span class="annot"><span class="annottext">newOutputTreeStore :: RocksDb -&gt; OutputTreeStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newOutputTreeStore"><span class="hs-identifier hs-var hs-var">newOutputTreeStore</span></a></span></span><span> </span><span id="local-6989586621681490316"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490316"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RocksDbCas OutputTree -&gt; OutputTreeStore RocksDbCas
+forall (cas :: * -&gt; *). cas OutputTree -&gt; OutputTreeStore cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#OutputTreeStore"><span class="hs-identifier hs-var">OutputTreeStore</span></a></span><span> </span><span class="annot"><span class="annottext">(RocksDbCas OutputTree -&gt; OutputTreeStore RocksDbCas)
+-&gt; RocksDbCas OutputTree -&gt; OutputTreeStore RocksDbCas
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+-&gt; Codec OutputTree
+-&gt; Codec BlockOutputsHash
+-&gt; [ByteString]
+-&gt; RocksDbCas OutputTree
+forall v k.
+(CasKeyType v ~ k) =&gt;
+RocksDb -&gt; Codec v -&gt; Codec k -&gt; [ByteString] -&gt; RocksDbCas v
+</span><span class="hs-identifier hs-var">newCas</span></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490316"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(OutputTree -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m OutputTree)
+-&gt; Codec OutputTree
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="annot"><span class="annottext">OutputTree -&gt; ByteString
+forall a. ToJSON a =&gt; a -&gt; ByteString
+</span><a href="Chainweb.Utils.html#encodeToByteString"><span class="hs-identifier hs-var">encodeToByteString</span></a></span><span> </span><span class="annot"><span class="annottext">forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m OutputTree
+forall (m :: * -&gt; *) a.
+(MonadThrow m, FromJSON a) =&gt;
+ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#decodeStrictOrThrow%27"><span class="hs-identifier hs-var">decodeStrictOrThrow'</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(BlockOutputsHash -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *).
+    MonadThrow m =&gt;
+    ByteString -&gt; m BlockOutputsHash)
+-&gt; Codec BlockOutputsHash
+forall a.
+(a -&gt; ByteString)
+-&gt; (forall (m :: * -&gt; *). MonadThrow m =&gt; ByteString -&gt; m a)
+-&gt; Codec a
+</span><span class="hs-identifier hs-var">Codec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Put -&gt; ByteString
+</span><a href="Chainweb.Utils.html#runPut"><span class="hs-identifier hs-var">runPut</span></a></span><span> </span><span class="annot"><span class="annottext">(Put -&gt; ByteString)
+-&gt; (BlockOutputsHash -&gt; Put) -&gt; BlockOutputsHash -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">BlockOutputsHash -&gt; Put
+forall (m :: * -&gt; *). MonadPut m =&gt; BlockOutputsHash -&gt; m ()
+</span><a href="Chainweb.Payload.html#encodeBlockOutputsHash"><span class="hs-identifier hs-var">encodeBlockOutputsHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Get BlockOutputsHash -&gt; ByteString -&gt; m BlockOutputsHash
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Get a -&gt; ByteString -&gt; m a
+</span><a href="Chainweb.Utils.html#runGet"><span class="hs-identifier hs-var">runGet</span></a></span><span> </span><span class="annot"><span class="annottext">Get BlockOutputsHash
+forall (m :: * -&gt; *). MonadGet m =&gt; m BlockOutputsHash
+</span><a href="Chainweb.Payload.html#decodeBlockOutputsHash"><span class="hs-identifier hs-var">decodeBlockOutputsHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-special">[</span><span class="annot"><span class="hs-string">&quot;OutputTree&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadCache"><span class="hs-identifier hs-type">newPayloadCache</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier hs-type">PayloadCache</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-76"></span><span id="newPayloadCache"><span class="annot"><span class="annottext">newPayloadCache :: RocksDb -&gt; PayloadCache RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadCache"><span class="hs-identifier hs-var hs-var">newPayloadCache</span></a></span></span><span> </span><span id="local-6989586621681490314"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490314"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockOutputsStore RocksDbCas
+-&gt; TransactionTreeStore RocksDbCas
+-&gt; OutputTreeStore RocksDbCas
+-&gt; PayloadCache RocksDbCas
+forall (cas :: * -&gt; *).
+BlockOutputsStore cas
+-&gt; TransactionTreeStore cas
+-&gt; OutputTreeStore cas
+-&gt; PayloadCache cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadCache"><span class="hs-identifier hs-var">PayloadCache</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RocksDb -&gt; BlockOutputsStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newBlockOutputsStore"><span class="hs-identifier hs-var">newBlockOutputsStore</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490314"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RocksDb -&gt; TransactionTreeStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionTreeStore"><span class="hs-identifier hs-var">newTransactionTreeStore</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490314"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RocksDb -&gt; OutputTreeStore RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newOutputTreeStore"><span class="hs-identifier hs-var">newOutputTreeStore</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490314"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadDb"><span class="hs-identifier hs-type">newPayloadDb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDb</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span>
+</span><span id="line-82"></span><span id="newPayloadDb"><span class="annot"><span class="annottext">newPayloadDb :: RocksDb -&gt; PayloadDb RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadDb"><span class="hs-identifier hs-var hs-var">newPayloadDb</span></a></span></span><span> </span><span id="local-6989586621681490312"><span class="annot"><span class="annottext">db :: RocksDb
+</span><a href="#local-6989586621681490312"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionDb RocksDbCas
+-&gt; PayloadCache RocksDbCas -&gt; PayloadDb RocksDbCas
+forall (cas :: * -&gt; *).
+TransactionDb cas -&gt; PayloadCache cas -&gt; PayloadDb cas
+</span><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-var">PayloadDb</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RocksDb -&gt; TransactionDb RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newTransactionDb"><span class="hs-identifier hs-var">newTransactionDb</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490312"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RocksDb -&gt; PayloadCache RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadCache"><span class="hs-identifier hs-var">newPayloadCache</span></a></span><span> </span><span class="annot"><span class="annottext">RocksDb
+</span><a href="#local-6989586621681490312"><span class="hs-identifier hs-var">db</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span class="annot"><a href="Chainweb.Payload.PayloadStore.RocksDB.html#openPayloadDb"><span class="hs-identifier hs-type">openPayloadDb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FilePath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">RocksDbCas</span></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span id="openPayloadDb"><span class="annot"><span class="annottext">openPayloadDb :: FilePath -&gt; IO (PayloadDb RocksDbCas)
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#openPayloadDb"><span class="hs-identifier hs-var hs-var">openPayloadDb</span></a></span></span><span> </span><span id="local-6989586621681490310"><span class="annot"><span class="annottext">path :: FilePath
+</span><a href="#local-6989586621681490310"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RocksDb -&gt; PayloadDb RocksDbCas
+</span><a href="Chainweb.Payload.PayloadStore.RocksDB.html#newPayloadDb"><span class="hs-identifier hs-var">newPayloadDb</span></a></span><span> </span><span class="annot"><span class="annottext">(RocksDb -&gt; PayloadDb RocksDbCas)
+-&gt; IO RocksDb -&gt; IO (PayloadDb RocksDbCas)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO RocksDb
+</span><span class="hs-identifier hs-var">openRocksDb</span></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621681490310"><span class="hs-identifier hs-var">path</span></a></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span></pre></body></html>

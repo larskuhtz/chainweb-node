@@ -1,0 +1,1003 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="%24maxtag_4XGd0NiNRCfIJJrRgpk3xi"><span id="%24tag2con_4XGd0NiNRCfIJJrRgpk3xi"><span id="%24con2tag_4XGd0NiNRCfIJJrRgpk3xi"></span></span></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE FlexibleInstances #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-warn-orphans #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Module: Chainweb.Pact.ChainwebPactDb</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Maintainer: Emmanuel Denloye-Ito &lt;emmanuel@kadena.io&gt;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Pact.Backend.Utils</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">evaluate</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">AsyncException</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Exception.Safe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">tryAny</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad</span></span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Catch</span></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.State.Strict</span></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Reader</span></span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Bits</span></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">pack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String</span></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.String.Conv</span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">pack</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Database.SQLite3.Direct</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">SQ3</span></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">log</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Directory</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">removeFile</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.IO.Extra</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- pact</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Persistence</span></span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.SQLite</span></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Term</span></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">KeySetName</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ModuleName</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">NamespaceName</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">PactId</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Util</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AsString</span></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- chainweb</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html"><span class="hs-identifier">Chainweb.Pact.Backend.SQLite.DirectV2</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html"><span class="hs-identifier">Chainweb.Pact.Backend.Types</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html"><span class="hs-identifier">Chainweb.Pact.Service.Types</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span id="local-6989586621681488072"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#runBlockEnv"><span class="hs-identifier hs-type">runBlockEnv</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockEnv"><span class="hs-identifier hs-type">BlockEnv</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681488072"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681488072"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-58"></span><span id="runBlockEnv"><span class="annot"><span class="annottext">runBlockEnv :: MVar (BlockEnv SQLiteEnv) -&gt; BlockHandler SQLiteEnv a -&gt; IO a
+</span><a href="Chainweb.Pact.Backend.Utils.html#runBlockEnv"><span class="hs-identifier hs-var hs-var">runBlockEnv</span></a></span></span><span> </span><span id="local-6989586621681488070"><span class="annot"><span class="annottext">e :: MVar (BlockEnv SQLiteEnv)
+</span><a href="#local-6989586621681488070"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span id="local-6989586621681488069"><span class="annot"><span class="annottext">m :: BlockHandler SQLiteEnv a
+</span><a href="#local-6989586621681488069"><span class="hs-identifier hs-var">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (BlockEnv SQLiteEnv)
+-&gt; (BlockEnv SQLiteEnv -&gt; IO (BlockEnv SQLiteEnv, a)) -&gt; IO a
+forall a b. MVar a -&gt; (a -&gt; IO (a, b)) -&gt; IO b
+</span><span class="hs-identifier hs-var">modifyMVar</span></span><span> </span><span class="annot"><span class="annottext">MVar (BlockEnv SQLiteEnv)
+</span><a href="#local-6989586621681488070"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="annot"><span class="annottext">((BlockEnv SQLiteEnv -&gt; IO (BlockEnv SQLiteEnv, a)) -&gt; IO a)
+-&gt; (BlockEnv SQLiteEnv -&gt; IO (BlockEnv SQLiteEnv, a)) -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockEnv"><span class="hs-identifier hs-type">BlockEnv</span></a></span><span>  </span><span id="local-6989586621681488066"><span class="annot"><span class="annottext">dbenv :: BlockDbEnv SQLiteEnv
+</span><a href="#local-6989586621681488066"><span class="hs-identifier hs-var">dbenv</span></a></span></span><span> </span><span id="local-6989586621681488065"><span class="annot"><span class="annottext">bs :: BlockState
+</span><a href="#local-6989586621681488065"><span class="hs-identifier hs-var">bs</span></a></span></span><span class="hs-special">)</span><span>  </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681488064"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681488064"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621681488063"><span class="annot"><span class="annottext">s :: BlockState
+</span><a href="#local-6989586621681488063"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateT BlockState IO a -&gt; BlockState -&gt; IO (a, BlockState)
+forall s (m :: * -&gt; *) a. StateT s m a -&gt; s -&gt; m (a, s)
+</span><span class="hs-identifier hs-var hs-var">runStateT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ReaderT (BlockDbEnv SQLiteEnv) (StateT BlockState IO) a
+-&gt; BlockDbEnv SQLiteEnv -&gt; StateT BlockState IO a
+forall r (m :: * -&gt; *) a. ReaderT r m a -&gt; r -&gt; m a
+</span><span class="hs-identifier hs-var hs-var">runReaderT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv a
+-&gt; ReaderT (BlockDbEnv SQLiteEnv) (StateT BlockState IO) a
+forall p a.
+BlockHandler p a -&gt; ReaderT (BlockDbEnv p) (StateT BlockState IO) a
+</span><a href="Chainweb.Pact.Backend.Types.html#runBlockHandler"><span class="hs-identifier hs-var hs-var">runBlockHandler</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv a
+</span><a href="#local-6989586621681488069"><span class="hs-identifier hs-var">m</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BlockDbEnv SQLiteEnv
+</span><a href="#local-6989586621681488066"><span class="hs-identifier hs-var">dbenv</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">BlockState
+</span><a href="#local-6989586621681488065"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><span id="line-61"></span><span>    </span><span class="annot"><span class="annottext">(BlockEnv SQLiteEnv, a) -&gt; IO (BlockEnv SQLiteEnv, a)
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BlockDbEnv SQLiteEnv -&gt; BlockState -&gt; BlockEnv SQLiteEnv
+forall p. BlockDbEnv p -&gt; BlockState -&gt; BlockEnv p
+</span><a href="Chainweb.Pact.Backend.Types.html#BlockEnv"><span class="hs-identifier hs-var">BlockEnv</span></a></span><span> </span><span class="annot"><span class="annottext">BlockDbEnv SQLiteEnv
+</span><a href="#local-6989586621681488066"><span class="hs-identifier hs-var">dbenv</span></a></span><span> </span><span class="annot"><span class="annottext">BlockState
+</span><a href="#local-6989586621681488063"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681488064"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span id="local-6989586621681488151"><span id="local-6989586621681488152"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#callDb"><span class="hs-identifier hs-type">callDb</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MonadCatch</span></span><span> </span><span class="annot"><a href="#local-6989586621681488152"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadReader</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockDbEnv"><span class="hs-identifier hs-type">BlockDbEnv</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681488152"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621681488152"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Database</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681488151"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681488152"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681488151"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-64"></span><span id="callDb"><span class="annot"><span class="annottext">callDb :: Text -&gt; (Database -&gt; IO b) -&gt; m b
+</span><a href="Chainweb.Pact.Backend.Utils.html#callDb"><span class="hs-identifier hs-var hs-var">callDb</span></a></span></span><span> </span><span id="local-6989586621681488058"><span class="annot"><span class="annottext">callerName :: Text
+</span><a href="#local-6989586621681488058"><span class="hs-identifier hs-var">callerName</span></a></span></span><span> </span><span id="local-6989586621681488057"><span class="annot"><span class="annottext">action :: Database -&gt; IO b
+</span><a href="#local-6989586621681488057"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621681488056"><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681488056"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Getting Database (BlockDbEnv SQLiteEnv) Database -&gt; m Database
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(SQLiteEnv -&gt; Const Database SQLiteEnv)
+-&gt; BlockDbEnv SQLiteEnv -&gt; Const Database (BlockDbEnv SQLiteEnv)
+forall p1 p2. Lens (BlockDbEnv p1) (BlockDbEnv p2) p1 p2
+</span><a href="Chainweb.Pact.Backend.Types.html#bdbenvDb"><span class="hs-identifier hs-var">bdbenvDb</span></a></span><span> </span><span class="annot"><span class="annottext">((SQLiteEnv -&gt; Const Database SQLiteEnv)
+ -&gt; BlockDbEnv SQLiteEnv -&gt; Const Database (BlockDbEnv SQLiteEnv))
+-&gt; ((Database -&gt; Const Database Database)
+    -&gt; SQLiteEnv -&gt; Const Database SQLiteEnv)
+-&gt; Getting Database (BlockDbEnv SQLiteEnv) Database
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(Database -&gt; Const Database Database)
+-&gt; SQLiteEnv -&gt; Const Database SQLiteEnv
+Lens' SQLiteEnv Database
+</span><a href="Chainweb.Pact.Backend.Types.html#sConn"><span class="hs-identifier hs-var">sConn</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>  </span><span id="local-6989586621681488051"><span class="annot"><span class="annottext">Either SomeException b
+</span><a href="#local-6989586621681488051"><span class="hs-identifier hs-var">res</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m b -&gt; m (Either SomeException b)
+forall (m :: * -&gt; *) a.
+MonadCatch m =&gt;
+m a -&gt; m (Either SomeException a)
+</span><span class="hs-identifier hs-var">tryAny</span></span><span> </span><span class="annot"><span class="annottext">(m b -&gt; m (Either SomeException b))
+-&gt; m b -&gt; m (Either SomeException b)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">IO b -&gt; m b
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO b -&gt; m b) -&gt; IO b -&gt; m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Database -&gt; IO b
+</span><a href="#local-6989586621681488057"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681488056"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-67"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either SomeException b
+</span><a href="#local-6989586621681488051"><span class="hs-identifier hs-var">res</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681488049"><span class="annot"><span class="annottext">err :: SomeException
+</span><a href="#local-6989586621681488049"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m b
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m b) -&gt; Text -&gt; m b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;callDb (&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681488058"><span class="hs-identifier hs-var">callerName</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;): &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Text) -&gt; String -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681488049"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681488046"><span class="annot"><span class="annottext">r :: b
+</span><a href="#local-6989586621681488046"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; m b
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621681488046"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span id="local-6989586621681488045"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#withSavepoint"><span class="hs-identifier hs-type">withSavepoint</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#SavepointName"><span class="hs-identifier hs-type">SavepointName</span></a></span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681488045"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681488045"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-75"></span><span id="withSavepoint"><span class="annot"><span class="annottext">withSavepoint :: SavepointName
+-&gt; BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a
+</span><a href="Chainweb.Pact.Backend.Utils.html#withSavepoint"><span class="hs-identifier hs-var hs-var">withSavepoint</span></a></span></span><span> </span><span id="local-6989586621681488043"><span class="annot"><span class="annottext">name :: SavepointName
+</span><a href="#local-6989586621681488043"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621681488042"><span class="annot"><span class="annottext">action :: BlockHandler SQLiteEnv a
+</span><a href="#local-6989586621681488042"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((forall a. BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a)
+ -&gt; BlockHandler SQLiteEnv a)
+-&gt; BlockHandler SQLiteEnv a
+forall (m :: * -&gt; *) b.
+MonadMask m =&gt;
+((forall a. m a -&gt; m a) -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">mask</span></span><span> </span><span class="annot"><span class="annottext">(((forall a. BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a)
+  -&gt; BlockHandler SQLiteEnv a)
+ -&gt; BlockHandler SQLiteEnv a)
+-&gt; ((forall a.
+     BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a)
+    -&gt; BlockHandler SQLiteEnv a)
+-&gt; BlockHandler SQLiteEnv a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681488040"><span class="annot"><span class="annottext">resetMask :: forall a. BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a
+</span><a href="#local-6989586621681488040"><span class="hs-identifier hs-var">resetMask</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv () -&gt; BlockHandler SQLiteEnv ()
+forall a. BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a
+</span><a href="#local-6989586621681488040"><span class="hs-identifier hs-var">resetMask</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockHandler SQLiteEnv () -&gt; BlockHandler SQLiteEnv ())
+-&gt; BlockHandler SQLiteEnv () -&gt; BlockHandler SQLiteEnv ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SavepointName -&gt; BlockHandler SQLiteEnv ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#beginSavepoint"><span class="hs-identifier hs-var">beginSavepoint</span></a></span><span> </span><span class="annot"><span class="annottext">SavepointName
+</span><a href="#local-6989586621681488043"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">(BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a)
+-&gt; BlockHandler SQLiteEnv a
+forall b.
+(BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv b)
+-&gt; BlockHandler SQLiteEnv b
+</span><a href="#local-6989586621681488038"><span class="hs-identifier hs-var">go</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a
+forall a. BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv a
+</span><a href="#local-6989586621681488040"><span class="hs-identifier hs-var">resetMask</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv a
+-&gt; [Handler (BlockHandler SQLiteEnv) a] -&gt; BlockHandler SQLiteEnv a
+forall (f :: * -&gt; *) (m :: * -&gt; *) a.
+(Foldable f, MonadCatch m) =&gt;
+m a -&gt; f (Handler m a) -&gt; m a
+</span><span class="hs-operator hs-var">`catches`</span></span><span> </span><span class="annot"><span class="annottext">[Handler (BlockHandler SQLiteEnv) a]
+forall a. [Handler (BlockHandler SQLiteEnv) a]
+</span><a href="#local-6989586621681488036"><span class="hs-identifier hs-var">handlers</span></a></span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621681488038"><span class="annot"><span class="annottext">go :: (BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv b)
+-&gt; BlockHandler SQLiteEnv b
+</span><a href="#local-6989586621681488038"><span class="hs-identifier hs-var hs-var">go</span></a></span></span><span> </span><span id="local-6989586621681488035"><span class="annot"><span class="annottext">resetMask :: BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv b
+</span><a href="#local-6989586621681488035"><span class="hs-identifier hs-var">resetMask</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-80"></span><span>        </span><span id="local-6989586621681488034"><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621681488034"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv a -&gt; BlockHandler SQLiteEnv b
+</span><a href="#local-6989586621681488035"><span class="hs-identifier hs-var">resetMask</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv a
+</span><a href="#local-6989586621681488042"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">BlockHandler SQLiteEnv b
+-&gt; BlockHandler SQLiteEnv () -&gt; BlockHandler SQLiteEnv b
+forall (m :: * -&gt; *) a b. MonadCatch m =&gt; m a -&gt; m b -&gt; m a
+</span><span class="hs-operator hs-var">`onException`</span></span><span> </span><span class="annot"><span class="annottext">SavepointName -&gt; BlockHandler SQLiteEnv ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#rollbackSavepoint"><span class="hs-identifier hs-var">rollbackSavepoint</span></a></span><span> </span><span class="annot"><span class="annottext">SavepointName
+</span><a href="#local-6989586621681488043"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-81"></span><span>        </span><span class="annot"><span class="annottext">SavepointName -&gt; BlockHandler SQLiteEnv ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#commitSavepoint"><span class="hs-identifier hs-var">commitSavepoint</span></a></span><span> </span><span class="annot"><span class="annottext">SavepointName
+</span><a href="#local-6989586621681488043"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-82"></span><span>        </span><span class="annot"><span class="annottext">IO b -&gt; BlockHandler SQLiteEnv b
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO b -&gt; BlockHandler SQLiteEnv b)
+-&gt; IO b -&gt; BlockHandler SQLiteEnv b
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">b -&gt; IO b
+forall a. a -&gt; IO a
+</span><span class="hs-identifier hs-var">evaluate</span></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="#local-6989586621681488034"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span id="local-6989586621681488030"><span class="annot"><span class="annottext">throwErr :: String -&gt; m a
+</span><a href="#local-6989586621681488030"><span class="hs-identifier hs-var hs-var">throwErr</span></a></span></span><span> </span><span id="local-6989586621681488029"><span class="annot"><span class="annottext">s :: String
+</span><a href="#local-6989586621681488029"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; m a
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; m a) -&gt; Text -&gt; m a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;withSavepoint (&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SavepointName -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="annot"><span class="annottext">SavepointName
+</span><a href="#local-6989586621681488043"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;): &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">pack</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681488029"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span id="local-6989586621681488036"><span class="annot"><span class="annottext">handlers :: [Handler (BlockHandler SQLiteEnv) a]
+</span><a href="#local-6989586621681488036"><span class="hs-identifier hs-var hs-var">handlers</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">(PactException -&gt; BlockHandler SQLiteEnv a)
+-&gt; Handler (BlockHandler SQLiteEnv) a
+forall (m :: * -&gt; *) a e. Exception e =&gt; (e -&gt; m a) -&gt; Handler m a
+</span><span class="hs-identifier hs-var">Handler</span></span><span> </span><span class="annot"><span class="annottext">((PactException -&gt; BlockHandler SQLiteEnv a)
+ -&gt; Handler (BlockHandler SQLiteEnv) a)
+-&gt; (PactException -&gt; BlockHandler SQLiteEnv a)
+-&gt; Handler (BlockHandler SQLiteEnv) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681488026"><span class="annot"><span class="annottext">PactException
+</span><a href="#local-6989586621681488026"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html#PactException"><span class="hs-identifier hs-type">PactException</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; BlockHandler SQLiteEnv a
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; String -&gt; m a
+</span><a href="#local-6989586621681488030"><span class="hs-identifier hs-var">throwErr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PactException -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">PactException
+</span><a href="#local-6989586621681488026"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>               </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(AsyncException -&gt; BlockHandler SQLiteEnv a)
+-&gt; Handler (BlockHandler SQLiteEnv) a
+forall (m :: * -&gt; *) a e. Exception e =&gt; (e -&gt; m a) -&gt; Handler m a
+</span><span class="hs-identifier hs-var">Handler</span></span><span> </span><span class="annot"><span class="annottext">((AsyncException -&gt; BlockHandler SQLiteEnv a)
+ -&gt; Handler (BlockHandler SQLiteEnv) a)
+-&gt; (AsyncException -&gt; BlockHandler SQLiteEnv a)
+-&gt; Handler (BlockHandler SQLiteEnv) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681488025"><span class="annot"><span class="annottext">AsyncException
+</span><a href="#local-6989586621681488025"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsyncException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AsyncException -&gt; BlockHandler SQLiteEnv a
+forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
+</span><span class="hs-identifier hs-var">throwM</span></span><span> </span><span class="annot"><span class="annottext">AsyncException
+</span><a href="#local-6989586621681488025"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-86"></span><span>               </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(SomeException -&gt; BlockHandler SQLiteEnv a)
+-&gt; Handler (BlockHandler SQLiteEnv) a
+forall (m :: * -&gt; *) a e. Exception e =&gt; (e -&gt; m a) -&gt; Handler m a
+</span><span class="hs-identifier hs-var">Handler</span></span><span> </span><span class="annot"><span class="annottext">((SomeException -&gt; BlockHandler SQLiteEnv a)
+ -&gt; Handler (BlockHandler SQLiteEnv) a)
+-&gt; (SomeException -&gt; BlockHandler SQLiteEnv a)
+-&gt; Handler (BlockHandler SQLiteEnv) a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681488023"><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681488023"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeException</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; BlockHandler SQLiteEnv a
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; String -&gt; m a
+</span><a href="#local-6989586621681488030"><span class="hs-identifier hs-var">throwErr</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;non-pact exception: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeException -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">SomeException
+</span><a href="#local-6989586621681488023"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>               </span><span class="hs-special">]</span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="hs-comment">-- for debugging</span><span>
+</span><span id="line-90"></span><span id="local-6989586621681488022"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#withTrace"><span class="hs-identifier hs-type">withTrace</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Database</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681488022"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681488022"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-91"></span><span id="withTrace"><span class="annot"><span class="annottext">withTrace :: Database -&gt; (Utf8 -&gt; IO ()) -&gt; IO a -&gt; IO a
+</span><a href="Chainweb.Pact.Backend.Utils.html#withTrace"><span class="hs-identifier hs-var hs-var">withTrace</span></a></span></span><span> </span><span id="local-6989586621681488020"><span class="annot"><span class="annottext">db :: Database
+</span><a href="#local-6989586621681488020"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681488019"><span class="annot"><span class="annottext">tracer :: Utf8 -&gt; IO ()
+</span><a href="#local-6989586621681488019"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621681488018"><span class="annot"><span class="annottext">dbaction :: IO a
+</span><a href="#local-6989586621681488018"><span class="hs-identifier hs-var">dbaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-92"></span><span>  </span><span class="annot"><span class="annottext">Database -&gt; Maybe (Utf8 -&gt; IO ()) -&gt; IO ()
+</span><span class="hs-identifier hs-var">setTrace</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681488020"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Utf8 -&gt; IO ()) -&gt; Maybe (Utf8 -&gt; IO ())
+forall a. a -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Just</span></span><span> </span><span class="annot"><span class="annottext">Utf8 -&gt; IO ()
+</span><a href="#local-6989586621681488019"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>  </span><span id="local-6989586621681488016"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681488016"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO a
+</span><a href="#local-6989586621681488018"><span class="hs-identifier hs-var">dbaction</span></a></span><span>
+</span><span id="line-94"></span><span>  </span><span class="annot"><span class="annottext">Database -&gt; Maybe (Utf8 -&gt; IO ()) -&gt; IO ()
+</span><span class="hs-identifier hs-var">setTrace</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681488020"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (Utf8 -&gt; IO ())
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681488016"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#beginSavepoint"><span class="hs-identifier hs-type">beginSavepoint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#SavepointName"><span class="hs-identifier hs-type">SavepointName</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span id="beginSavepoint"><span class="annot"><span class="annottext">beginSavepoint :: SavepointName -&gt; BlockHandler SQLiteEnv ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#beginSavepoint"><span class="hs-identifier hs-var hs-var">beginSavepoint</span></a></span></span><span> </span><span id="local-6989586621681488015"><span class="annot"><span class="annottext">name :: SavepointName
+</span><a href="#local-6989586621681488015"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; (Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ()
+forall (m :: * -&gt; *) b.
+(MonadCatch m, MonadReader (BlockDbEnv SQLiteEnv) m, MonadIO m) =&gt;
+Text -&gt; (Database -&gt; IO b) -&gt; m b
+</span><a href="Chainweb.Pact.Backend.Utils.html#callDb"><span class="hs-identifier hs-var">callDb</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;beginSavepoint&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ())
+-&gt; (Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681488014"><span class="annot"><span class="annottext">db :: Database
+</span><a href="#local-6989586621681488014"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Database -&gt; Utf8 -&gt; IO ()
+</span><span class="hs-identifier hs-var">exec_</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681488014"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">(Utf8 -&gt; IO ()) -&gt; Utf8 -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;SAVEPOINT [&quot;</span></span><span> </span><span class="annot"><span class="annottext">Utf8 -&gt; Utf8 -&gt; Utf8
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Utf8
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SavepointName -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="annot"><span class="annottext">SavepointName
+</span><a href="#local-6989586621681488015"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Utf8 -&gt; Utf8 -&gt; Utf8
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;];&quot;</span></span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#commitSavepoint"><span class="hs-identifier hs-type">commitSavepoint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#SavepointName"><span class="hs-identifier hs-type">SavepointName</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span id="commitSavepoint"><span class="annot"><span class="annottext">commitSavepoint :: SavepointName -&gt; BlockHandler SQLiteEnv ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#commitSavepoint"><span class="hs-identifier hs-var hs-var">commitSavepoint</span></a></span></span><span> </span><span id="local-6989586621681488011"><span class="annot"><span class="annottext">name :: SavepointName
+</span><a href="#local-6989586621681488011"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-103"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; (Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ()
+forall (m :: * -&gt; *) b.
+(MonadCatch m, MonadReader (BlockDbEnv SQLiteEnv) m, MonadIO m) =&gt;
+Text -&gt; (Database -&gt; IO b) -&gt; m b
+</span><a href="Chainweb.Pact.Backend.Utils.html#callDb"><span class="hs-identifier hs-var">callDb</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;commitSavepoint&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ())
+-&gt; (Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681488010"><span class="annot"><span class="annottext">db :: Database
+</span><a href="#local-6989586621681488010"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Database -&gt; Utf8 -&gt; IO ()
+</span><span class="hs-identifier hs-var">exec_</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681488010"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">(Utf8 -&gt; IO ()) -&gt; Utf8 -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;RELEASE SAVEPOINT [&quot;</span></span><span> </span><span class="annot"><span class="annottext">Utf8 -&gt; Utf8 -&gt; Utf8
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Utf8
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SavepointName -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="annot"><span class="annottext">SavepointName
+</span><a href="#local-6989586621681488011"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Utf8 -&gt; Utf8 -&gt; Utf8
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;];&quot;</span></span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- | @rollbackSavepoint n@ rolls back all database updates since the most recent</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- savepoint with the name @n@ and restarts the transaction.</span><span>
+</span><span id="line-107"></span><span class="hs-comment">--</span><span>
+</span><span id="line-108"></span><span class="hs-comment">-- /NOTE/ that the savepoint is not removed from the savepoint stack. In order to</span><span>
+</span><span id="line-109"></span><span class="hs-comment">-- also remove the savepoint @rollbackSavepoint n &gt;&gt; commitSavepoint n@ can be</span><span>
+</span><span id="line-110"></span><span class="hs-comment">-- used to release the (empty) transaction.</span><span>
+</span><span id="line-111"></span><span class="hs-comment">--</span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- Cf. &lt;https://www.sqlite.org/lang_savepoint.html&gt; for details about</span><span>
+</span><span id="line-113"></span><span class="hs-comment">-- savepoints.</span><span>
+</span><span id="line-114"></span><span class="hs-comment">--</span><span>
+</span><span id="line-115"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#rollbackSavepoint"><span class="hs-identifier hs-type">rollbackSavepoint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#SavepointName"><span class="hs-identifier hs-type">SavepointName</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#BlockHandler"><span class="hs-identifier hs-type">BlockHandler</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span id="rollbackSavepoint"><span class="annot"><span class="annottext">rollbackSavepoint :: SavepointName -&gt; BlockHandler SQLiteEnv ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#rollbackSavepoint"><span class="hs-identifier hs-var hs-var">rollbackSavepoint</span></a></span></span><span> </span><span id="local-6989586621681488009"><span class="annot"><span class="annottext">name :: SavepointName
+</span><a href="#local-6989586621681488009"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; (Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ()
+forall (m :: * -&gt; *) b.
+(MonadCatch m, MonadReader (BlockDbEnv SQLiteEnv) m, MonadIO m) =&gt;
+Text -&gt; (Database -&gt; IO b) -&gt; m b
+</span><a href="Chainweb.Pact.Backend.Utils.html#callDb"><span class="hs-identifier hs-var">callDb</span></a></span><span> </span><span class="annot"><span class="hs-string">&quot;rollbackSavepoint&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ())
+-&gt; (Database -&gt; IO ()) -&gt; BlockHandler SQLiteEnv ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681488008"><span class="annot"><span class="annottext">db :: Database
+</span><a href="#local-6989586621681488008"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Database -&gt; Utf8 -&gt; IO ()
+</span><span class="hs-identifier hs-var">exec_</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681488008"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">(Utf8 -&gt; IO ()) -&gt; Utf8 -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;ROLLBACK TRANSACTION TO SAVEPOINT [&quot;</span></span><span> </span><span class="annot"><span class="annottext">Utf8 -&gt; Utf8 -&gt; Utf8
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Utf8
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SavepointName -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="annot"><span class="annottext">SavepointName
+</span><a href="#local-6989586621681488009"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Utf8 -&gt; Utf8 -&gt; Utf8
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;];&quot;</span></span><span>
+</span><span id="line-118"></span><span>
+</span><span id="line-119"></span><span class="hs-keyword">data</span><span> </span><span id="SavepointName"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#SavepointName"><span class="hs-identifier hs-var">SavepointName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="BatchSavepoint"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#BatchSavepoint"><span class="hs-identifier hs-var">BatchSavepoint</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Block"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#Block"><span class="hs-identifier hs-var">Block</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="DbTransaction"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#DbTransaction"><span class="hs-identifier hs-var">DbTransaction</span></a></span></span><span> </span><span class="hs-glyph">|</span><span>  </span><span id="PreBlock"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#PreBlock"><span class="hs-identifier hs-var">PreBlock</span></a></span></span><span>
+</span><span id="line-120"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681488000"><span id="local-6989586621681488002"><span class="annot"><span class="annottext">SavepointName -&gt; SavepointName -&gt; Bool
+(SavepointName -&gt; SavepointName -&gt; Bool)
+-&gt; (SavepointName -&gt; SavepointName -&gt; Bool) -&gt; Eq SavepointName
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: SavepointName -&gt; SavepointName -&gt; Bool
+$c/= :: SavepointName -&gt; SavepointName -&gt; Bool
+== :: SavepointName -&gt; SavepointName -&gt; Bool
+$c== :: SavepointName -&gt; SavepointName -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681487984"><span id="local-6989586621681487986"><span id="local-6989586621681487988"><span id="local-6989586621681487990"><span id="local-6989586621681487992"><span id="local-6989586621681487994"><span id="local-6989586621681487996"><span class="annot"><span class="annottext">Eq SavepointName
+Eq SavepointName =&gt;
+(SavepointName -&gt; SavepointName -&gt; Ordering)
+-&gt; (SavepointName -&gt; SavepointName -&gt; Bool)
+-&gt; (SavepointName -&gt; SavepointName -&gt; Bool)
+-&gt; (SavepointName -&gt; SavepointName -&gt; Bool)
+-&gt; (SavepointName -&gt; SavepointName -&gt; Bool)
+-&gt; (SavepointName -&gt; SavepointName -&gt; SavepointName)
+-&gt; (SavepointName -&gt; SavepointName -&gt; SavepointName)
+-&gt; Ord SavepointName
+SavepointName -&gt; SavepointName -&gt; Bool
+SavepointName -&gt; SavepointName -&gt; Ordering
+SavepointName -&gt; SavepointName -&gt; SavepointName
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+min :: SavepointName -&gt; SavepointName -&gt; SavepointName
+$cmin :: SavepointName -&gt; SavepointName -&gt; SavepointName
+max :: SavepointName -&gt; SavepointName -&gt; SavepointName
+$cmax :: SavepointName -&gt; SavepointName -&gt; SavepointName
+&gt;= :: SavepointName -&gt; SavepointName -&gt; Bool
+$c&gt;= :: SavepointName -&gt; SavepointName -&gt; Bool
+&gt; :: SavepointName -&gt; SavepointName -&gt; Bool
+$c&gt; :: SavepointName -&gt; SavepointName -&gt; Bool
+&lt;= :: SavepointName -&gt; SavepointName -&gt; Bool
+$c&lt;= :: SavepointName -&gt; SavepointName -&gt; Bool
+&lt; :: SavepointName -&gt; SavepointName -&gt; Bool
+$c&lt; :: SavepointName -&gt; SavepointName -&gt; Bool
+compare :: SavepointName -&gt; SavepointName -&gt; Ordering
+$ccompare :: SavepointName -&gt; SavepointName -&gt; Ordering
+$cp1Ord :: Eq SavepointName
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681487967"><span id="local-6989586621681487969"><span id="local-6989586621681487971"><span id="local-6989586621681487973"><span id="local-6989586621681487975"><span id="local-6989586621681487977"><span id="local-6989586621681487979"><span id="local-6989586621681487981"><span class="annot"><span class="annottext">Int -&gt; SavepointName
+SavepointName -&gt; Int
+SavepointName -&gt; [SavepointName]
+SavepointName -&gt; SavepointName
+SavepointName -&gt; SavepointName -&gt; [SavepointName]
+SavepointName -&gt; SavepointName -&gt; SavepointName -&gt; [SavepointName]
+(SavepointName -&gt; SavepointName)
+-&gt; (SavepointName -&gt; SavepointName)
+-&gt; (Int -&gt; SavepointName)
+-&gt; (SavepointName -&gt; Int)
+-&gt; (SavepointName -&gt; [SavepointName])
+-&gt; (SavepointName -&gt; SavepointName -&gt; [SavepointName])
+-&gt; (SavepointName -&gt; SavepointName -&gt; [SavepointName])
+-&gt; (SavepointName
+    -&gt; SavepointName -&gt; SavepointName -&gt; [SavepointName])
+-&gt; Enum SavepointName
+forall a.
+(a -&gt; a)
+-&gt; (a -&gt; a)
+-&gt; (Int -&gt; a)
+-&gt; (a -&gt; Int)
+-&gt; (a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; [a])
+-&gt; (a -&gt; a -&gt; a -&gt; [a])
+-&gt; Enum a
+enumFromThenTo :: SavepointName -&gt; SavepointName -&gt; SavepointName -&gt; [SavepointName]
+$cenumFromThenTo :: SavepointName -&gt; SavepointName -&gt; SavepointName -&gt; [SavepointName]
+enumFromTo :: SavepointName -&gt; SavepointName -&gt; [SavepointName]
+$cenumFromTo :: SavepointName -&gt; SavepointName -&gt; [SavepointName]
+enumFromThen :: SavepointName -&gt; SavepointName -&gt; [SavepointName]
+$cenumFromThen :: SavepointName -&gt; SavepointName -&gt; [SavepointName]
+enumFrom :: SavepointName -&gt; [SavepointName]
+$cenumFrom :: SavepointName -&gt; [SavepointName]
+fromEnum :: SavepointName -&gt; Int
+$cfromEnum :: SavepointName -&gt; Int
+toEnum :: Int -&gt; SavepointName
+$ctoEnum :: Int -&gt; SavepointName
+pred :: SavepointName -&gt; SavepointName
+$cpred :: SavepointName -&gt; SavepointName
+succ :: SavepointName -&gt; SavepointName
+$csucc :: SavepointName -&gt; SavepointName
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681487961"><span id="local-6989586621681487964"><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#SavepointName"><span class="hs-identifier hs-type">SavepointName</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-123"></span><span>  </span><span id="local-6989586621681487959"><span class="annot"><span class="annottext">show :: SavepointName -&gt; String
+</span><a href="#local-6989586621681487959"><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#BatchSavepoint"><span class="hs-identifier hs-type">BatchSavepoint</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;batch&quot;</span></span><span>
+</span><span id="line-124"></span><span>  </span><span class="annot"><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#Block"><span class="hs-identifier hs-type">Block</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;block&quot;</span></span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#DbTransaction"><span class="hs-identifier hs-type">DbTransaction</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;db-transaction&quot;</span></span><span>
+</span><span id="line-126"></span><span>  </span><span class="annot"><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#PreBlock"><span class="hs-identifier hs-type">PreBlock</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;preblock&quot;</span></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsString</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#SavepointName"><span class="hs-identifier hs-type">SavepointName</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-129"></span><span>  </span><span id="local-6989586621681487956"><span class="annot"><span class="annottext">asString :: SavepointName -&gt; Text
+</span><a href="#local-6989586621681487956"><span class="hs-identifier hs-var hs-var hs-var hs-var">asString</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+</span><span class="hs-identifier hs-var">Data.Text.pack</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Text)
+-&gt; (SavepointName -&gt; String) -&gt; SavepointName -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">SavepointName -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span id="local-6989586621681487954"><span id="local-6989586621681487955"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#withBlockEnv"><span class="hs-identifier hs-type">withBlockEnv</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681487955"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="annot"><a href="#local-6989586621681487955"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487954"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487954"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-132"></span><span id="withBlockEnv"><span class="annot"><span class="annottext">withBlockEnv :: a -&gt; (MVar a -&gt; IO b) -&gt; IO b
+</span><a href="Chainweb.Pact.Backend.Utils.html#withBlockEnv"><span class="hs-identifier hs-var hs-var">withBlockEnv</span></a></span></span><span> </span><span id="local-6989586621681487952"><span class="annot"><span class="annottext">blockenv :: a
+</span><a href="#local-6989586621681487952"><span class="hs-identifier hs-var">blockenv</span></a></span></span><span> </span><span id="local-6989586621681487951"><span class="annot"><span class="annottext">f :: MVar a -&gt; IO b
+</span><a href="#local-6989586621681487951"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; IO (MVar a)
+forall a. a -&gt; IO (MVar a)
+</span><span class="hs-identifier hs-var">newMVar</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681487952"><span class="hs-identifier hs-var">blockenv</span></a></span><span> </span><span class="annot"><span class="annottext">IO (MVar a) -&gt; (MVar a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; IO b
+</span><a href="#local-6989586621681487951"><span class="hs-identifier hs-var">f</span></a></span><span>
+</span><span id="line-133"></span><span>
+</span><span id="line-134"></span><span id="local-6989586621681487948"><span id="local-6989586621681487949"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#readBlockEnv"><span class="hs-identifier hs-type">readBlockEnv</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681487949"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681487948"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="annot"><a href="#local-6989586621681487949"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487948"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-135"></span><span id="readBlockEnv"><span class="annot"><span class="annottext">readBlockEnv :: (a -&gt; b) -&gt; MVar a -&gt; IO b
+</span><a href="Chainweb.Pact.Backend.Utils.html#readBlockEnv"><span class="hs-identifier hs-var hs-var">readBlockEnv</span></a></span></span><span> </span><span id="local-6989586621681487946"><span class="annot"><span class="annottext">f :: a -&gt; b
+</span><a href="#local-6989586621681487946"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(a -&gt; b) -&gt; IO a -&gt; IO b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-identifier hs-var">fmap</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; b
+</span><a href="#local-6989586621681487946"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">(IO a -&gt; IO b) -&gt; (MVar a -&gt; IO a) -&gt; MVar a -&gt; IO b
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">MVar a -&gt; IO a
+forall a. MVar a -&gt; IO a
+</span><span class="hs-identifier hs-var">readMVar</span></span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span id="local-6989586621681488120"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#withSQLiteConnection"><span class="hs-identifier hs-type">withSQLiteConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Pragma</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Bool</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681488120"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681488120"><span class="hs-identifier hs-type">c</span></a></span></span><span>
+</span><span id="line-138"></span><span id="withSQLiteConnection"><span class="annot"><span class="annottext">withSQLiteConnection :: String -&gt; [Pragma] -&gt; Bool -&gt; (SQLiteEnv -&gt; IO c) -&gt; IO c
+</span><a href="Chainweb.Pact.Backend.Utils.html#withSQLiteConnection"><span class="hs-identifier hs-var hs-var">withSQLiteConnection</span></a></span></span><span> </span><span id="local-6989586621681487943"><span class="annot"><span class="annottext">file :: String
+</span><a href="#local-6989586621681487943"><span class="hs-identifier hs-var">file</span></a></span></span><span> </span><span id="local-6989586621681487942"><span class="annot"><span class="annottext">ps :: [Pragma]
+</span><a href="#local-6989586621681487942"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621681487941"><span class="annot"><span class="annottext">todelete :: Bool
+</span><a href="#local-6989586621681487941"><span class="hs-identifier hs-var">todelete</span></a></span></span><span> </span><span id="local-6989586621681487940"><span class="annot"><span class="annottext">action :: SQLiteEnv -&gt; IO c
+</span><a href="#local-6989586621681487940"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-139"></span><span>  </span><span class="annot"><span class="annottext">IO SQLiteEnv -&gt; (SQLiteEnv -&gt; IO ()) -&gt; (SQLiteEnv -&gt; IO c) -&gt; IO c
+forall (m :: * -&gt; *) a c b.
+MonadMask m =&gt;
+m a -&gt; (a -&gt; m c) -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; [Pragma] -&gt; IO SQLiteEnv
+</span><a href="Chainweb.Pact.Backend.Utils.html#openSQLiteConnection"><span class="hs-identifier hs-var">openSQLiteConnection</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487943"><span class="hs-identifier hs-var">file</span></a></span><span> </span><span class="annot"><span class="annottext">[Pragma]
+</span><a href="#local-6989586621681487942"><span class="hs-identifier hs-var">ps</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SQLiteEnv -&gt; IO ()
+</span><a href="#local-6989586621681487937"><span class="hs-identifier hs-var">closer</span></a></span><span> </span><span class="annot"><span class="annottext">SQLiteEnv -&gt; IO c
+</span><a href="#local-6989586621681487940"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-140"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-141"></span><span>    </span><span id="local-6989586621681487937"><span class="annot"><span class="annottext">closer :: SQLiteEnv -&gt; IO ()
+</span><a href="#local-6989586621681487937"><span class="hs-identifier hs-var hs-var">closer</span></a></span></span><span> </span><span id="local-6989586621681487936"><span class="annot"><span class="annottext">c :: SQLiteEnv
+</span><a href="#local-6989586621681487936"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-142"></span><span>      </span><span class="annot"><span class="annottext">SQLiteEnv -&gt; IO ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#closeSQLiteConnection"><span class="hs-identifier hs-var">closeSQLiteConnection</span></a></span><span> </span><span class="annot"><span class="annottext">SQLiteEnv
+</span><a href="#local-6989586621681487936"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-143"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><span class="hs-identifier hs-var">when</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681487941"><span class="hs-identifier hs-var">todelete</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO ()
+</span><span class="hs-identifier hs-var">removeFile</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487943"><span class="hs-identifier hs-var">file</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span>
+</span><span id="line-146"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#openSQLiteConnection"><span class="hs-identifier hs-type">openSQLiteConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Pragma</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span>
+</span><span id="line-147"></span><span id="openSQLiteConnection"><span class="annot"><span class="annottext">openSQLiteConnection :: String -&gt; [Pragma] -&gt; IO SQLiteEnv
+</span><a href="Chainweb.Pact.Backend.Utils.html#openSQLiteConnection"><span class="hs-identifier hs-var hs-var">openSQLiteConnection</span></a></span></span><span> </span><span id="local-6989586621681487933"><span class="annot"><span class="annottext">file :: String
+</span><a href="#local-6989586621681487933"><span class="hs-identifier hs-var">file</span></a></span></span><span> </span><span id="local-6989586621681487932"><span class="annot"><span class="annottext">ps :: [Pragma]
+</span><a href="#local-6989586621681487932"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-148"></span><span>  </span><span class="hs-comment">-- e &lt;- open (fromString file) -- old way</span><span>
+</span><span id="line-149"></span><span>  </span><span id="local-6989586621681487931"><span class="annot"><span class="annottext">Either (Error, Utf8) Database
+</span><a href="#local-6989586621681487931"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (Either (Error, Utf8) Database)
+</span><a href="Chainweb.Pact.Backend.Utils.html#open2"><span class="hs-identifier hs-var">open2</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487933"><span class="hs-identifier hs-var">file</span></a></span><span> </span><span class="hs-comment">-- new way</span><span>
+</span><span id="line-150"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either (Error, Utf8) Database
+</span><a href="#local-6989586621681487931"><span class="hs-identifier hs-var">e</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-151"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681487929"><span class="annot"><span class="annottext">err :: Error
+</span><a href="#local-6989586621681487929"><span class="hs-identifier hs-var">err</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681487928"><span class="annot"><span class="annottext">msg :: Utf8
+</span><a href="#local-6989586621681487928"><span class="hs-identifier hs-var">msg</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-152"></span><span>      </span><span class="annot"><span class="annottext">Text -&gt; IO SQLiteEnv
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO SQLiteEnv) -&gt; Text -&gt; IO SQLiteEnv
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-153"></span><span>      </span><span class="annot"><span class="hs-string">&quot;withSQLiteConnection: Can't open db with &quot;</span></span><span>
+</span><span id="line-154"></span><span>      </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Error -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Error
+</span><a href="#local-6989586621681487929"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Utf8 -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Utf8
+</span><a href="#local-6989586621681487928"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-155"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span id="local-6989586621681487927"><span class="annot"><span class="annottext">r :: Database
+</span><a href="#local-6989586621681487927"><span class="hs-identifier hs-var">r</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-156"></span><span>      </span><span class="annot"><span class="annottext">Database -&gt; [Pragma] -&gt; IO ()
+</span><span class="hs-identifier hs-var">runPragmas</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487927"><span class="hs-identifier hs-var">r</span></a></span><span> </span><span class="annot"><span class="annottext">[Pragma]
+</span><a href="#local-6989586621681487932"><span class="hs-identifier hs-var">ps</span></a></span><span>
+</span><span id="line-157"></span><span>      </span><span class="annot"><span class="annottext">SQLiteEnv -&gt; IO SQLiteEnv
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">(SQLiteEnv -&gt; IO SQLiteEnv) -&gt; SQLiteEnv -&gt; IO SQLiteEnv
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Database -&gt; SQLiteConfig -&gt; SQLiteEnv
+</span><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-var">SQLiteEnv</span></a></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487927"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-158"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; [Pragma] -&gt; SQLiteConfig
+</span><span class="hs-identifier hs-var">SQLiteConfig</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487933"><span class="hs-identifier hs-var">file</span></a></span><span> </span><span class="annot"><span class="annottext">[Pragma]
+</span><a href="#local-6989586621681487932"><span class="hs-identifier hs-var">ps</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#closeSQLiteConnection"><span class="hs-identifier hs-type">closeSQLiteConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-161"></span><span id="closeSQLiteConnection"><span class="annot"><span class="annottext">closeSQLiteConnection :: SQLiteEnv -&gt; IO ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#closeSQLiteConnection"><span class="hs-identifier hs-var hs-var">closeSQLiteConnection</span></a></span></span><span> </span><span id="local-6989586621681487923"><span class="annot"><span class="annottext">c :: SQLiteEnv
+</span><a href="#local-6989586621681487923"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Either Error ()) -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(IO (Either Error ()) -&gt; IO ()) -&gt; IO (Either Error ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Database -&gt; IO (Either Error ())
+</span><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#close_v2"><span class="hs-identifier hs-var">close_v2</span></a></span><span> </span><span class="annot"><span class="annottext">(Database -&gt; IO (Either Error ()))
+-&gt; Database -&gt; IO (Either Error ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">SQLiteEnv -&gt; Database
+</span><a href="Chainweb.Pact.Backend.Types.html#_sConn"><span class="hs-identifier hs-var hs-var">_sConn</span></a></span><span> </span><span class="annot"><span class="annottext">SQLiteEnv
+</span><a href="#local-6989586621681487923"><span class="hs-identifier hs-var">c</span></a></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span id="local-6989586621681487919"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#withTempSQLiteConnection"><span class="hs-identifier hs-type">withTempSQLiteConnection</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Pragma</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteEnv"><span class="hs-identifier hs-type">SQLiteEnv</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487919"><span class="hs-identifier hs-type">c</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487919"><span class="hs-identifier hs-type">c</span></a></span></span><span>
+</span><span id="line-164"></span><span id="withTempSQLiteConnection"><span class="annot"><span class="annottext">withTempSQLiteConnection :: [Pragma] -&gt; (SQLiteEnv -&gt; IO c) -&gt; IO c
+</span><a href="Chainweb.Pact.Backend.Utils.html#withTempSQLiteConnection"><span class="hs-identifier hs-var hs-var">withTempSQLiteConnection</span></a></span></span><span> </span><span id="local-6989586621681487917"><span class="annot"><span class="annottext">ps :: [Pragma]
+</span><a href="#local-6989586621681487917"><span class="hs-identifier hs-var">ps</span></a></span></span><span> </span><span id="local-6989586621681487916"><span class="annot"><span class="annottext">action :: SQLiteEnv -&gt; IO c
+</span><a href="#local-6989586621681487916"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-165"></span><span>  </span><span class="annot"><span class="annottext">(String -&gt; IO c) -&gt; IO c
+forall a. (String -&gt; IO a) -&gt; IO a
+</span><span class="hs-identifier hs-var">withTempFile</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681487914"><span class="annot"><span class="annottext">file :: String
+</span><a href="#local-6989586621681487914"><span class="hs-identifier hs-var">file</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; [Pragma] -&gt; Bool -&gt; (SQLiteEnv -&gt; IO c) -&gt; IO c
+forall c. String -&gt; [Pragma] -&gt; Bool -&gt; (SQLiteEnv -&gt; IO c) -&gt; IO c
+</span><a href="Chainweb.Pact.Backend.Utils.html#withSQLiteConnection"><span class="hs-identifier hs-var">withSQLiteConnection</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487914"><span class="hs-identifier hs-var">file</span></a></span><span> </span><span class="annot"><span class="annottext">[Pragma]
+</span><a href="#local-6989586621681487917"><span class="hs-identifier hs-var">ps</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">False</span></span><span> </span><span class="annot"><span class="annottext">SQLiteEnv -&gt; IO c
+</span><a href="#local-6989586621681487916"><span class="hs-identifier hs-var">action</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-166"></span><span>
+</span><span id="line-167"></span><span id="local-6989586621681487912"><span id="local-6989586621681487913"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#domainTableName"><span class="hs-identifier hs-type">domainTableName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Domain</span></span><span> </span><span class="annot"><a href="#local-6989586621681487913"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681487912"><span class="hs-identifier hs-type">v</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span></span></span><span>
+</span><span id="line-168"></span><span id="domainTableName"><span class="annot"><span class="annottext">domainTableName :: Domain k v -&gt; Utf8
+</span><a href="Chainweb.Pact.Backend.Utils.html#domainTableName"><span class="hs-identifier hs-var hs-var">domainTableName</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8)
+-&gt; (Domain k v -&gt; ByteString) -&gt; Domain k v -&gt; Utf8
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ByteString)
+-&gt; (Domain k v -&gt; Text) -&gt; Domain k v -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Domain k v -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span>
+</span><span id="line-169"></span><span>
+</span><span id="line-170"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#convKeySetName"><span class="hs-identifier hs-type">convKeySetName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">KeySetName</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span>
+</span><span id="line-171"></span><span id="convKeySetName"><span class="annot"><span class="annottext">convKeySetName :: KeySetName -&gt; Utf8
+</span><a href="Chainweb.Pact.Backend.Utils.html#convKeySetName"><span class="hs-identifier hs-var hs-var">convKeySetName</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">KeySetName</span></span><span> </span><span id="local-6989586621681487907"><span class="annot"><span class="annottext">name :: Text
+</span><a href="#local-6989586621681487907"><span class="hs-identifier hs-var">name</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8) -&gt; ByteString -&gt; Utf8
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681487907"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-172"></span><span>
+</span><span id="line-173"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#convModuleName"><span class="hs-identifier hs-type">convModuleName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ModuleName</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span>
+</span><span id="line-174"></span><span id="convModuleName"><span class="annot"><span class="annottext">convModuleName :: ModuleName -&gt; Utf8
+</span><a href="Chainweb.Pact.Backend.Utils.html#convModuleName"><span class="hs-identifier hs-var hs-var">convModuleName</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ModuleName</span></span><span> </span><span id="local-6989586621681487904"><span class="annot"><span class="annottext">name :: Text
+</span><a href="#local-6989586621681487904"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8) -&gt; ByteString -&gt; Utf8
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681487904"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-175"></span><span>
+</span><span id="line-176"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#convNamespaceName"><span class="hs-identifier hs-type">convNamespaceName</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NamespaceName</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span>
+</span><span id="line-177"></span><span id="convNamespaceName"><span class="annot"><span class="annottext">convNamespaceName :: NamespaceName -&gt; Utf8
+</span><a href="Chainweb.Pact.Backend.Utils.html#convNamespaceName"><span class="hs-identifier hs-var hs-var">convNamespaceName</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">NamespaceName</span></span><span> </span><span id="local-6989586621681487901"><span class="annot"><span class="annottext">name :: Text
+</span><a href="#local-6989586621681487901"><span class="hs-identifier hs-var">name</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8) -&gt; ByteString -&gt; Utf8
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681487901"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-178"></span><span>
+</span><span id="line-179"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#convRowKey"><span class="hs-identifier hs-type">convRowKey</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">RowKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span>
+</span><span id="line-180"></span><span id="convRowKey"><span class="annot"><span class="annottext">convRowKey :: RowKey -&gt; Utf8
+</span><a href="Chainweb.Pact.Backend.Utils.html#convRowKey"><span class="hs-identifier hs-var hs-var">convRowKey</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">RowKey</span></span><span> </span><span id="local-6989586621681487898"><span class="annot"><span class="annottext">name :: Text
+</span><a href="#local-6989586621681487898"><span class="hs-identifier hs-var">name</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8) -&gt; ByteString -&gt; Utf8
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681487898"><span class="hs-identifier hs-var">name</span></a></span><span>
+</span><span id="line-181"></span><span>
+</span><span id="line-182"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#convPactId"><span class="hs-identifier hs-type">convPactId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PactId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span>
+</span><span id="line-183"></span><span id="convPactId"><span class="annot"><span class="annottext">convPactId :: PactId -&gt; Utf8
+</span><a href="Chainweb.Pact.Backend.Utils.html#convPactId"><span class="hs-identifier hs-var hs-var">convPactId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8) -&gt; (PactId -&gt; ByteString) -&gt; PactId -&gt; Utf8
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ByteString
+forall a b. StringConv a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">toS</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; ByteString)
+-&gt; (PactId -&gt; String) -&gt; PactId -&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">PactId -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span>
+</span><span id="line-184"></span><span>
+</span><span id="line-185"></span><span id="local-6989586621681487896"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#expectSingleRowCol"><span class="hs-identifier hs-type">expectSingleRowCol</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681487896"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621681487896"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487896"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-186"></span><span id="expectSingleRowCol"><span class="annot"><span class="annottext">expectSingleRowCol :: String -&gt; [[a]] -&gt; IO a
+</span><a href="Chainweb.Pact.Backend.Utils.html#expectSingleRowCol"><span class="hs-identifier hs-var hs-var">expectSingleRowCol</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span id="local-6989586621681487894"><span class="annot"><span class="annottext">s :: a
+</span><a href="#local-6989586621681487894"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681487894"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-187"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#expectSingleRowCol"><span class="hs-identifier hs-var">expectSingleRowCol</span></a></span><span> </span><span id="local-6989586621681487893"><span class="annot"><span class="annottext">s :: String
+</span><a href="#local-6989586621681487893"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span id="local-6989586621681487892"><span class="annot"><span class="annottext">v :: [[a]]
+</span><a href="#local-6989586621681487892"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-188"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; IO a
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO a) -&gt; Text -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-189"></span><span>  </span><span class="annot"><span class="hs-string">&quot;expectSingleRowCol: &quot;</span></span><span>
+</span><span id="line-190"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487893"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span>
+</span><span id="line-191"></span><span>  </span><span class="annot"><span class="hs-string">&quot; expected single row and column result, got: &quot;</span></span><span>
+</span><span id="line-192"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[[a]] -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">[[a]]
+</span><a href="#local-6989586621681487892"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-193"></span><span>
+</span><span id="line-194"></span><span id="local-6989586621681487891"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#expectSingle"><span class="hs-identifier hs-type">expectSingle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Show</span></span><span> </span><span class="annot"><a href="#local-6989586621681487891"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621681487891"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="annot"><a href="#local-6989586621681487891"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-195"></span><span id="expectSingle"><span class="annot"><span class="annottext">expectSingle :: String -&gt; [a] -&gt; IO a
+</span><a href="Chainweb.Pact.Backend.Utils.html#expectSingle"><span class="hs-identifier hs-var hs-var">expectSingle</span></a></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-special">[</span><span id="local-6989586621681487889"><span class="annot"><span class="annottext">s :: a
+</span><a href="#local-6989586621681487889"><span class="hs-identifier hs-var">s</span></a></span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; IO a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681487889"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-196"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#expectSingle"><span class="hs-identifier hs-var">expectSingle</span></a></span><span> </span><span id="local-6989586621681487888"><span class="annot"><span class="annottext">desc :: String
+</span><a href="#local-6989586621681487888"><span class="hs-identifier hs-var">desc</span></a></span></span><span> </span><span id="local-6989586621681487887"><span class="annot"><span class="annottext">v :: [a]
+</span><a href="#local-6989586621681487887"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-197"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; IO a
+forall (m :: * -&gt; *) a. MonadThrow m =&gt; Text -&gt; m a
+</span><a href="Chainweb.Pact.Service.Types.html#internalError"><span class="hs-identifier hs-var">internalError</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO a) -&gt; Text -&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span>
+</span><span id="line-198"></span><span>  </span><span class="annot"><span class="hs-string">&quot;Expected single-&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487888"><span class="hs-identifier hs-var">desc</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot; result, got: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span>
+</span><span id="line-199"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. AsString a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">asString</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[a] -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">[a]
+</span><a href="#local-6989586621681487887"><span class="hs-identifier hs-var">v</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-200"></span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StringConv</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-203"></span><span>  </span><span id="local-6989586621681487884"><span class="annot"><span class="annottext">strConv :: Leniency -&gt; Text -&gt; Utf8
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">strConv</span></span></span><span> </span><span id="local-6989586621681487882"><span class="annot"><span class="annottext">l :: Leniency
+</span><a href="#local-6989586621681487882"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8) -&gt; (Text -&gt; ByteString) -&gt; Text -&gt; Utf8
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Leniency -&gt; Text -&gt; ByteString
+forall a b. StringConv a b =&gt; Leniency -&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">strConv</span></span><span> </span><span class="annot"><span class="annottext">Leniency
+</span><a href="#local-6989586621681487882"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-204"></span><span>
+</span><span id="line-205"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StringConv</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-206"></span><span>  </span><span id="local-6989586621681487880"><span class="annot"><span class="annottext">strConv :: Leniency -&gt; Utf8 -&gt; Text
+</span><a href="#local-6989586621681487880"><span class="hs-identifier hs-var hs-var hs-var hs-var">strConv</span></a></span></span><span> </span><span id="local-6989586621681487879"><span class="annot"><span class="annottext">l :: Leniency
+</span><a href="#local-6989586621681487879"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span id="local-6989586621681487878"><span class="annot"><span class="annottext">bytestring :: ByteString
+</span><a href="#local-6989586621681487878"><span class="hs-identifier hs-var">bytestring</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Leniency -&gt; ByteString -&gt; Text
+forall a b. StringConv a b =&gt; Leniency -&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">strConv</span></span><span> </span><span class="annot"><span class="annottext">Leniency
+</span><a href="#local-6989586621681487879"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681487878"><span class="hs-identifier hs-var">bytestring</span></a></span><span>
+</span><span id="line-207"></span><span>
+</span><span id="line-208"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StringConv</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-209"></span><span>  </span><span id="local-6989586621681487876"><span class="annot"><span class="annottext">strConv :: Leniency -&gt; ByteString -&gt; Utf8
+</span><a href="#local-6989586621681487876"><span class="hs-identifier hs-var hs-var hs-var hs-var">strConv</span></a></span></span><span> </span><span id="local-6989586621681487875"><span class="annot"><span class="annottext">l :: Leniency
+</span><a href="#local-6989586621681487875"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8)
+-&gt; (ByteString -&gt; ByteString) -&gt; ByteString -&gt; Utf8
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Leniency -&gt; ByteString -&gt; ByteString
+forall a b. StringConv a b =&gt; Leniency -&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">strConv</span></span><span> </span><span class="annot"><span class="annottext">Leniency
+</span><a href="#local-6989586621681487875"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-210"></span><span>
+</span><span id="line-211"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StringConv</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ByteString</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-212"></span><span>  </span><span id="local-6989586621681487873"><span class="annot"><span class="annottext">strConv :: Leniency -&gt; Utf8 -&gt; ByteString
+</span><a href="#local-6989586621681487873"><span class="hs-identifier hs-var hs-var hs-var hs-var">strConv</span></a></span></span><span> </span><span id="local-6989586621681487872"><span class="annot"><span class="annottext">l :: Leniency
+</span><a href="#local-6989586621681487872"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span id="local-6989586621681487871"><span class="annot"><span class="annottext">bytestring :: ByteString
+</span><a href="#local-6989586621681487871"><span class="hs-identifier hs-var">bytestring</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Leniency -&gt; ByteString -&gt; ByteString
+forall a b. StringConv a b =&gt; Leniency -&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">strConv</span></span><span> </span><span class="annot"><span class="annottext">Leniency
+</span><a href="#local-6989586621681487872"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681487871"><span class="hs-identifier hs-var">bytestring</span></a></span><span>
+</span><span id="line-213"></span><span>
+</span><span id="line-214"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StringConv</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-215"></span><span>  </span><span id="local-6989586621681487869"><span class="annot"><span class="annottext">strConv :: Leniency -&gt; String -&gt; Utf8
+</span><a href="#local-6989586621681487869"><span class="hs-identifier hs-var hs-var hs-var hs-var">strConv</span></a></span></span><span> </span><span id="local-6989586621681487868"><span class="annot"><span class="annottext">l :: Leniency
+</span><a href="#local-6989586621681487868"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Utf8
+</span><span class="hs-identifier hs-var">Utf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Utf8) -&gt; (String -&gt; ByteString) -&gt; String -&gt; Utf8
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Leniency -&gt; String -&gt; ByteString
+forall a b. StringConv a b =&gt; Leniency -&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">strConv</span></span><span> </span><span class="annot"><span class="annottext">Leniency
+</span><a href="#local-6989586621681487868"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-216"></span><span>
+</span><span id="line-217"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StringConv</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-218"></span><span>  </span><span id="local-6989586621681487866"><span class="annot"><span class="annottext">strConv :: Leniency -&gt; Utf8 -&gt; String
+</span><a href="#local-6989586621681487866"><span class="hs-identifier hs-var hs-var hs-var hs-var">strConv</span></a></span></span><span> </span><span id="local-6989586621681487865"><span class="annot"><span class="annottext">l :: Leniency
+</span><a href="#local-6989586621681487865"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span id="local-6989586621681487864"><span class="annot"><span class="annottext">bytestring :: ByteString
+</span><a href="#local-6989586621681487864"><span class="hs-identifier hs-var">bytestring</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Leniency -&gt; ByteString -&gt; String
+forall a b. StringConv a b =&gt; Leniency -&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">strConv</span></span><span> </span><span class="annot"><span class="annottext">Leniency
+</span><a href="#local-6989586621681487865"><span class="hs-identifier hs-var">l</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621681487864"><span class="hs-identifier hs-var">bytestring</span></a></span><span>
+</span><span id="line-219"></span><span>
+</span><span id="line-220"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#chainwebPragmas"><span class="hs-identifier hs-type">chainwebPragmas</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Pragma</span></span><span class="hs-special">]</span><span>
+</span><span id="line-221"></span><span id="chainwebPragmas"><span class="annot"><span class="annottext">chainwebPragmas :: [Pragma]
+</span><a href="Chainweb.Pact.Backend.Utils.html#chainwebPragmas"><span class="hs-identifier hs-var hs-var">chainwebPragmas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-222"></span><span>  </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;synchronous = NORMAL&quot;</span></span><span>
+</span><span id="line-223"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;journal_mode = WAL&quot;</span></span><span>
+</span><span id="line-224"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;locking_mode = EXCLUSIVE&quot;</span></span><span>
+</span><span id="line-225"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;temp_store = MEMORY&quot;</span></span><span>
+</span><span id="line-226"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;auto_vacuum = NONE&quot;</span></span><span>
+</span><span id="line-227"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;page_size = 1024&quot;</span></span><span>
+</span><span id="line-228"></span><span>  </span><span class="hs-special">]</span><span>
+</span><span id="line-229"></span><span>
+</span><span id="line-230"></span><span>
+</span><span id="line-231"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#open2"><span class="hs-identifier hs-type">open2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Database</span></span><span class="hs-special">)</span><span>
+</span><span id="line-232"></span><span id="open2"><span class="annot"><span class="annottext">open2 :: String -&gt; IO (Either (Error, Utf8) Database)
+</span><a href="Chainweb.Pact.Backend.Utils.html#open2"><span class="hs-identifier hs-var hs-var">open2</span></a></span></span><span> </span><span id="local-6989586621681487862"><span class="annot"><span class="annottext">file :: String
+</span><a href="#local-6989586621681487862"><span class="hs-identifier hs-var">file</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Utf8
+-&gt; SQLiteFlag -&gt; Maybe Utf8 -&gt; IO (Either (Error, Utf8) Database)
+</span><a href="Chainweb.Pact.Backend.SQLite.DirectV2.html#open_v2"><span class="hs-identifier hs-var">open_v2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Utf8
+forall a. IsString a =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">fromString</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621681487862"><span class="hs-identifier hs-var">file</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[SQLiteFlag] -&gt; SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#collapseFlags"><span class="hs-identifier hs-var">collapseFlags</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_readwrite"><span class="hs-identifier hs-var">sqlite_open_readwrite</span></a></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_create"><span class="hs-identifier hs-var">sqlite_open_create</span></a></span><span> </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_fullmutex"><span class="hs-identifier hs-var">sqlite_open_fullmutex</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Utf8
+forall a. Maybe a
+</span><span class="hs-identifier hs-var">Nothing</span></span><span>
+</span><span id="line-233"></span><span class="hs-comment">-- Nothing corresponds to the nullPtr</span><span>
+</span><span id="line-234"></span><span>
+</span><span id="line-235"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#collapseFlags"><span class="hs-identifier hs-type">collapseFlags</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteFlag"><span class="hs-identifier hs-type">SQLiteFlag</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteFlag"><span class="hs-identifier hs-type">SQLiteFlag</span></a></span><span>
+</span><span id="line-236"></span><span id="collapseFlags"><span class="annot"><span class="annottext">collapseFlags :: [SQLiteFlag] -&gt; SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#collapseFlags"><span class="hs-identifier hs-var hs-var">collapseFlags</span></a></span></span><span> </span><span id="local-6989586621681487856"><span class="annot"><span class="annottext">xs :: [SQLiteFlag]
+</span><a href="#local-6989586621681487856"><span class="hs-identifier hs-var">xs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-237"></span><span>    </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">[SQLiteFlag] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><span class="hs-identifier hs-var">Prelude.null</span></span><span> </span><span class="annot"><span class="annottext">[SQLiteFlag]
+</span><a href="#local-6989586621681487856"><span class="hs-identifier hs-var">xs</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">String -&gt; SQLiteFlag
+forall a. HasCallStack =&gt; String -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="hs-string">&quot;collapseFlags: You must pass a non-empty list&quot;</span></span><span>
+</span><span id="line-238"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">(SQLiteFlag -&gt; SQLiteFlag -&gt; SQLiteFlag)
+-&gt; [SQLiteFlag] -&gt; SQLiteFlag
+forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; a -&gt; a) -&gt; t a -&gt; a
+</span><span class="hs-identifier hs-var">Prelude.foldr1</span></span><span> </span><span class="annot"><span class="annottext">SQLiteFlag -&gt; SQLiteFlag -&gt; SQLiteFlag
+forall a. Bits a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">(.|.)</span></span><span> </span><span class="annot"><span class="annottext">[SQLiteFlag]
+</span><a href="#local-6989586621681487856"><span class="hs-identifier hs-var">xs</span></a></span><span>
+</span><span id="line-239"></span><span>
+</span><span id="line-240"></span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_readwrite"><span class="hs-identifier hs-type">sqlite_open_readwrite</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_create"><span class="hs-identifier hs-type">sqlite_open_create</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_fullmutex"><span class="hs-identifier hs-type">sqlite_open_fullmutex</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Pact.Backend.Types.html#SQLiteFlag"><span class="hs-identifier hs-type">SQLiteFlag</span></a></span><span>
+</span><span id="line-241"></span><span id="sqlite_open_readwrite"><span class="annot"><span class="annottext">sqlite_open_readwrite :: SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_readwrite"><span class="hs-identifier hs-var hs-var">sqlite_open_readwrite</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0x00000002</span></span><span>
+</span><span id="line-242"></span><span id="sqlite_open_create"><span class="annot"><span class="annottext">sqlite_open_create :: SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_create"><span class="hs-identifier hs-var hs-var">sqlite_open_create</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0x00000004</span></span><span>
+</span><span id="line-243"></span><span id="sqlite_open_fullmutex"><span class="annot"><span class="annottext">sqlite_open_fullmutex :: SQLiteFlag
+</span><a href="Chainweb.Pact.Backend.Utils.html#sqlite_open_fullmutex"><span class="hs-identifier hs-var hs-var">sqlite_open_fullmutex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-number">0x00010000</span></span><span>
+</span><span id="line-244"></span><span>
+</span><span id="line-245"></span><span>
+</span><span id="line-246"></span><span id="local-6989586621681487851"><span class="annot"><a href="Chainweb.Pact.Backend.Utils.html#execMulti"><span class="hs-identifier hs-type">execMulti</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Traversable</span></span><span> </span><span class="annot"><a href="#local-6989586621681487851"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Database</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Utf8</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681487851"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SType</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-247"></span><span id="execMulti"><span class="annot"><span class="annottext">execMulti :: Database -&gt; Utf8 -&gt; t [SType] -&gt; IO ()
+</span><a href="Chainweb.Pact.Backend.Utils.html#execMulti"><span class="hs-identifier hs-var hs-var">execMulti</span></a></span></span><span> </span><span id="local-6989586621681487849"><span class="annot"><span class="annottext">db :: Database
+</span><a href="#local-6989586621681487849"><span class="hs-identifier hs-var">db</span></a></span></span><span> </span><span id="local-6989586621681487848"><span class="annot"><span class="annottext">q :: Utf8
+</span><a href="#local-6989586621681487848"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span id="local-6989586621681487847"><span class="annot"><span class="annottext">rows :: t [SType]
+</span><a href="#local-6989586621681487847"><span class="hs-identifier hs-var">rows</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-248"></span><span>    </span><span id="local-6989586621681487846"><span class="annot"><span class="annottext">Statement
+</span><a href="#local-6989586621681487846"><span class="hs-identifier hs-var">stmt</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Database -&gt; Utf8 -&gt; IO Statement
+</span><span class="hs-identifier hs-var">prepStmt</span></span><span> </span><span class="annot"><span class="annottext">Database
+</span><a href="#local-6989586621681487849"><span class="hs-identifier hs-var">db</span></a></span><span> </span><span class="annot"><span class="annottext">Utf8
+</span><a href="#local-6989586621681487848"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-249"></span><span>    </span><span class="annot"><span class="annottext">t [SType] -&gt; ([SType] -&gt; IO ()) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><span class="hs-identifier hs-var">forM_</span></span><span> </span><span class="annot"><span class="annottext">t [SType]
+</span><a href="#local-6989586621681487847"><span class="hs-identifier hs-var">rows</span></a></span><span> </span><span class="annot"><span class="annottext">(([SType] -&gt; IO ()) -&gt; IO ()) -&gt; ([SType] -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681487843"><span class="annot"><span class="annottext">row :: [SType]
+</span><a href="#local-6989586621681487843"><span class="hs-identifier hs-var">row</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-250"></span><span>        </span><span class="annot"><span class="annottext">Statement -&gt; IO (Either Error ())
+</span><span class="hs-identifier hs-var">reset</span></span><span> </span><span class="annot"><span class="annottext">Statement
+</span><a href="#local-6989586621681487846"><span class="hs-identifier hs-var">stmt</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either Error ()) -&gt; (Either Error () -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Either Error () -&gt; IO ()
+forall (f :: * -&gt; *) a b.
+(MonadFail f, Show a) =&gt;
+Either a b -&gt; f ()
+</span><a href="#local-6989586621681487841"><span class="hs-identifier hs-var">checkError</span></a></span><span>
+</span><span id="line-251"></span><span>        </span><span class="annot"><span class="annottext">Statement -&gt; IO ()
+</span><span class="hs-identifier hs-var">clearBindings</span></span><span> </span><span class="annot"><span class="annottext">Statement
+</span><a href="#local-6989586621681487846"><span class="hs-identifier hs-var">stmt</span></a></span><span>
+</span><span id="line-252"></span><span>        </span><span class="annot"><span class="annottext">Statement -&gt; [SType] -&gt; IO ()
+</span><span class="hs-identifier hs-var">bindParams</span></span><span> </span><span class="annot"><span class="annottext">Statement
+</span><a href="#local-6989586621681487846"><span class="hs-identifier hs-var">stmt</span></a></span><span> </span><span class="annot"><span class="annottext">[SType]
+</span><a href="#local-6989586621681487843"><span class="hs-identifier hs-var">row</span></a></span><span>
+</span><span id="line-253"></span><span>        </span><span class="annot"><span class="annottext">Statement -&gt; IO (Either Error StepResult)
+</span><span class="hs-identifier hs-var">step</span></span><span> </span><span class="annot"><span class="annottext">Statement
+</span><a href="#local-6989586621681487846"><span class="hs-identifier hs-var">stmt</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either Error StepResult)
+-&gt; (Either Error StepResult -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Either Error StepResult -&gt; IO ()
+forall (f :: * -&gt; *) a b.
+(MonadFail f, Show a) =&gt;
+Either a b -&gt; f ()
+</span><a href="#local-6989586621681487841"><span class="hs-identifier hs-var">checkError</span></a></span><span>
+</span><span id="line-254"></span><span>    </span><span class="annot"><span class="annottext">Statement -&gt; IO (Either Error ())
+</span><span class="hs-identifier hs-var">finalize</span></span><span> </span><span class="annot"><span class="annottext">Statement
+</span><a href="#local-6989586621681487846"><span class="hs-identifier hs-var">stmt</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either Error ()) -&gt; (Either Error () -&gt; IO ()) -&gt; IO ()
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><span class="hs-operator hs-var">&gt;&gt;=</span></span><span> </span><span class="annot"><span class="annottext">Either Error () -&gt; IO ()
+forall (f :: * -&gt; *) a b.
+(MonadFail f, Show a) =&gt;
+Either a b -&gt; f ()
+</span><a href="#local-6989586621681487841"><span class="hs-identifier hs-var">checkError</span></a></span><span>
+</span><span id="line-255"></span><span>  </span><span class="hs-keyword">where</span><span>
+</span><span id="line-256"></span><span>    </span><span id="local-6989586621681487841"><span class="annot"><span class="annottext">checkError :: Either a b -&gt; f ()
+</span><a href="#local-6989586621681487841"><span class="hs-identifier hs-var hs-var">checkError</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Left</span></span><span> </span><span id="local-6989586621681487836"><span class="annot"><span class="annottext">e :: a
+</span><a href="#local-6989586621681487836"><span class="hs-identifier hs-var">e</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">f Any -&gt; f ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><span class="hs-identifier hs-var">void</span></span><span> </span><span class="annot"><span class="annottext">(f Any -&gt; f ()) -&gt; f Any -&gt; f ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; f Any
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><span class="hs-identifier hs-var">fail</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; f Any) -&gt; String -&gt; f Any
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="hs-string">&quot;error during batch insert: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+forall a. [a] -&gt; [a] -&gt; [a]
+</span><span class="hs-operator hs-var">++</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; String
+forall a. Show a =&gt; a -&gt; String
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681487836"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-257"></span><span>    </span><span class="annot"><a href="#local-6989586621681487841"><span class="hs-identifier hs-var">checkError</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Right</span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; f ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-258"></span></pre></body></html>

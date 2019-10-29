@@ -1,0 +1,209 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- Module      :  Chainweb.Pact.Service.BlockValidation</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- Copyright   :  Copyright &#169; 2018 Kadena LLC.</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- License     :  (see the file LICENSE)</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Maintainer  :  Emily Pillmore &lt;emily@kadena.io&gt;</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Stability   :  experimental</span><span>
+</span><span id="line-9"></span><span class="hs-comment">--</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- The block validation logic for Pact Service</span><span>
+</span><span id="line-11"></span><span class="hs-comment">--</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- This exists due to moving things around resolving</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- chainweb dependencies. This should find a new home.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">--</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Pact.Service.BlockValidation</span><span>
+</span><span id="line-16"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#validateBlock"><span class="hs-identifier">validateBlock</span></a></span><span>
+</span><span id="line-17"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#newBlock"><span class="hs-identifier">newBlock</span></a></span><span>
+</span><span id="line-18"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#local"><span class="hs-identifier">local</span></a></span><span>
+</span><span id="line-19"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#lookupPactTxs"><span class="hs-identifier">lookupPactTxs</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.MVar.Strict</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Tuple.Strict</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Vector</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Pact.Types.Hash</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">P</span></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html"><span class="hs-identifier">Chainweb.Miner.Pact</span></a></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.PactQueue.html"><span class="hs-identifier">Chainweb.Pact.Service.PactQueue</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html"><span class="hs-identifier">Chainweb.Pact.Service.Types</span></a></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Pact.Types.html"><span class="hs-identifier">Chainweb.Pact.Types</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html"><span class="hs-identifier">Chainweb.Transaction</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#newBlock"><span class="hs-identifier hs-type">newBlock</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Miner.Pact.html#Miner"><span class="hs-identifier hs-type">Miner</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockCreationTime"><span class="hs-identifier hs-type">BlockCreationTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.PactQueue.html#PactQueue"><span class="hs-identifier hs-type">PactQueue</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-39"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html#PactException"><span class="hs-identifier hs-type">PactException</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span id="newBlock"><span class="annot"><span class="annottext">newBlock :: Miner
+-&gt; BlockHeader
+-&gt; BlockCreationTime
+-&gt; PactQueue
+-&gt; IO (MVar (Either PactException PayloadWithOutputs))
+</span><a href="Chainweb.Pact.Service.BlockValidation.html#newBlock"><span class="hs-identifier hs-var hs-var">newBlock</span></a></span></span><span> </span><span id="local-6989586621681487600"><span class="annot"><span class="annottext">mi :: Miner
+</span><a href="#local-6989586621681487600"><span class="hs-identifier hs-var">mi</span></a></span></span><span> </span><span id="local-6989586621681487599"><span class="annot"><span class="annottext">bHeader :: BlockHeader
+</span><a href="#local-6989586621681487599"><span class="hs-identifier hs-var">bHeader</span></a></span></span><span> </span><span id="local-6989586621681487598"><span class="annot"><span class="annottext">creationTime :: BlockCreationTime
+</span><a href="#local-6989586621681487598"><span class="hs-identifier hs-var">creationTime</span></a></span></span><span> </span><span id="local-6989586621681487597"><span class="annot"><span class="annottext">reqQ :: PactQueue
+</span><a href="#local-6989586621681487597"><span class="hs-identifier hs-var">reqQ</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681487596"><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+</span><a href="#local-6989586621681487596"><span class="hs-identifier hs-var">resultVar</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar (Either PactException PayloadWithOutputs))
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html#PactException"><span class="hs-identifier hs-type">PactException</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681487594"><span class="annot"><span class="annottext">msg :: RequestMsg
+</span><a href="#local-6989586621681487594"><span class="hs-identifier hs-var hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NewBlockReq -&gt; RequestMsg
+</span><a href="Chainweb.Pact.Service.Types.html#NewBlockMsg"><span class="hs-identifier hs-var">NewBlockMsg</span></a></span><span> </span><span class="annot"><span class="annottext">$WNewBlockReq :: BlockHeader
+-&gt; Miner
+-&gt; BlockCreationTime
+-&gt; MVar (Either PactException PayloadWithOutputs)
+-&gt; NewBlockReq
+</span><a href="Chainweb.Pact.Service.Types.html#%24WNewBlockReq"><span class="hs-identifier hs-type hs-type">NewBlockReq</span></a></span><span>
+</span><span id="line-43"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_newBlockHeader :: BlockHeader
+</span><a href="#local-6989586621681487590"><span class="hs-identifier hs-var">_newBlockHeader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681487599"><span class="hs-identifier hs-var">bHeader</span></a></span><span>
+</span><span id="line-44"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_newMiner :: Miner
+</span><a href="#local-6989586621681487589"><span class="hs-identifier hs-var">_newMiner</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Miner
+</span><a href="#local-6989586621681487600"><span class="hs-identifier hs-var">mi</span></a></span><span>
+</span><span id="line-45"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_newCreationTime :: BlockCreationTime
+</span><a href="#local-6989586621681487588"><span class="hs-identifier hs-var">_newCreationTime</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockCreationTime
+</span><a href="#local-6989586621681487598"><span class="hs-identifier hs-var">creationTime</span></a></span><span>
+</span><span id="line-46"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_newResultVar :: MVar (Either PactException PayloadWithOutputs)
+</span><a href="#local-6989586621681487587"><span class="hs-identifier hs-var">_newResultVar</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+</span><a href="#local-6989586621681487596"><span class="hs-identifier hs-var">resultVar</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-47"></span><span>    </span><span class="annot"><span class="annottext">PactQueue -&gt; RequestMsg -&gt; IO ()
+</span><a href="Chainweb.Pact.Service.PactQueue.html#addRequest"><span class="hs-identifier hs-var">addRequest</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681487597"><span class="hs-identifier hs-var">reqQ</span></a></span><span> </span><span class="annot"><span class="annottext">RequestMsg
+</span><a href="#local-6989586621681487594"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+-&gt; IO (MVar (Either PactException PayloadWithOutputs))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+</span><a href="#local-6989586621681487596"><span class="hs-identifier hs-var">resultVar</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#validateBlock"><span class="hs-identifier hs-type">validateBlock</span></a></span><span>
+</span><span id="line-51"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadData"><span class="hs-identifier hs-type">PayloadData</span></a></span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.PactQueue.html#PactQueue"><span class="hs-identifier hs-type">PactQueue</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html#PactException"><span class="hs-identifier hs-type">PactException</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span id="validateBlock"><span class="annot"><span class="annottext">validateBlock :: BlockHeader
+-&gt; PayloadData
+-&gt; PactQueue
+-&gt; IO (MVar (Either PactException PayloadWithOutputs))
+</span><a href="Chainweb.Pact.Service.BlockValidation.html#validateBlock"><span class="hs-identifier hs-var hs-var">validateBlock</span></a></span></span><span> </span><span id="local-6989586621681487585"><span class="annot"><span class="annottext">bHeader :: BlockHeader
+</span><a href="#local-6989586621681487585"><span class="hs-identifier hs-var">bHeader</span></a></span></span><span> </span><span id="local-6989586621681487584"><span class="annot"><span class="annottext">plData :: PayloadData
+</span><a href="#local-6989586621681487584"><span class="hs-identifier hs-var">plData</span></a></span></span><span> </span><span id="local-6989586621681487583"><span class="annot"><span class="annottext">reqQ :: PactQueue
+</span><a href="#local-6989586621681487583"><span class="hs-identifier hs-var">reqQ</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-56"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681487582"><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+</span><a href="#local-6989586621681487582"><span class="hs-identifier hs-var">resultVar</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar (Either PactException PayloadWithOutputs))
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html#PactException"><span class="hs-identifier hs-type">PactException</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadWithOutputs"><span class="hs-identifier hs-type">PayloadWithOutputs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681487581"><span class="annot"><span class="annottext">msg :: RequestMsg
+</span><a href="#local-6989586621681487581"><span class="hs-identifier hs-var hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ValidateBlockReq -&gt; RequestMsg
+</span><a href="Chainweb.Pact.Service.Types.html#ValidateBlockMsg"><span class="hs-identifier hs-var">ValidateBlockMsg</span></a></span><span> </span><span class="annot"><span class="annottext">ValidateBlockReq :: BlockHeader
+-&gt; PayloadData
+-&gt; MVar (Either PactException PayloadWithOutputs)
+-&gt; ValidateBlockReq
+</span><a href="Chainweb.Pact.Service.Types.html#ValidateBlockReq"><span class="hs-identifier hs-type hs-type">ValidateBlockReq</span></a></span><span>
+</span><span id="line-58"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_valBlockHeader :: BlockHeader
+</span><a href="Chainweb.Pact.Service.Types.html#_valBlockHeader"><span class="hs-identifier hs-var">_valBlockHeader</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockHeader
+</span><a href="#local-6989586621681487585"><span class="hs-identifier hs-var">bHeader</span></a></span><span>
+</span><span id="line-59"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_valResultVar :: MVar (Either PactException PayloadWithOutputs)
+</span><a href="Chainweb.Pact.Service.Types.html#_valResultVar"><span class="hs-identifier hs-var">_valResultVar</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+</span><a href="#local-6989586621681487582"><span class="hs-identifier hs-var">resultVar</span></a></span><span>
+</span><span id="line-60"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_valPayloadData :: PayloadData
+</span><a href="Chainweb.Pact.Service.Types.html#_valPayloadData"><span class="hs-identifier hs-var">_valPayloadData</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PayloadData
+</span><a href="#local-6989586621681487584"><span class="hs-identifier hs-var">plData</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-61"></span><span>    </span><span class="annot"><span class="annottext">PactQueue -&gt; RequestMsg -&gt; IO ()
+</span><a href="Chainweb.Pact.Service.PactQueue.html#addRequest"><span class="hs-identifier hs-var">addRequest</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681487583"><span class="hs-identifier hs-var">reqQ</span></a></span><span> </span><span class="annot"><span class="annottext">RequestMsg
+</span><a href="#local-6989586621681487581"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+-&gt; IO (MVar (Either PactException PayloadWithOutputs))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either PactException PayloadWithOutputs)
+</span><a href="#local-6989586621681487582"><span class="hs-identifier hs-var">resultVar</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#local"><span class="hs-identifier hs-type">local</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Transaction.html#ChainwebTransaction"><span class="hs-identifier hs-type">ChainwebTransaction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.PactQueue.html#PactQueue"><span class="hs-identifier hs-type">PactQueue</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html#PactException"><span class="hs-identifier hs-type">PactException</span></a></span><span> </span><span class="annot"><a href="Chainweb.Pact.Types.html#HashCommandResult"><span class="hs-identifier hs-type">HashCommandResult</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span id="local"><span class="annot"><span class="annottext">local :: ChainwebTransaction
+-&gt; PactQueue -&gt; IO (MVar (Either PactException HashCommandResult))
+</span><a href="Chainweb.Pact.Service.BlockValidation.html#local"><span class="hs-identifier hs-var hs-var">local</span></a></span></span><span> </span><span id="local-6989586621681487574"><span class="annot"><span class="annottext">ct :: ChainwebTransaction
+</span><a href="#local-6989586621681487574"><span class="hs-identifier hs-var">ct</span></a></span></span><span> </span><span id="local-6989586621681487573"><span class="annot"><span class="annottext">reqQ :: PactQueue
+</span><a href="#local-6989586621681487573"><span class="hs-identifier hs-var">reqQ</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-glyph">!</span><span id="local-6989586621681487572"><span class="annot"><span class="annottext">MVar (Either PactException HashCommandResult)
+</span><a href="#local-6989586621681487572"><span class="hs-identifier hs-var">resultVar</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (MVar (Either PactException HashCommandResult))
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681487571"><span class="annot"><span class="annottext">msg :: RequestMsg
+</span><a href="#local-6989586621681487571"><span class="hs-identifier hs-var hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LocalReq -&gt; RequestMsg
+</span><a href="Chainweb.Pact.Service.Types.html#LocalMsg"><span class="hs-identifier hs-var">LocalMsg</span></a></span><span> </span><span class="annot"><span class="annottext">LocalReq :: ChainwebTransaction
+-&gt; MVar (Either PactException HashCommandResult) -&gt; LocalReq
+</span><a href="Chainweb.Pact.Service.Types.html#LocalReq"><span class="hs-identifier hs-type hs-type">LocalReq</span></a></span><span>
+</span><span id="line-68"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">_localRequest :: ChainwebTransaction
+</span><a href="Chainweb.Pact.Service.Types.html#_localRequest"><span class="hs-identifier hs-var">_localRequest</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainwebTransaction
+</span><a href="#local-6989586621681487574"><span class="hs-identifier hs-var">ct</span></a></span><span>
+</span><span id="line-69"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">_localResultVar :: MVar (Either PactException HashCommandResult)
+</span><a href="Chainweb.Pact.Service.Types.html#_localResultVar"><span class="hs-identifier hs-var">_localResultVar</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">MVar (Either PactException HashCommandResult)
+</span><a href="#local-6989586621681487572"><span class="hs-identifier hs-var">resultVar</span></a></span><span> </span><span class="hs-special">}</span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">PactQueue -&gt; RequestMsg -&gt; IO ()
+</span><a href="Chainweb.Pact.Service.PactQueue.html#addRequest"><span class="hs-identifier hs-var">addRequest</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681487573"><span class="hs-identifier hs-var">reqQ</span></a></span><span> </span><span class="annot"><span class="annottext">RequestMsg
+</span><a href="#local-6989586621681487571"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">MVar (Either PactException HashCommandResult)
+-&gt; IO (MVar (Either PactException HashCommandResult))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">MVar (Either PactException HashCommandResult)
+</span><a href="#local-6989586621681487572"><span class="hs-identifier hs-var">resultVar</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="annot"><a href="Chainweb.Pact.Service.BlockValidation.html#lookupPactTxs"><span class="hs-identifier hs-type">lookupPactTxs</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T2</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">P.PactHash</span></span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.PactQueue.html#PactQueue"><span class="hs-identifier hs-type">PactQueue</span></a></span><span>
+</span><span id="line-77"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MVar</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Either</span></span><span> </span><span class="annot"><a href="Chainweb.Pact.Service.Types.html#PactException"><span class="hs-identifier hs-type">PactException</span></a></span><span>
+</span><span id="line-78"></span><span>                     </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Vector</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Maybe</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T2</span></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeight"><span class="hs-identifier hs-type">BlockHeight</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span id="lookupPactTxs"><span class="annot"><span class="annottext">lookupPactTxs :: Maybe (T2 BlockHeight BlockHash)
+-&gt; Vector PactHash
+-&gt; PactQueue
+-&gt; IO
+     (MVar
+        (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash)))))
+</span><a href="Chainweb.Pact.Service.BlockValidation.html#lookupPactTxs"><span class="hs-identifier hs-var hs-var">lookupPactTxs</span></a></span></span><span> </span><span id="local-6989586621681487565"><span class="annot"><span class="annottext">restorePoint :: Maybe (T2 BlockHeight BlockHash)
+</span><a href="#local-6989586621681487565"><span class="hs-identifier hs-var">restorePoint</span></a></span></span><span> </span><span id="local-6989586621681487564"><span class="annot"><span class="annottext">txs :: Vector PactHash
+</span><a href="#local-6989586621681487564"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span id="local-6989586621681487563"><span class="annot"><span class="annottext">reqQ :: PactQueue
+</span><a href="#local-6989586621681487563"><span class="hs-identifier hs-var">reqQ</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-80"></span><span>    </span><span id="local-6989586621681487562"><span class="annot"><span class="annottext">MVar
+  (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash))))
+</span><a href="#local-6989586621681487562"><span class="hs-identifier hs-var">resultVar</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO
+  (MVar
+     (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash)))))
+forall a. IO (MVar a)
+</span><span class="hs-identifier hs-var">newEmptyMVar</span></span><span>
+</span><span id="line-81"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681487561"><span class="annot"><span class="annottext">req :: LookupPactTxsReq
+</span><a href="#local-6989586621681487561"><span class="hs-identifier hs-var hs-var">req</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (T2 BlockHeight BlockHash)
+-&gt; Vector PactHash
+-&gt; MVar
+     (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash))))
+-&gt; LookupPactTxsReq
+</span><a href="Chainweb.Pact.Service.Types.html#LookupPactTxsReq"><span class="hs-identifier hs-var">LookupPactTxsReq</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (T2 BlockHeight BlockHash)
+</span><a href="#local-6989586621681487565"><span class="hs-identifier hs-var">restorePoint</span></a></span><span> </span><span class="annot"><span class="annottext">Vector PactHash
+</span><a href="#local-6989586621681487564"><span class="hs-identifier hs-var">txs</span></a></span><span> </span><span class="annot"><span class="annottext">MVar
+  (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash))))
+</span><a href="#local-6989586621681487562"><span class="hs-identifier hs-var">resultVar</span></a></span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621681487559"><span class="annot"><span class="annottext">msg :: RequestMsg
+</span><a href="#local-6989586621681487559"><span class="hs-identifier hs-var hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LookupPactTxsReq -&gt; RequestMsg
+</span><a href="Chainweb.Pact.Service.Types.html#LookupPactTxsMsg"><span class="hs-identifier hs-var">LookupPactTxsMsg</span></a></span><span> </span><span class="annot"><span class="annottext">LookupPactTxsReq
+</span><a href="#local-6989586621681487561"><span class="hs-identifier hs-var">req</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">PactQueue -&gt; RequestMsg -&gt; IO ()
+</span><a href="Chainweb.Pact.Service.PactQueue.html#addRequest"><span class="hs-identifier hs-var">addRequest</span></a></span><span> </span><span class="annot"><span class="annottext">PactQueue
+</span><a href="#local-6989586621681487563"><span class="hs-identifier hs-var">reqQ</span></a></span><span> </span><span class="annot"><span class="annottext">RequestMsg
+</span><a href="#local-6989586621681487559"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">MVar
+  (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash))))
+-&gt; IO
+     (MVar
+        (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash)))))
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">MVar
+  (Either PactException (Vector (Maybe (T2 BlockHeight BlockHash))))
+</span><a href="#local-6989586621681487562"><span class="hs-identifier hs-var">resultVar</span></a></span><span>
+</span><span id="line-85"></span></pre></body></html>

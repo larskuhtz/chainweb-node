@@ -1,0 +1,174 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE BangPatterns #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- Module: Utils.Logging.Trace</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-15"></span><span class="hs-comment">--</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Utils.Logging.Trace</span><span>
+</span><span id="line-19"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Utils.Logging.Trace.html#trace"><span class="hs-identifier">trace</span></a></span><span>
+</span><span id="line-20"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Utils.Logging.Trace.html#Trace"><span class="hs-identifier">Trace</span></a></span><span>
+</span><span id="line-21"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.IO.Class</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.StopWatch</span></span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Clock</span></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Time.html"><span class="hs-identifier">Chainweb.Time</span></a></span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- Logging</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span id="local-6989586621681502539"><span id="local-6989586621681502540"></span></span><span class="hs-keyword">data</span><span> </span><span id="Trace"><span class="annot"><a href="Utils.Logging.Trace.html#Trace"><span class="hs-identifier hs-var">Trace</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Trace"><span class="annot"><a href="Utils.Logging.Trace.html#Trace"><span class="hs-identifier hs-var">Trace</span></a></span></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_traceAction"><span class="annot"><span class="annottext">Trace -&gt; Text
+</span><a href="Utils.Logging.Trace.html#_traceAction"><span class="hs-identifier hs-var hs-var">_traceAction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_traceParam"><span class="annot"><span class="annottext">Trace -&gt; Value
+</span><a href="Utils.Logging.Trace.html#_traceParam"><span class="hs-identifier hs-var hs-var">_traceParam</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_traceWeight"><span class="annot"><span class="annottext">Trace -&gt; Int
+</span><a href="Utils.Logging.Trace.html#_traceWeight"><span class="hs-identifier hs-var hs-var">_traceWeight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_traceTime"><span class="annot"><span class="annottext">Trace -&gt; Micros
+</span><a href="Utils.Logging.Trace.html#_traceTime"><span class="hs-identifier hs-var hs-var">_traceTime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.Time.html#Micros"><span class="hs-identifier hs-type">Micros</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-50"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681502528"><span id="local-6989586621681502530"><span id="local-6989586621681502532"><span class="annot"><span class="annottext">Int -&gt; Trace -&gt; ShowS
+[Trace] -&gt; ShowS
+Trace -&gt; String
+(Int -&gt; Trace -&gt; ShowS)
+-&gt; (Trace -&gt; String) -&gt; ([Trace] -&gt; ShowS) -&gt; Show Trace
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [Trace] -&gt; ShowS
+$cshowList :: [Trace] -&gt; ShowS
+show :: Trace -&gt; String
+$cshow :: Trace -&gt; String
+showsPrec :: Int -&gt; Trace -&gt; ShowS
+$cshowsPrec :: Int -&gt; Trace -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681502523"><span id="local-6989586621681502525"><span class="annot"><span class="annottext">Trace -&gt; Trace -&gt; Bool
+(Trace -&gt; Trace -&gt; Bool) -&gt; (Trace -&gt; Trace -&gt; Bool) -&gt; Eq Trace
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: Trace -&gt; Trace -&gt; Bool
+$c/= :: Trace -&gt; Trace -&gt; Bool
+== :: Trace -&gt; Trace -&gt; Bool
+$c== :: Trace -&gt; Trace -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. Trace -&gt; Rep Trace x)
+-&gt; (forall x. Rep Trace x -&gt; Trace) -&gt; Generic Trace
+forall x. Rep Trace x -&gt; Trace
+forall x. Trace -&gt; Rep Trace x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cto :: forall x. Rep Trace x -&gt; Trace
+$cfrom :: forall x. Trace -&gt; Rep Trace x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681502517"><span class="annot"><span class="annottext">Trace -&gt; ()
+(Trace -&gt; ()) -&gt; NFData Trace
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: Trace -&gt; ()
+$crnf :: Trace -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681502509"><span id="local-6989586621681502511"><span id="local-6989586621681502513"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Utils.Logging.Trace.html#Trace"><span class="hs-identifier hs-type">Trace</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-53"></span><span>    </span><span id="local-6989586621681502507"><span class="annot"><span class="annottext">toJSON :: Trace -&gt; Value
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></span></span><span> </span><span id="local-6989586621681502505"><span class="annot"><span class="annottext">o :: Trace
+</span><a href="#local-6989586621681502505"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><span class="hs-identifier hs-var">object</span></span><span>
+</span><span id="line-54"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="hs-string">&quot;action&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Trace -&gt; Text
+</span><a href="Utils.Logging.Trace.html#_traceAction"><span class="hs-identifier hs-var hs-var">_traceAction</span></a></span><span> </span><span class="annot"><span class="annottext">Trace
+</span><a href="#local-6989586621681502505"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-55"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;param&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Trace -&gt; Value
+</span><a href="Utils.Logging.Trace.html#_traceParam"><span class="hs-identifier hs-var hs-var">_traceParam</span></a></span><span> </span><span class="annot"><span class="annottext">Trace
+</span><a href="#local-6989586621681502505"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-56"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;weight&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Int -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Trace -&gt; Int
+</span><a href="Utils.Logging.Trace.html#_traceWeight"><span class="hs-identifier hs-var hs-var">_traceWeight</span></a></span><span> </span><span class="annot"><span class="annottext">Trace
+</span><a href="#local-6989586621681502505"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-57"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-string">&quot;time&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Micros -&gt; Pair
+forall kv v. (KeyValue kv, ToJSON v) =&gt; Text -&gt; v -&gt; kv
+</span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">Trace -&gt; Micros
+</span><a href="Utils.Logging.Trace.html#_traceTime"><span class="hs-identifier hs-var hs-var">_traceTime</span></a></span><span> </span><span class="annot"><span class="annottext">Trace
+</span><a href="#local-6989586621681502505"><span class="hs-identifier hs-var">o</span></a></span><span>
+</span><span id="line-58"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span id="local-6989586621681502500"><span id="local-6989586621681502501"><span id="local-6989586621681502502"><span class="annot"><a href="Utils.Logging.Trace.html#trace"><span class="hs-identifier hs-type">trace</span></a></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadIO</span></span><span> </span><span class="annot"><a href="#local-6989586621681502502"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="#local-6989586621681502501"><span class="hs-identifier hs-type">param</span></a></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681502501"><span class="hs-identifier hs-type">param</span></a></span><span>
+</span><span id="line-66"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Int</span></span><span>
+</span><span id="line-67"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681502502"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681502500"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681502502"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681502500"><span class="hs-identifier hs-type">a</span></a></span></span></span></span><span>
+</span><span id="line-69"></span><span id="trace"><span class="annot"><span class="annottext">trace :: LogFunction -&gt; Text -&gt; param -&gt; Int -&gt; m a -&gt; m a
+</span><a href="Utils.Logging.Trace.html#trace"><span class="hs-identifier hs-var hs-var">trace</span></a></span></span><span> </span><span id="local-6989586621681502499"><span class="annot"><span class="annottext">logg :: LogFunction
+</span><a href="#local-6989586621681502499"><span class="hs-identifier hs-var">logg</span></a></span></span><span> </span><span id="local-6989586621681502498"><span class="annot"><span class="annottext">label :: Text
+</span><a href="#local-6989586621681502498"><span class="hs-keyword hs-var">label</span></a></span></span><span> </span><span id="local-6989586621681502497"><span class="annot"><span class="annottext">param :: param
+</span><a href="#local-6989586621681502497"><span class="hs-identifier hs-var">param</span></a></span></span><span> </span><span id="local-6989586621681502496"><span class="annot"><span class="annottext">weight :: Int
+</span><a href="#local-6989586621681502496"><span class="hs-identifier hs-var">weight</span></a></span></span><span> </span><span id="local-6989586621681502495"><span class="annot"><span class="annottext">a :: m a
+</span><a href="#local-6989586621681502495"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">!</span><span id="local-6989586621681502494"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681502494"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681502493"><span class="annot"><span class="annottext">t :: TimeSpec
+</span><a href="#local-6989586621681502493"><span class="hs-identifier hs-var">t</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m a -&gt; m (a, TimeSpec)
+forall (m :: * -&gt; *) a. MonadIO m =&gt; m a -&gt; m (a, TimeSpec)
+</span><span class="hs-identifier hs-var">stopWatch</span></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621681502495"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; m ()
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
+</span><span class="hs-identifier hs-var">liftIO</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; m ()) -&gt; IO () -&gt; m ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">LogLevel -&gt; JsonLog Trace -&gt; IO ()
+LogFunction
+</span><a href="#local-6989586621681502499"><span class="hs-identifier hs-var">logg</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span> </span><span class="annot"><span class="annottext">(JsonLog Trace -&gt; IO ()) -&gt; JsonLog Trace -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Trace -&gt; JsonLog Trace
+forall a. a -&gt; JsonLog a
+</span><a href="Data.LogMessage.html#JsonLog"><span class="hs-identifier hs-var">JsonLog</span></a></span><span> </span><span class="annot"><span class="annottext">(Trace -&gt; JsonLog Trace) -&gt; Trace -&gt; JsonLog Trace
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Int -&gt; Micros -&gt; Trace
+</span><a href="Utils.Logging.Trace.html#Trace"><span class="hs-identifier hs-var">Trace</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681502498"><span class="hs-keyword hs-var">label</span></a></span><span>
+</span><span id="line-72"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">param -&gt; Value
+forall a. ToJSON a =&gt; a -&gt; Value
+</span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">param
+</span><a href="#local-6989586621681502497"><span class="hs-identifier hs-var">param</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>        </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621681502496"><span class="hs-identifier hs-var">weight</span></a></span><span>
+</span><span id="line-74"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Micros
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">fromIntegral</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Micros) -&gt; Integer -&gt; Micros
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">TimeSpec -&gt; Integer
+</span><span class="hs-identifier hs-var">toNanoSecs</span></span><span> </span><span class="annot"><span class="annottext">TimeSpec
+</span><a href="#local-6989586621681502493"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
+forall a. Integral a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">`div`</span></span><span> </span><span class="annot"><span class="hs-number">1000</span></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">a -&gt; m a
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681502494"><span class="hs-identifier hs-var">r</span></a></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span></pre></body></html>

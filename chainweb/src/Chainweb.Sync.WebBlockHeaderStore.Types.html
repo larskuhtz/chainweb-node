@@ -1,0 +1,471 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DeriveAnyClass #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE DeriveFoldable #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE DeriveFunctor #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE DeriveGeneric #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE DeriveTraversable #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE DerivingStrategies #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE GeneralizedNewtypeDeriving #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-10"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-11"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-12"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-13"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-14"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-15"></span><span class="hs-pragma">{-# LANGUAGE TypeFamilies #-}</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- Module: Chainweb.Sync.WebBlockHeaderStore.Types</span><span>
+</span><span id="line-19"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-21"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-23"></span><span class="hs-comment">--</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-25"></span><span class="hs-comment">--</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Sync.WebBlockHeaderStore.Types</span><span>
+</span><span id="line-27"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderStore"><span class="hs-identifier">WebBlockHeaderStore</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="annot"><span class="hs-comment">-- *</span></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockPayloadStore"><span class="hs-identifier">WebBlockPayloadStore</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="annot"><span class="hs-comment">-- * Utils</span></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.WebPactExecutionService.Types.html#PactExecutionService"><span class="hs-identifier">PactExecutionService</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier">ChainValue</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderCas"><span class="hs-identifier">WebBlockHeaderCas</span></a></span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.DeepSeq</span></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Hashable</span></span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">GHC.Generics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Network.HTTP.Client</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">HTTP</span></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Servant.Client</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html"><span class="hs-identifier">Chainweb.BlockHash</span></a></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html"><span class="hs-identifier">Chainweb.BlockHeader</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html"><span class="hs-identifier">Chainweb.ChainId</span></a></span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.html"><span class="hs-identifier">Chainweb.Payload</span></a></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Payload.PayloadStore.html"><span class="hs-identifier">Chainweb.Payload.PayloadStore</span></a></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Version.html"><span class="hs-identifier">Chainweb.Version</span></a></span><span>
+</span><span id="line-59"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html"><span class="hs-identifier">Chainweb.WebBlockHeaderDB.Types</span></a></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.WebPactExecutionService.Types.html"><span class="hs-identifier">Chainweb.WebPactExecutionService.Types</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.CAS</span></span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.PQueue.html"><span class="hs-identifier">Data.PQueue</span></a></span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.TaskMap.html"><span class="hs-identifier">Data.TaskMap</span></a></span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="P2P.TaskQueue.html"><span class="hs-identifier">P2P.TaskQueue</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- Tag Values With a ChainId</span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span id="local-6989586621681500684"><span id="local-6989586621681500685"></span></span><span class="hs-keyword">data</span><span> </span><span id="ChainValue"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-var">ChainValue</span></a></span></span><span> </span><span id="local-6989586621681500771"><span class="annot"><a href="#local-6989586621681500771"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ChainValue"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-var">ChainValue</span></a></span></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="#local-6989586621681500771"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500677"><span id="local-6989586621681500679"><span id="local-6989586621681500681"><span class="annot"><span class="annottext">Int -&gt; ChainValue a -&gt; ShowS
+[ChainValue a] -&gt; ShowS
+ChainValue a -&gt; String
+(Int -&gt; ChainValue a -&gt; ShowS)
+-&gt; (ChainValue a -&gt; String)
+-&gt; ([ChainValue a] -&gt; ShowS)
+-&gt; Show (ChainValue a)
+forall a. Show a =&gt; Int -&gt; ChainValue a -&gt; ShowS
+forall a. Show a =&gt; [ChainValue a] -&gt; ShowS
+forall a. Show a =&gt; ChainValue a -&gt; String
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+showList :: [ChainValue a] -&gt; ShowS
+$cshowList :: forall a. Show a =&gt; [ChainValue a] -&gt; ShowS
+show :: ChainValue a -&gt; String
+$cshow :: forall a. Show a =&gt; ChainValue a -&gt; String
+showsPrec :: Int -&gt; ChainValue a -&gt; ShowS
+$cshowsPrec :: forall a. Show a =&gt; Int -&gt; ChainValue a -&gt; ShowS
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500672"><span id="local-6989586621681500674"><span class="annot"><span class="annottext">ChainValue a -&gt; ChainValue a -&gt; Bool
+(ChainValue a -&gt; ChainValue a -&gt; Bool)
+-&gt; (ChainValue a -&gt; ChainValue a -&gt; Bool) -&gt; Eq (ChainValue a)
+forall a. Eq a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+/= :: ChainValue a -&gt; ChainValue a -&gt; Bool
+$c/= :: forall a. Eq a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+== :: ChainValue a -&gt; ChainValue a -&gt; Bool
+$c== :: forall a. Eq a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500656"><span id="local-6989586621681500658"><span id="local-6989586621681500660"><span id="local-6989586621681500662"><span id="local-6989586621681500664"><span id="local-6989586621681500666"><span id="local-6989586621681500668"><span class="annot"><span class="annottext">Eq (ChainValue a)
+Eq (ChainValue a) =&gt;
+(ChainValue a -&gt; ChainValue a -&gt; Ordering)
+-&gt; (ChainValue a -&gt; ChainValue a -&gt; Bool)
+-&gt; (ChainValue a -&gt; ChainValue a -&gt; Bool)
+-&gt; (ChainValue a -&gt; ChainValue a -&gt; Bool)
+-&gt; (ChainValue a -&gt; ChainValue a -&gt; Bool)
+-&gt; (ChainValue a -&gt; ChainValue a -&gt; ChainValue a)
+-&gt; (ChainValue a -&gt; ChainValue a -&gt; ChainValue a)
+-&gt; Ord (ChainValue a)
+ChainValue a -&gt; ChainValue a -&gt; Bool
+ChainValue a -&gt; ChainValue a -&gt; Ordering
+ChainValue a -&gt; ChainValue a -&gt; ChainValue a
+forall a.
+Eq a =&gt;
+(a -&gt; a -&gt; Ordering)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; Bool)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; (a -&gt; a -&gt; a)
+-&gt; Ord a
+forall a. Ord a =&gt; Eq (ChainValue a)
+forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; Ordering
+forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; ChainValue a
+min :: ChainValue a -&gt; ChainValue a -&gt; ChainValue a
+$cmin :: forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; ChainValue a
+max :: ChainValue a -&gt; ChainValue a -&gt; ChainValue a
+$cmax :: forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; ChainValue a
+&gt;= :: ChainValue a -&gt; ChainValue a -&gt; Bool
+$c&gt;= :: forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+&gt; :: ChainValue a -&gt; ChainValue a -&gt; Bool
+$c&gt; :: forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+&lt;= :: ChainValue a -&gt; ChainValue a -&gt; Bool
+$c&lt;= :: forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+&lt; :: ChainValue a -&gt; ChainValue a -&gt; Bool
+$c&lt; :: forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; Bool
+compare :: ChainValue a -&gt; ChainValue a -&gt; Ordering
+$ccompare :: forall a. Ord a =&gt; ChainValue a -&gt; ChainValue a -&gt; Ordering
+$cp1Ord :: forall a. Ord a =&gt; Eq (ChainValue a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(forall x. ChainValue a -&gt; Rep (ChainValue a) x)
+-&gt; (forall x. Rep (ChainValue a) x -&gt; ChainValue a)
+-&gt; Generic (ChainValue a)
+forall x. Rep (ChainValue a) x -&gt; ChainValue a
+forall x. ChainValue a -&gt; Rep (ChainValue a) x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+forall a x. Rep (ChainValue a) x -&gt; ChainValue a
+forall a x. ChainValue a -&gt; Rep (ChainValue a) x
+$cto :: forall a x. Rep (ChainValue a) x -&gt; ChainValue a
+$cfrom :: forall a x. ChainValue a -&gt; Rep (ChainValue a) x
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">Generic</span></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500648"><span id="local-6989586621681500650"><span class="annot"><span class="annottext">a -&gt; ChainValue b -&gt; ChainValue a
+(a -&gt; b) -&gt; ChainValue a -&gt; ChainValue b
+(forall a b. (a -&gt; b) -&gt; ChainValue a -&gt; ChainValue b)
+-&gt; (forall a b. a -&gt; ChainValue b -&gt; ChainValue a)
+-&gt; Functor ChainValue
+forall a b. a -&gt; ChainValue b -&gt; ChainValue a
+forall a b. (a -&gt; b) -&gt; ChainValue a -&gt; ChainValue b
+forall (f :: * -&gt; *).
+(forall a b. (a -&gt; b) -&gt; f a -&gt; f b)
+-&gt; (forall a b. a -&gt; f b -&gt; f a) -&gt; Functor f
+&lt;$ :: a -&gt; ChainValue b -&gt; ChainValue a
+$c&lt;$ :: forall a b. a -&gt; ChainValue b -&gt; ChainValue a
+fmap :: (a -&gt; b) -&gt; ChainValue a -&gt; ChainValue b
+$cfmap :: forall a b. (a -&gt; b) -&gt; ChainValue a -&gt; ChainValue b
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500613"><span id="local-6989586621681500615"><span id="local-6989586621681500617"><span id="local-6989586621681500619"><span id="local-6989586621681500621"><span id="local-6989586621681500623"><span id="local-6989586621681500625"><span id="local-6989586621681500627"><span id="local-6989586621681500629"><span id="local-6989586621681500631"><span id="local-6989586621681500633"><span id="local-6989586621681500635"><span id="local-6989586621681500637"><span id="local-6989586621681500639"><span id="local-6989586621681500641"><span id="local-6989586621681500643"><span id="local-6989586621681500645"><span class="annot"><span class="annottext">ChainValue a -&gt; Bool
+(a -&gt; m) -&gt; ChainValue a -&gt; m
+(a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+(forall m. Monoid m =&gt; ChainValue m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; ChainValue a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; ChainValue a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; ChainValue a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; ChainValue a -&gt; a)
+-&gt; (forall a. ChainValue a -&gt; [a])
+-&gt; (forall a. ChainValue a -&gt; Bool)
+-&gt; (forall a. ChainValue a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; ChainValue a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; ChainValue a -&gt; a)
+-&gt; (forall a. Ord a =&gt; ChainValue a -&gt; a)
+-&gt; (forall a. Num a =&gt; ChainValue a -&gt; a)
+-&gt; (forall a. Num a =&gt; ChainValue a -&gt; a)
+-&gt; Foldable ChainValue
+forall a. Eq a =&gt; a -&gt; ChainValue a -&gt; Bool
+forall a. Num a =&gt; ChainValue a -&gt; a
+forall a. Ord a =&gt; ChainValue a -&gt; a
+forall m. Monoid m =&gt; ChainValue m -&gt; m
+forall a. ChainValue a -&gt; Bool
+forall a. ChainValue a -&gt; Int
+forall a. ChainValue a -&gt; [a]
+forall a. (a -&gt; a -&gt; a) -&gt; ChainValue a -&gt; a
+forall m a. Monoid m =&gt; (a -&gt; m) -&gt; ChainValue a -&gt; m
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+forall (t :: * -&gt; *).
+(forall m. Monoid m =&gt; t m -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall m a. Monoid m =&gt; (a -&gt; m) -&gt; t a -&gt; m)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. (a -&gt; a -&gt; a) -&gt; t a -&gt; a)
+-&gt; (forall a. t a -&gt; [a])
+-&gt; (forall a. t a -&gt; Bool)
+-&gt; (forall a. t a -&gt; Int)
+-&gt; (forall a. Eq a =&gt; a -&gt; t a -&gt; Bool)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Ord a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; (forall a. Num a =&gt; t a -&gt; a)
+-&gt; Foldable t
+product :: ChainValue a -&gt; a
+$cproduct :: forall a. Num a =&gt; ChainValue a -&gt; a
+sum :: ChainValue a -&gt; a
+$csum :: forall a. Num a =&gt; ChainValue a -&gt; a
+minimum :: ChainValue a -&gt; a
+$cminimum :: forall a. Ord a =&gt; ChainValue a -&gt; a
+maximum :: ChainValue a -&gt; a
+$cmaximum :: forall a. Ord a =&gt; ChainValue a -&gt; a
+elem :: a -&gt; ChainValue a -&gt; Bool
+$celem :: forall a. Eq a =&gt; a -&gt; ChainValue a -&gt; Bool
+length :: ChainValue a -&gt; Int
+$clength :: forall a. ChainValue a -&gt; Int
+null :: ChainValue a -&gt; Bool
+$cnull :: forall a. ChainValue a -&gt; Bool
+toList :: ChainValue a -&gt; [a]
+$ctoList :: forall a. ChainValue a -&gt; [a]
+foldl1 :: (a -&gt; a -&gt; a) -&gt; ChainValue a -&gt; a
+$cfoldl1 :: forall a. (a -&gt; a -&gt; a) -&gt; ChainValue a -&gt; a
+foldr1 :: (a -&gt; a -&gt; a) -&gt; ChainValue a -&gt; a
+$cfoldr1 :: forall a. (a -&gt; a -&gt; a) -&gt; ChainValue a -&gt; a
+foldl' :: (b -&gt; a -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+$cfoldl' :: forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+foldl :: (b -&gt; a -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+$cfoldl :: forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+foldr' :: (a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+$cfoldr' :: forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+foldr :: (a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+$cfoldr :: forall a b. (a -&gt; b -&gt; b) -&gt; b -&gt; ChainValue a -&gt; b
+foldMap' :: (a -&gt; m) -&gt; ChainValue a -&gt; m
+$cfoldMap' :: forall m a. Monoid m =&gt; (a -&gt; m) -&gt; ChainValue a -&gt; m
+foldMap :: (a -&gt; m) -&gt; ChainValue a -&gt; m
+$cfoldMap :: forall m a. Monoid m =&gt; (a -&gt; m) -&gt; ChainValue a -&gt; m
+fold :: ChainValue m -&gt; m
+$cfold :: forall m. Monoid m =&gt; ChainValue m -&gt; m
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Foldable</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500602"><span id="local-6989586621681500604"><span id="local-6989586621681500606"><span id="local-6989586621681500608"><span class="annot"><span class="annottext">Functor ChainValue
+Foldable ChainValue
+(Functor ChainValue, Foldable ChainValue) =&gt;
+(forall (f :: * -&gt; *) a b.
+ Applicative f =&gt;
+ (a -&gt; f b) -&gt; ChainValue a -&gt; f (ChainValue b))
+-&gt; (forall (f :: * -&gt; *) a.
+    Applicative f =&gt;
+    ChainValue (f a) -&gt; f (ChainValue a))
+-&gt; (forall (m :: * -&gt; *) a b.
+    Monad m =&gt;
+    (a -&gt; m b) -&gt; ChainValue a -&gt; m (ChainValue b))
+-&gt; (forall (m :: * -&gt; *) a.
+    Monad m =&gt;
+    ChainValue (m a) -&gt; m (ChainValue a))
+-&gt; Traversable ChainValue
+(a -&gt; f b) -&gt; ChainValue a -&gt; f (ChainValue b)
+forall (t :: * -&gt; *).
+(Functor t, Foldable t) =&gt;
+(forall (f :: * -&gt; *) a b.
+ Applicative f =&gt;
+ (a -&gt; f b) -&gt; t a -&gt; f (t b))
+-&gt; (forall (f :: * -&gt; *) a. Applicative f =&gt; t (f a) -&gt; f (t a))
+-&gt; (forall (m :: * -&gt; *) a b.
+    Monad m =&gt;
+    (a -&gt; m b) -&gt; t a -&gt; m (t b))
+-&gt; (forall (m :: * -&gt; *) a. Monad m =&gt; t (m a) -&gt; m (t a))
+-&gt; Traversable t
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+ChainValue (m a) -&gt; m (ChainValue a)
+forall (f :: * -&gt; *) a.
+Applicative f =&gt;
+ChainValue (f a) -&gt; f (ChainValue a)
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; ChainValue a -&gt; m (ChainValue b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; ChainValue a -&gt; f (ChainValue b)
+sequence :: ChainValue (m a) -&gt; m (ChainValue a)
+$csequence :: forall (m :: * -&gt; *) a.
+Monad m =&gt;
+ChainValue (m a) -&gt; m (ChainValue a)
+mapM :: (a -&gt; m b) -&gt; ChainValue a -&gt; m (ChainValue b)
+$cmapM :: forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+(a -&gt; m b) -&gt; ChainValue a -&gt; m (ChainValue b)
+sequenceA :: ChainValue (f a) -&gt; f (ChainValue a)
+$csequenceA :: forall (f :: * -&gt; *) a.
+Applicative f =&gt;
+ChainValue (f a) -&gt; f (ChainValue a)
+traverse :: (a -&gt; f b) -&gt; ChainValue a -&gt; f (ChainValue b)
+$ctraverse :: forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; ChainValue a -&gt; f (ChainValue b)
+$cp2Traversable :: Foldable ChainValue
+$cp1Traversable :: Functor ChainValue
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Traversable</span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>    </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681500599"><span class="annot"><span class="annottext">ChainValue a -&gt; ()
+(ChainValue a -&gt; ()) -&gt; NFData (ChainValue a)
+forall a. NFData a =&gt; ChainValue a -&gt; ()
+forall a. (a -&gt; ()) -&gt; NFData a
+rnf :: ChainValue a -&gt; ()
+$crnf :: forall a. NFData a =&gt; ChainValue a -&gt; ()
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">NFData</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681500594"><span id="local-6989586621681500596"><span class="annot"><span class="annottext">Int -&gt; ChainValue a -&gt; Int
+ChainValue a -&gt; Int
+(Int -&gt; ChainValue a -&gt; Int)
+-&gt; (ChainValue a -&gt; Int) -&gt; Hashable (ChainValue a)
+forall a. Hashable a =&gt; Int -&gt; ChainValue a -&gt; Int
+forall a. Hashable a =&gt; ChainValue a -&gt; Int
+forall a. (Int -&gt; a -&gt; Int) -&gt; (a -&gt; Int) -&gt; Hashable a
+hash :: ChainValue a -&gt; Int
+$chash :: forall a. Hashable a =&gt; ChainValue a -&gt; Int
+hashWithSalt :: Int -&gt; ChainValue a -&gt; Int
+$chashWithSalt :: forall a. Hashable a =&gt; Int -&gt; ChainValue a -&gt; Int
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Hashable</span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>
+</span><span id="line-78"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500587"><span class="annot"><span class="hs-identifier hs-type">TraversableWithIndex</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621681500585"><span class="annot"><span class="annottext">itraverse :: (ChainId -&gt; a -&gt; f b) -&gt; ChainValue a -&gt; f (ChainValue b)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">itraverse</span></span></span><span> </span><span id="local-6989586621681500583"><span class="annot"><span class="annottext">f :: ChainId -&gt; a -&gt; f b
+</span><a href="#local-6989586621681500583"><span class="hs-identifier hs-var">f</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span id="local-6989586621681500582"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681500582"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681500581"><span class="annot"><span class="annottext">v :: a
+</span><a href="#local-6989586621681500581"><span class="hs-identifier hs-var">v</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; b -&gt; ChainValue b
+forall a. ChainId -&gt; a -&gt; ChainValue a
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-var">ChainValue</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681500582"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">(b -&gt; ChainValue b) -&gt; f b -&gt; f (ChainValue b)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; a -&gt; f b
+</span><a href="#local-6989586621681500583"><span class="hs-identifier hs-var">f</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681500582"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681500581"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">itraverse</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500567"><span id="local-6989586621681500569"><span id="local-6989586621681500571"><span id="local-6989586621681500573"><span id="local-6989586621681500575"><span id="local-6989586621681500577"><span class="annot"><span class="hs-identifier hs-type">FoldableWithIndex</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span></span></span></span></span></span></span><span>
+</span><span id="line-83"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500561"><span id="local-6989586621681500563"><span class="annot"><span class="hs-identifier hs-type">FunctorWithIndex</span></span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#ChainId"><span class="hs-identifier hs-type">ChainId</span></a></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span></span></span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span id="local-6989586621681500559"><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCasValue</span></span><span> </span><span class="annot"><a href="#local-6989586621681500559"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsCasValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500559"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-keyword">type</span><span> </span><span id="CasKeyType"><span class="annot"><span class="hs-identifier hs-var">CasKeyType</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500559"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">CasKeyType</span></span><span> </span><span class="annot"><a href="#local-6989586621681500559"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>    </span><span id="local-6989586621681500555"><span class="annot"><span class="annottext">casKey :: ChainValue a -&gt; CasKeyType (ChainValue a)
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">casKey</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span id="local-6989586621681500553"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681500553"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span id="local-6989586621681500552"><span class="annot"><span class="annottext">a :: a
+</span><a href="#local-6989586621681500552"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId -&gt; CasKeyType a -&gt; ChainValue (CasKeyType a)
+forall a. ChainId -&gt; a -&gt; ChainValue a
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-var">ChainValue</span></a></span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681500553"><span class="hs-identifier hs-var">cid</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a -&gt; CasKeyType a
+forall v. IsCasValue v =&gt; v -&gt; CasKeyType v
+</span><span class="hs-identifier hs-var">casKey</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681500552"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">casKey</span></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span id="local-6989586621681500551"><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500548"><span class="annot"><a href="Chainweb.ChainId.html#HasChainId"><span class="hs-identifier hs-type">HasChainId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500551"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-91"></span><span>    </span><span id="local-6989586621681500546"><span class="annot"><span class="annottext">_chainId :: ChainValue a -&gt; ChainId
+</span><a href="Chainweb.ChainId.html#_chainId"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainId</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span id="local-6989586621681500544"><span class="annot"><span class="annottext">cid :: ChainId
+</span><a href="#local-6989586621681500544"><span class="hs-identifier hs-var">cid</span></a></span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainId
+</span><a href="#local-6989586621681500544"><span class="hs-identifier hs-var">cid</span></a></span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.ChainId.html#_chainId"><span class="hs-pragma hs-type">_chainId</span></a></span><span> </span><span class="hs-pragma">#-}</span></span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-95"></span><span class="hs-comment">-- Append Only CAS for WebBlockHeaderDb</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span class="hs-keyword">newtype</span><span> </span><span id="WebBlockHeaderCas"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderCas"><span class="hs-identifier hs-var">WebBlockHeaderCas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="WebBlockHeaderCas"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderCas"><span class="hs-identifier hs-var">WebBlockHeaderCas</span></a></span></span><span> </span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-98"></span><span>
+</span><span id="line-99"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500540"><span class="annot"><a href="Chainweb.Version.html#HasChainwebVersion"><span class="hs-identifier hs-type">HasChainwebVersion</span></a></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderCas"><span class="hs-identifier hs-type">WebBlockHeaderCas</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-100"></span><span>    </span><span id="local-6989586621681500538"><span class="annot"><span class="annottext">_chainwebVersion :: WebBlockHeaderCas -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainwebVersion</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderCas"><span class="hs-identifier hs-type">WebBlockHeaderCas</span></a></span><span> </span><span id="local-6989586621681500536"><span class="annot"><span class="annottext">db :: WebBlockHeaderDb
+</span><a href="#local-6989586621681500536"><span class="hs-identifier hs-var">db</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb
+</span><a href="#local-6989586621681500536"><span class="hs-identifier hs-var">db</span></a></span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-pragma hs-type">_chainwebVersion</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- Obtain and Validate Block Payloads</span><span>
+</span><span id="line-106"></span><span>
+</span><span id="line-107"></span><span class="hs-keyword">data</span><span> </span><span id="WebBlockPayloadStore"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockPayloadStore"><span class="hs-identifier hs-var">WebBlockPayloadStore</span></a></span></span><span> </span><span id="local-6989586621681500535"><span class="annot"><a href="#local-6989586621681500535"><span class="hs-identifier hs-type">cas</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="WebBlockPayloadStore"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockPayloadStore"><span class="hs-identifier hs-var">WebBlockPayloadStore</span></a></span></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_webBlockPayloadStoreCas"><span class="annot"><span class="annottext">WebBlockPayloadStore cas -&gt; PayloadDb cas
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockPayloadStoreCas"><span class="hs-identifier hs-var hs-var">_webBlockPayloadStoreCas</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Payload.PayloadStore.Types.html#PayloadDb"><span class="hs-identifier hs-type">PayloadDb</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681500535"><span class="hs-identifier hs-type">cas</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>        </span><span class="hs-comment">-- ^ Cas for storing complete payload data including outputs.</span><span>
+</span><span id="line-110"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockPayloadStoreMemo"><span class="annot"><span class="annottext">WebBlockPayloadStore cas -&gt; TaskMap BlockPayloadHash PayloadData
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockPayloadStoreMemo"><span class="hs-identifier hs-var hs-var">_webBlockPayloadStoreMemo</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#BlockPayloadHash"><span class="hs-identifier hs-type">BlockPayloadHash</span></a></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadData"><span class="hs-identifier hs-type">PayloadData</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>        </span><span class="hs-comment">-- ^ Internal memo table for active tasks</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockPayloadStoreQueue"><span class="annot"><span class="annottext">WebBlockPayloadStore cas -&gt; PQueue (Task ClientEnv PayloadData)
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockPayloadStoreQueue"><span class="hs-identifier hs-var hs-var">_webBlockPayloadStoreQueue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span> </span><span class="annot"><a href="Chainweb.Payload.html#PayloadData"><span class="hs-identifier hs-type">PayloadData</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>        </span><span class="hs-comment">-- ^ task queue for scheduling tasks with the task server</span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockPayloadStoreLogFunction"><span class="annot"><span class="annottext">WebBlockPayloadStore cas
+-&gt; forall a. LogMessage a =&gt; LogLevel -&gt; a -&gt; IO ()
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockPayloadStoreLogFunction"><span class="hs-identifier hs-var hs-var">_webBlockPayloadStoreLogFunction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-115"></span><span>        </span><span class="hs-comment">-- ^ LogFunction</span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockPayloadStoreMgr"><span class="annot"><span class="annottext">WebBlockPayloadStore cas -&gt; Manager
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockPayloadStoreMgr"><span class="hs-identifier hs-var hs-var">_webBlockPayloadStoreMgr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-117"></span><span>        </span><span class="hs-comment">-- ^ Manager object for making HTTP requests</span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockPayloadStorePact"><span class="annot"><span class="annottext">WebBlockPayloadStore cas -&gt; WebPactExecutionService
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockPayloadStorePact"><span class="hs-identifier hs-var hs-var">_webBlockPayloadStorePact</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.WebPactExecutionService.Types.html#WebPactExecutionService"><span class="hs-identifier hs-type">WebPactExecutionService</span></a></span><span>
+</span><span id="line-119"></span><span>        </span><span class="hs-comment">-- ^ handle to the pact execution service for validating transactions</span><span>
+</span><span id="line-120"></span><span>        </span><span class="hs-comment">-- and computing outputs.</span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-122"></span><span>
+</span><span id="line-123"></span><span>
+</span><span id="line-124"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- WebBlockHeaderStore</span><span>
+</span><span id="line-126"></span><span>
+</span><span id="line-127"></span><span class="hs-comment">-- | In order to use this a processor for the queue is needed.</span><span>
+</span><span id="line-128"></span><span class="hs-comment">--</span><span>
+</span><span id="line-129"></span><span class="hs-comment">-- The module P2P.TaskQueue provides a P2P session that serves the queue.</span><span>
+</span><span id="line-130"></span><span class="hs-comment">--</span><span>
+</span><span id="line-131"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-132"></span><span class="hs-comment">--</span><span>
+</span><span id="line-133"></span><span class="hs-comment">-- * Find a better name</span><span>
+</span><span id="line-134"></span><span class="hs-comment">-- * Parameterize in cas</span><span>
+</span><span id="line-135"></span><span class="hs-comment">-- * This is currently based on TreeDB (for API) and BlockHeaderDB, it</span><span>
+</span><span id="line-136"></span><span class="hs-comment">--   would be possible to run this on top of any CAS and API that offers</span><span>
+</span><span id="line-137"></span><span class="hs-comment">--   a simple GET.</span><span>
+</span><span id="line-138"></span><span class="hs-comment">--</span><span>
+</span><span id="line-139"></span><span class="hs-keyword">data</span><span> </span><span id="WebBlockHeaderStore"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderStore"><span class="hs-identifier hs-var">WebBlockHeaderStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="WebBlockHeaderStore"><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderStore"><span class="hs-identifier hs-var">WebBlockHeaderStore</span></a></span></span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_webBlockHeaderStoreCas"><span class="annot"><span class="annottext">WebBlockHeaderStore -&gt; WebBlockHeaderDb
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreCas"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreCas</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Chainweb.WebBlockHeaderDB.Types.html#WebBlockHeaderDb"><span class="hs-identifier hs-type">WebBlockHeaderDb</span></a></span><span>
+</span><span id="line-141"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockHeaderStoreMemo"><span class="annot"><span class="annottext">WebBlockHeaderStore
+-&gt; TaskMap (ChainValue BlockHash) (ChainValue BlockHeader)
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreMemo"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreMemo</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Data.TaskMap.html#TaskMap"><span class="hs-identifier hs-type">TaskMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHash.html#BlockHash"><span class="hs-identifier hs-type">BlockHash</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockHeaderStoreQueue"><span class="annot"><span class="annottext">WebBlockHeaderStore
+-&gt; PQueue (Task ClientEnv (ChainValue BlockHeader))
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreQueue"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreQueue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><a href="Data.PQueue.html#PQueue"><span class="hs-identifier hs-type">PQueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="P2P.TaskQueue.html#Task"><span class="hs-identifier hs-type">Task</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ClientEnv</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#ChainValue"><span class="hs-identifier hs-type">ChainValue</span></a></span><span> </span><span class="annot"><a href="Chainweb.BlockHeader.html#BlockHeader"><span class="hs-identifier hs-type">BlockHeader</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-143"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockHeaderStoreLogFunction"><span class="annot"><span class="annottext">WebBlockHeaderStore
+-&gt; forall a. LogMessage a =&gt; LogLevel -&gt; a -&gt; IO ()
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreLogFunction"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreLogFunction</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span><span>
+</span><span id="line-144"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_webBlockHeaderStoreMgr"><span class="annot"><span class="annottext">WebBlockHeaderStore -&gt; Manager
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreMgr"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreMgr</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">HTTP.Manager</span></span><span>
+</span><span id="line-145"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-146"></span><span>
+</span><span id="line-147"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500518"><span class="annot"><a href="Chainweb.Version.html#HasChainwebVersion"><span class="hs-identifier hs-type">HasChainwebVersion</span></a></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderStore"><span class="hs-identifier hs-type">WebBlockHeaderStore</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-148"></span><span>    </span><span id="local-6989586621681500517"><span class="annot"><span class="annottext">_chainwebVersion :: WebBlockHeaderStore -&gt; ChainwebVersion
+</span><a href="#local-6989586621681500517"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainwebVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainwebVersion
+forall a. HasChainwebVersion a =&gt; a -&gt; ChainwebVersion
+</span><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-identifier hs-var">_chainwebVersion</span></a></span><span> </span><span class="annot"><span class="annottext">(WebBlockHeaderDb -&gt; ChainwebVersion)
+-&gt; (WebBlockHeaderStore -&gt; WebBlockHeaderDb)
+-&gt; WebBlockHeaderStore
+-&gt; ChainwebVersion
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderStore -&gt; WebBlockHeaderDb
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreCas"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreCas</span></a></span><span>
+</span><span id="line-149"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Version.html#_chainwebVersion"><span class="hs-pragma hs-type">_chainwebVersion</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-150"></span><span>
+</span><span id="line-151"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681500513"><span class="annot"><a href="Chainweb.Graph.html#HasChainGraph"><span class="hs-identifier hs-type">HasChainGraph</span></a></span><span> </span><span class="annot"><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#WebBlockHeaderStore"><span class="hs-identifier hs-type">WebBlockHeaderStore</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-152"></span><span>    </span><span id="local-6989586621681500511"><span class="annot"><span class="annottext">_chainGraph :: WebBlockHeaderStore -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var hs-var hs-var hs-var">_chainGraph</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderDb -&gt; ChainGraph
+forall a. HasChainGraph a =&gt; a -&gt; ChainGraph
+</span><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-identifier hs-var">_chainGraph</span></a></span><span> </span><span class="annot"><span class="annottext">(WebBlockHeaderDb -&gt; ChainGraph)
+-&gt; (WebBlockHeaderStore -&gt; WebBlockHeaderDb)
+-&gt; WebBlockHeaderStore
+-&gt; ChainGraph
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">WebBlockHeaderStore -&gt; WebBlockHeaderDb
+</span><a href="Chainweb.Sync.WebBlockHeaderStore.Types.html#_webBlockHeaderStoreCas"><span class="hs-identifier hs-var hs-var">_webBlockHeaderStoreCas</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Graph.html#_chainGraph"><span class="hs-pragma hs-type">_chainGraph</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-154"></span><span>
+</span><span id="line-155"></span></pre></body></html>

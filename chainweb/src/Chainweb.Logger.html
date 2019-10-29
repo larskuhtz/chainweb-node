@@ -1,0 +1,314 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE ConstraintKinds #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE FlexibleContexts #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE LambdaCase #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE MultiParamTypeClasses #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# LANGUAGE OverloadedStrings #-}</span><span>
+</span><span id="line-6"></span><span class="hs-pragma">{-# LANGUAGE RankNTypes #-}</span><span>
+</span><span id="line-7"></span><span class="hs-pragma">{-# LANGUAGE ScopedTypeVariables #-}</span><span>
+</span><span id="line-8"></span><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-9"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- |</span><span>
+</span><span id="line-12"></span><span class="hs-comment">-- Module: System.Logger</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- Copyright: Copyright &#169; 2019 Kadena LLC.</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- License: MIT</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- Maintainer: Lars Kuhtz &lt;lars@kadena.io&gt;</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- Stability: experimental</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- TODO</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Chainweb.Logger</span><span>
+</span><span id="line-21"></span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier">Logger</span></a></span><span>
+</span><span id="line-22"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier">logFunction</span></a></span><span>
+</span><span id="line-23"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier">logFunctionText</span></a></span><span>
+</span><span id="line-24"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#logFunctionJson"><span class="hs-identifier">logFunctionJson</span></a></span><span>
+</span><span id="line-25"></span><span>
+</span><span id="line-26"></span><span class="annot"><span class="hs-comment">-- * Utils</span></span><span>
+</span><span id="line-27"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier">addLabel</span></a></span><span>
+</span><span id="line-28"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier">setComponent</span></a></span><span>
+</span><span id="line-29"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier">l2l</span></a></span><span>
+</span><span id="line-30"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier">l2l'</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="annot"><span class="hs-comment">-- * Generic Test Logger</span></span><span>
+</span><span id="line-33"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#GenericLogger"><span class="hs-identifier">GenericLogger</span></a></span><span>
+</span><span id="line-34"></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#genericLogger"><span class="hs-identifier">genericLogger</span></a></span><span>
+</span><span id="line-35"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Time</span></span><span>
+</span><span id="line-40"></span><span>
+</span><span id="line-41"></span><span class="hs-keyword">import</span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="annot"><span class="hs-identifier">System.Logger.Types</span></span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">L</span></span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- internal modules</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Chainweb.Utils.html"><span class="hs-identifier">Chainweb.Utils</span></a></span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Data.LogMessage.html"><span class="hs-identifier">Data.LogMessage</span></a></span><span>
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.LogLevel</span></span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- Abstract Logger</span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span class="hs-keyword">type</span><span> </span><span id="Logger"><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-var">Logger</span></a></span></span><span> </span><span id="local-6989586621681473601"><span class="annot"><a href="#local-6989586621681473601"><span class="hs-identifier hs-type">l</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.LoggerCtx</span></span><span> </span><span class="annot"><a href="#local-6989586621681473601"><span class="hs-identifier hs-type">l</span></a></span><span> </span><span class="annot"><a href="Data.LogMessage.html#SomeLogMessage"><span class="hs-identifier hs-type">SomeLogMessage</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-57"></span><span class="hs-comment">-- Utils</span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span id="local-6989586621681473670"><span class="annot"><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-type">logFunction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473670"><span class="hs-identifier hs-type">l</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473670"><span class="hs-identifier hs-type">l</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunction"><span class="hs-identifier hs-type">LogFunction</span></a></span></span><span>
+</span><span id="line-60"></span><span id="logFunction"><span class="annot"><span class="annottext">logFunction :: l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var hs-var">logFunction</span></a></span></span><span> </span><span id="local-6989586621681473600"><span class="annot"><span class="annottext">logger :: l
+</span><a href="#local-6989586621681473600"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681473599"><span class="annot"><span class="annottext">level :: LogLevel
+</span><a href="#local-6989586621681473599"><span class="hs-identifier hs-var">level</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">l -&gt; LogFunctionIO SomeLogMessage
+forall ctx msg.
+(LoggerCtx ctx msg, Show msg, Typeable msg, NFData msg) =&gt;
+ctx -&gt; LogFunctionIO msg
+</span><span class="hs-identifier hs-var">L.loggerFunIO</span></span><span> </span><span class="annot"><span class="annottext">l
+</span><a href="#local-6989586621681473600"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LogLevel -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681473599"><span class="hs-identifier hs-var">level</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(SomeLogMessage -&gt; IO ()) -&gt; (a -&gt; SomeLogMessage) -&gt; a -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; SomeLogMessage
+forall a. LogMessage a =&gt; a -&gt; SomeLogMessage
+</span><a href="Data.LogMessage.html#toLogMessage"><span class="hs-identifier hs-var">toLogMessage</span></a></span><span>
+</span><span id="line-61"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#logFunction"><span class="hs-pragma hs-type">logFunction</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span id="local-6989586621681473595"><span class="annot"><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-type">logFunctionText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473595"><span class="hs-identifier hs-type">l</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473595"><span class="hs-identifier hs-type">l</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunctionText"><span class="hs-identifier hs-type">LogFunctionText</span></a></span></span><span>
+</span><span id="line-64"></span><span id="logFunctionText"><span class="annot"><span class="annottext">logFunctionText :: l -&gt; LogFunctionText
+</span><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-identifier hs-var hs-var">logFunctionText</span></a></span></span><span> </span><span id="local-6989586621681473594"><span class="annot"><span class="annottext">logger :: l
+</span><a href="#local-6989586621681473594"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681473593"><span class="annot"><span class="annottext">level :: LogLevel
+</span><a href="#local-6989586621681473593"><span class="hs-identifier hs-var">level</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">l -&gt; LogLevel -&gt; TextLog -&gt; IO ()
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">l
+</span><a href="#local-6989586621681473594"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681473593"><span class="hs-identifier hs-var">level</span></a></span><span> </span><span class="annot"><span class="annottext">(TextLog -&gt; IO ()) -&gt; (Text -&gt; TextLog) -&gt; Text -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; TextLog
+</span><a href="Data.LogMessage.html#TextLog"><span class="hs-identifier hs-var">TextLog</span></a></span><span>
+</span><span id="line-65"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#logFunctionText"><span class="hs-pragma hs-type">logFunctionText</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span id="local-6989586621681473590"><span id="local-6989586621681473591"><span class="annot"><a href="Chainweb.Logger.html#logFunctionJson"><span class="hs-identifier hs-type">logFunctionJson</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473591"><span class="hs-identifier hs-type">l</span></a></span><span>
+</span><span id="line-69"></span><span>    </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473591"><span class="hs-identifier hs-type">l</span></a></span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Data.LogMessage.html#LogFunctionJson"><span class="hs-identifier hs-type">LogFunctionJson</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473590"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-71"></span><span id="logFunctionJson"><span class="annot"><span class="annottext">logFunctionJson :: l -&gt; LogFunctionJson a
+</span><a href="Chainweb.Logger.html#logFunctionJson"><span class="hs-identifier hs-var hs-var">logFunctionJson</span></a></span></span><span> </span><span id="local-6989586621681473589"><span class="annot"><span class="annottext">logger :: l
+</span><a href="#local-6989586621681473589"><span class="hs-identifier hs-var">logger</span></a></span></span><span> </span><span id="local-6989586621681473588"><span class="annot"><span class="annottext">level :: LogLevel
+</span><a href="#local-6989586621681473588"><span class="hs-identifier hs-var">level</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">l -&gt; LogLevel -&gt; JsonLog a -&gt; IO ()
+forall l. Logger l =&gt; l -&gt; LogFunction
+</span><a href="Chainweb.Logger.html#logFunction"><span class="hs-identifier hs-var">logFunction</span></a></span><span> </span><span class="annot"><span class="annottext">l
+</span><a href="#local-6989586621681473589"><span class="hs-identifier hs-var">logger</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681473588"><span class="hs-identifier hs-var">level</span></a></span><span> </span><span class="annot"><span class="annottext">(JsonLog a -&gt; IO ()) -&gt; (a -&gt; JsonLog a) -&gt; a -&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; JsonLog a
+forall a. a -&gt; JsonLog a
+</span><a href="Data.LogMessage.html#JsonLog"><span class="hs-identifier hs-var">JsonLog</span></a></span><span>
+</span><span id="line-72"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#logFunctionJson"><span class="hs-pragma hs-type">logFunctionJson</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-73"></span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- Utils</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span id="local-6989586621681473586"><span class="annot"><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier hs-type">setComponent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473586"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473586"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473586"><span class="hs-identifier hs-type">logger</span></a></span></span><span>
+</span><span id="line-78"></span><span id="setComponent"><span class="annot"><span class="annottext">setComponent :: Text -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#setComponent"><span class="hs-identifier hs-var hs-var">setComponent</span></a></span></span><span> </span><span id="local-6989586621681473585"><span class="annot"><span class="annottext">c :: Text
+</span><a href="#local-6989586621681473585"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text, Text) -&gt; logger -&gt; logger
+forall logger. Logger logger =&gt; (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var">addLabel</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-string">&quot;component&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681473585"><span class="hs-identifier hs-var">c</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#setComponent"><span class="hs-pragma hs-type">setComponent</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span id="local-6989586621681473661"><span class="annot"><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-type">addLabel</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#Logger"><span class="hs-identifier hs-type">Logger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681473661"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473661"><span class="hs-identifier hs-type">logger</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681473661"><span class="hs-identifier hs-type">logger</span></a></span></span><span>
+</span><span id="line-82"></span><span id="addLabel"><span class="annot"><span class="annottext">addLabel :: (Text, Text) -&gt; logger -&gt; logger
+</span><a href="Chainweb.Logger.html#addLabel"><span class="hs-identifier hs-var hs-var">addLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ASetter logger logger LogScope LogScope
+-&gt; (LogScope -&gt; LogScope) -&gt; logger -&gt; logger
+forall s t a b. ASetter s t a b -&gt; (a -&gt; b) -&gt; s -&gt; t
+</span><span class="hs-identifier hs-var">over</span></span><span> </span><span class="annot"><span class="annottext">ASetter logger logger LogScope LogScope
+forall ctx msg. LoggerCtx ctx msg =&gt; Setter' ctx LogScope
+</span><span class="hs-identifier hs-var">L.setLoggerScope</span></span><span> </span><span class="annot"><span class="annottext">((LogScope -&gt; LogScope) -&gt; logger -&gt; logger)
+-&gt; ((Text, Text) -&gt; LogScope -&gt; LogScope)
+-&gt; (Text, Text)
+-&gt; logger
+-&gt; logger
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">:</span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#addLabel"><span class="hs-pragma hs-type">addLabel</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-type">l2l</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">LogLevel</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.LogLevel</span></span><span>
+</span><span id="line-86"></span><span id="l2l"><span class="annot"><span class="annottext">l2l :: LogLevel -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var hs-var">l2l</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Quiet</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">L.Quiet</span></span><span>
+</span><span id="line-87"></span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">L.Error</span></span><span>
+</span><span id="line-88"></span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Warn</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">L.Warn</span></span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Info</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">L.Info</span></span><span>
+</span><span id="line-90"></span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Debug</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">L.Debug</span></span><span>
+</span><span id="line-91"></span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Other</span></span><span> </span><span class="hs-identifier">_</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">L.Debug</span></span><span>
+</span><span id="line-92"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#l2l"><span class="hs-pragma hs-type">l2l</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-93"></span><span>
+</span><span id="line-94"></span><span class="annot"><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier hs-type">l2l'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.LogLevel</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">LogLevel</span></span><span>
+</span><span id="line-95"></span><span id="l2l%27"><span class="annot"><span class="annottext">l2l' :: LogLevel -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier hs-var hs-var">l2l'</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.Quiet</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Quiet</span></span><span>
+</span><span id="line-96"></span><span class="annot"><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier hs-var">l2l'</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.Error</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Error</span></span><span>
+</span><span id="line-97"></span><span class="annot"><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier hs-var">l2l'</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.Warn</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Warn</span></span><span>
+</span><span id="line-98"></span><span class="annot"><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier hs-var">l2l'</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.Info</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Info</span></span><span>
+</span><span id="line-99"></span><span class="annot"><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier hs-var">l2l'</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">L.Debug</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><span class="hs-identifier hs-var">Debug</span></span><span>
+</span><span id="line-100"></span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#l2l%27"><span class="hs-pragma hs-type">l2l'</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-101"></span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- -------------------------------------------------------------------------- --</span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- Generic Test Logger</span><span>
+</span><span id="line-104"></span><span>
+</span><span id="line-105"></span><span class="hs-keyword">data</span><span> </span><span id="GenericLogger"><span class="annot"><a href="Chainweb.Logger.html#GenericLogger"><span class="hs-identifier hs-var">GenericLogger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="GenericLogger"><span class="annot"><a href="Chainweb.Logger.html#GenericLogger"><span class="hs-identifier hs-var">GenericLogger</span></a></span></span><span>
+</span><span id="line-106"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="_glScope"><span class="annot"><span class="annottext">GenericLogger -&gt; LogScope
+</span><a href="Chainweb.Logger.html#_glScope"><span class="hs-identifier hs-var hs-var">_glScope</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_glLevel"><span class="annot"><span class="annottext">GenericLogger -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#_glLevel"><span class="hs-identifier hs-var hs-var">_glLevel</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="annot"><span class="hs-identifier hs-type">LogLevel</span></span><span>
+</span><span id="line-108"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="_glFun"><span class="annot"><span class="annottext">GenericLogger -&gt; Text -&gt; IO ()
+</span><a href="Chainweb.Logger.html#_glFun"><span class="hs-identifier hs-var hs-var">_glFun</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">!</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span id="glScope"><span id="glLevel"><span id="glFun"><span class="hs-identifier">makeLenses</span><span> </span><span class="hs-special">'</span><span class="hs-identifier">GenericLogger</span></span></span></span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621681473555"><span id="local-6989586621681473557"><span id="local-6989586621681473559"><span class="annot"><span class="hs-identifier hs-type">L.LoggerCtx</span></span><span> </span><span class="annot"><a href="Chainweb.Logger.html#GenericLogger"><span class="hs-identifier hs-type">GenericLogger</span></a></span><span> </span><span class="annot"><a href="Data.LogMessage.html#SomeLogMessage"><span class="hs-identifier hs-type">SomeLogMessage</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-114"></span><span>    </span><span id="local-6989586621681473553"><span class="annot"><span class="annottext">loggerFunIO :: GenericLogger -&gt; LogFunctionIO SomeLogMessage
+</span><a href="#local-6989586621681473553"><span class="hs-identifier hs-var hs-var hs-var hs-var">loggerFunIO</span></a></span></span><span> </span><span id="local-6989586621681473552"><span class="annot"><span class="annottext">ctx :: GenericLogger
+</span><a href="#local-6989586621681473552"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span id="local-6989586621681473551"><span class="annot"><span class="annottext">level :: LogLevel
+</span><a href="#local-6989586621681473551"><span class="hs-identifier hs-var">level</span></a></span></span><span> </span><span id="local-6989586621681473550"><span class="annot"><span class="annottext">msg :: SomeLogMessage
+</span><a href="#local-6989586621681473550"><span class="hs-identifier hs-var">msg</span></a></span></span><span>
+</span><span id="line-115"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681473551"><span class="hs-identifier hs-var">level</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel -&gt; LogLevel -&gt; Bool
+forall a. Ord a =&gt; a -&gt; a -&gt; Bool
+</span><span class="hs-operator hs-var">&lt;=</span></span><span> </span><span class="annot"><span class="annottext">LogLevel -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">GenericLogger -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#_glLevel"><span class="hs-identifier hs-var hs-var">_glLevel</span></a></span><span> </span><span class="annot"><span class="annottext">GenericLogger
+</span><a href="#local-6989586621681473552"><span class="hs-identifier hs-var">ctx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-116"></span><span>            </span><span id="local-6989586621681473548"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681473548"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
+</span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
+</span><span id="line-117"></span><span>            </span><span class="annot"><span class="annottext">Getting (Text -&gt; IO ()) GenericLogger (Text -&gt; IO ())
+-&gt; GenericLogger -&gt; Text -&gt; IO ()
+forall s (m :: * -&gt; *) a. MonadReader s m =&gt; Getting a s a -&gt; m a
+</span><span class="hs-identifier hs-var">view</span></span><span> </span><span class="annot"><span class="annottext">Getting (Text -&gt; IO ()) GenericLogger (Text -&gt; IO ())
+Lens' GenericLogger (Text -&gt; IO ())
+</span><a href="Chainweb.Logger.html#glFun"><span class="hs-identifier hs-var">glFun</span></a></span><span> </span><span class="annot"><span class="annottext">GenericLogger
+</span><a href="#local-6989586621681473552"><span class="hs-identifier hs-var">ctx</span></a></span><span>
+</span><span id="line-118"></span><span>                </span><span class="annot"><span class="annottext">(Text -&gt; IO ()) -&gt; Text -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+forall a. (Semigroup a, IsString a) =&gt; a -&gt; a
+</span><a href="#local-6989586621681473545"><span class="hs-identifier hs-var">sq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681473548"><span class="hs-identifier hs-var">now</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-119"></span><span>                </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+forall a. (Semigroup a, IsString a) =&gt; a -&gt; a
+</span><a href="#local-6989586621681473545"><span class="hs-identifier hs-var">sq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LogLevel -&gt; Text
+forall a b. (Show a, IsString b) =&gt; a -&gt; b
+</span><a href="Chainweb.Utils.html#sshow"><span class="hs-identifier hs-var">sshow</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681473551"><span class="hs-identifier hs-var">level</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span>                </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+forall a. (Semigroup a, IsString a) =&gt; a -&gt; a
+</span><a href="#local-6989586621681473545"><span class="hs-identifier hs-var">sq</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LogScope -&gt; Text
+</span><a href="#local-6989586621681473543"><span class="hs-identifier hs-var">scope</span></a></span><span> </span><span class="annot"><span class="annottext">(LogScope -&gt; Text) -&gt; LogScope -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="annot"><span class="annottext">GenericLogger -&gt; LogScope
+</span><a href="Chainweb.Logger.html#_glScope"><span class="hs-identifier hs-var hs-var">_glScope</span></a></span><span> </span><span class="annot"><span class="annottext">GenericLogger
+</span><a href="#local-6989586621681473552"><span class="hs-identifier hs-var">ctx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-121"></span><span>                </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot; &quot;</span></span><span>
+</span><span id="line-122"></span><span>                </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">SomeLogMessage -&gt; Text
+forall a. LogMessage a =&gt; a -&gt; Text
+</span><a href="Data.LogMessage.html#logText"><span class="hs-identifier hs-var">logText</span></a></span><span> </span><span class="annot"><span class="annottext">SomeLogMessage
+</span><a href="#local-6989586621681473550"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-123"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier hs-var">otherwise</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
+forall (m :: * -&gt; *) a. Monad m =&gt; a -&gt; m a
+</span><span class="hs-identifier hs-var">return</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-124"></span><span>      </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>        </span><span id="local-6989586621681473543"><span class="annot"><span class="annottext">scope :: LogScope -&gt; Text
+</span><a href="#local-6989586621681473543"><span class="hs-identifier hs-var hs-var">scope</span></a></span></span><span> </span><span id="local-6989586621681473541"><span class="annot"><span class="annottext">l :: LogScope
+</span><a href="#local-6989586621681473541"><span class="hs-identifier hs-var">l</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text] -&gt; Text
+</span><span class="hs-identifier hs-var">T.intercalate</span></span><span> </span><span class="annot"><span class="hs-string">&quot;,&quot;</span></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Text) -&gt; [Text] -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><span class="hs-operator hs-var">$</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621681473539"><span class="annot"><span class="annottext">a :: Text
+</span><a href="#local-6989586621681473539"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">,</span><span id="local-6989586621681473538"><span class="annot"><span class="annottext">b :: Text
+</span><a href="#local-6989586621681473538"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681473539"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;:&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681473538"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Text, Text) -&gt; Text) -&gt; LogScope -&gt; [Text]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><span class="hs-operator hs-var">&lt;$&gt;</span></span><span> </span><span class="annot"><span class="annottext">LogScope -&gt; LogScope
+forall a. [a] -&gt; [a]
+</span><span class="hs-identifier hs-var">reverse</span></span><span> </span><span class="annot"><span class="annottext">LogScope
+</span><a href="#local-6989586621681473541"><span class="hs-identifier hs-var">l</span></a></span><span>
+</span><span id="line-126"></span><span>        </span><span id="local-6989586621681473545"><span class="annot"><span class="annottext">sq :: a -&gt; a
+</span><a href="#local-6989586621681473545"><span class="hs-identifier hs-var hs-var">sq</span></a></span></span><span> </span><span id="local-6989586621681473535"><span class="annot"><span class="annottext">t :: a
+</span><a href="#local-6989586621681473535"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;[&quot;</span></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621681473535"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; a -&gt; a
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><span class="hs-operator hs-var">&lt;&gt;</span></span><span> </span><span class="annot"><span class="hs-string">&quot;]&quot;</span></span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span>    </span><span id="local-6989586621681473534"><span class="annot"><span class="annottext">setLoggerLevel :: (LogLevel -&gt; f LogLevel) -&gt; GenericLogger -&gt; f GenericLogger
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">setLoggerLevel</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(LogLevel -&gt; f LogLevel) -&gt; GenericLogger -&gt; f GenericLogger
+Lens' GenericLogger LogLevel
+</span><a href="Chainweb.Logger.html#glLevel"><span class="hs-identifier hs-var">glLevel</span></a></span><span> </span><span class="annot"><span class="annottext">((LogLevel -&gt; f LogLevel) -&gt; GenericLogger -&gt; f GenericLogger)
+-&gt; ((LogLevel -&gt; f LogLevel) -&gt; LogLevel -&gt; f LogLevel)
+-&gt; (LogLevel -&gt; f LogLevel)
+-&gt; GenericLogger
+-&gt; f GenericLogger
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><span class="hs-operator hs-var">.</span></span><span> </span><span class="annot"><span class="annottext">(LogLevel -&gt; LogLevel)
+-&gt; (LogLevel -&gt; LogLevel)
+-&gt; Iso LogLevel LogLevel LogLevel LogLevel
+forall s a b t. (s -&gt; a) -&gt; (b -&gt; t) -&gt; Iso s t a b
+</span><span class="hs-identifier hs-var">iso</span></span><span> </span><span class="annot"><span class="annottext">LogLevel -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#l2l"><span class="hs-identifier hs-var">l2l</span></a></span><span> </span><span class="annot"><span class="annottext">LogLevel -&gt; LogLevel
+</span><a href="Chainweb.Logger.html#l2l%27"><span class="hs-identifier hs-var">l2l'</span></a></span><span>
+</span><span id="line-129"></span><span>    </span><span id="local-6989586621681473531"><span class="annot"><span class="annottext">setLoggerScope :: (LogScope -&gt; f LogScope) -&gt; GenericLogger -&gt; f GenericLogger
+</span><a href="#local-6989586621681473531"><span class="hs-identifier hs-var hs-var hs-var hs-var">setLoggerScope</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(LogScope -&gt; f LogScope) -&gt; GenericLogger -&gt; f GenericLogger
+Lens' GenericLogger LogScope
+</span><a href="Chainweb.Logger.html#glScope"><span class="hs-identifier hs-var">glScope</span></a></span><span>
+</span><span id="line-130"></span><span>    </span><span id="local-6989586621681473530"><span class="annot"><span class="annottext">setLoggerPolicy :: (LogPolicy -&gt; f LogPolicy) -&gt; GenericLogger -&gt; f GenericLogger
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">setLoggerPolicy</span></span></span><span> </span><span class="hs-identifier">_</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GenericLogger -&gt; f GenericLogger
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><span class="hs-identifier hs-var">pure</span></span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span>    </span><span class="hs-pragma">{-# INLINABLE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">loggerFunIO</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-133"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">setLoggerLevel</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-134"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">setLoggerScope</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-135"></span><span>    </span><span class="hs-pragma">{-# INLINE</span><span> </span><span class="annot"><span class="hs-pragma hs-type">setLoggerPolicy</span></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-136"></span><span>
+</span><span id="line-137"></span><span class="hs-comment">-- | Simpel generic logger for chainweb. For production purposes a proper</span><span>
+</span><span id="line-138"></span><span class="hs-comment">-- logging framework should be used.</span><span>
+</span><span id="line-139"></span><span class="hs-comment">--</span><span>
+</span><span id="line-140"></span><span class="annot"><a href="Chainweb.Logger.html#genericLogger"><span class="hs-identifier hs-type">genericLogger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">LogLevel</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">T.Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IO</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Chainweb.Logger.html#GenericLogger"><span class="hs-identifier hs-type">GenericLogger</span></a></span><span>
+</span><span id="line-141"></span><span id="genericLogger"><span class="annot"><span class="annottext">genericLogger :: LogLevel -&gt; (Text -&gt; IO ()) -&gt; GenericLogger
+</span><a href="Chainweb.Logger.html#genericLogger"><span class="hs-identifier hs-var hs-var">genericLogger</span></a></span></span><span> </span><span id="local-6989586621681473528"><span class="annot"><span class="annottext">level :: LogLevel
+</span><a href="#local-6989586621681473528"><span class="hs-identifier hs-var">level</span></a></span></span><span> </span><span id="local-6989586621681473527"><span class="annot"><span class="annottext">fun :: Text -&gt; IO ()
+</span><a href="#local-6989586621681473527"><span class="hs-identifier hs-var">fun</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogScope -&gt; LogLevel -&gt; (Text -&gt; IO ()) -&gt; GenericLogger
+</span><a href="Chainweb.Logger.html#GenericLogger"><span class="hs-identifier hs-var">GenericLogger</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">LogLevel
+</span><a href="#local-6989586621681473528"><span class="hs-identifier hs-var">level</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ()
+</span><a href="#local-6989586621681473527"><span class="hs-identifier hs-var">fun</span></a></span><span>
+</span><span id="line-142"></span><span>
+</span><span id="line-143"></span></pre></body></html>
