@@ -16,7 +16,7 @@ jobs:
     - name: Downlaod API documentation
       uses: actions/download-artifact@master
       with:
-        name: api-documentation.${{ matrix.ghc }}.${{ matrix.os }}
+        name: api-documentation.8.8.1.ubunut-18.04
         path: api-docs
     - name: Deploy to Github Pages
       if: success()
