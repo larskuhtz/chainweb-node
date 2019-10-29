@@ -16,7 +16,7 @@ jobs:
     - name: Downlaod API documentation
       uses: actions/download-artifact@master
       with:
-        name: api-documentation.8.8.1.ubunut-18.04
+        name: api-documentation.8.8.1.ubuntu-18.04
         path: api-docs
     - name: Deploy to Github Pages
       if: success()
@@ -94,6 +94,7 @@ jobs:
         documentation: false
         package chainweb
           documentation: false
+          ghc-options: -j2
         EOF
     - name: Append cabal.project (only ghc-8.8.1)
       if: matrix.ghc == '8.8.1'
