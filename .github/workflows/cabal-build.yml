@@ -16,7 +16,7 @@ jobs:
     - name: Downlaod API documentation
       uses: actions/download-artifact@master
       with:
-        name: api-documentation
+        name: api-documentation.${{ matrix.ghc }}.${{ matrix.os }}
         path: api-docs
     - name: Deploy to Github Pages
       if: success()
@@ -171,18 +171,18 @@ jobs:
     - name: Publish applications
       uses: actions/upload-artifact@v1
       with:
-        name: chainweb-applications
+        name: chainweb-applications.${{ matrix.ghc }}.${{ matrix.os }}
         path: dist-newstyle/artifacts/applications
     - name: Publish hie files (only ghc-8.8.1)
       if: matrix.ghc == '8.8.1'
       uses: actions/upload-artifact@v1
       with:
-        name: hie-files
+        name: hie-files.${{ matrix.ghc }}.${{ matrix.os }}
         path: dist-newstyle/hie
     - name: Publish API documentation
       uses: actions/upload-artifact@v1
       with:
-        name: api-documentation
+        name: api-documentation.${{ matrix.ghc }}.${{ matrix.os }}
         path: dist-newstyle/artifacts/docs
 
     - name: Publish applications to S3
