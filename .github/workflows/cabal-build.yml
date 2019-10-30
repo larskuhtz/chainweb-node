@@ -1,9 +1,6 @@
 name: Cabal CI build of master
 
-on:
-  schedule:
-  - cron: '5 */6 * * *'
-  push:
+on: []
 
 jobs:
   publishDocs:
